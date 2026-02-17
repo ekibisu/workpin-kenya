@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
@@ -6,13 +6,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Progress } from "@/components/ui/progress";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronLeft, ChevronRight, MapPin, Banknote, FileText, CheckCircle, Loader2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, MapPin, Banknote, FileText, CheckCircle, Loader2, ImagePlus, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 
 const steps = ["Service", "Details", "Budget & Location", "Review"];
+const MAX_IMAGES = 5;
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
 interface ServiceOption {
   id: string;
@@ -27,6 +31,10 @@ const RequestService = () => {
   const [step, setStep] = useState(0);
   const [services, setServices] = useState<ServiceOption[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [previews, setPreviews] = useState<string[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState({
     service: preselected,
     serviceId: "",
@@ -47,11 +55,51 @@ const RequestService = () => {
     });
   }, [preselected]);
 
+  // Generate previews when files change
+  useEffect(() => {
+    const urls = selectedFiles.map((f) => URL.createObjectURL(f));
+    setPreviews(urls);
+    return () => urls.forEach((u) => URL.revokeObjectURL(u));
+  }, [selectedFiles]);
+
   const updateForm = (key: string, value: string) =>
     setForm((prev) => ({ ...prev, [key]: value }));
 
   const selectService = (s: ServiceOption) =>
     setForm((prev) => ({ ...prev, service: s.name, serviceId: s.id }));
+
+  const handleFileSelect = (files: FileList | null) => {
+    if (!files) return;
+    const newFiles: File[] = [];
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      if (!ACCEPTED_TYPES.includes(file.type)) {
+        toast({ title: "Invalid file type", description: `${file.name} is not a supported image format.`, variant: "destructive" });
+        continue;
+      }
+      if (file.size > MAX_FILE_SIZE) {
+        toast({ title: "File too large", description: `${file.name} exceeds 5MB limit.`, variant: "destructive" });
+        continue;
+      }
+      newFiles.push(file);
+    }
+    setSelectedFiles((prev) => {
+      const combined = [...prev, ...newFiles].slice(0, MAX_IMAGES);
+      if (prev.length + newFiles.length > MAX_IMAGES) {
+        toast({ title: "Limit reached", description: `You can upload up to ${MAX_IMAGES} images.` });
+      }
+      return combined;
+    });
+  };
+
+  const removeFile = (index: number) => {
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    handleFileSelect(e.dataTransfer.files);
+  };
 
   const canNext = () => {
     if (step === 0) return !!form.serviceId;
@@ -67,20 +115,57 @@ const RequestService = () => {
       return;
     }
     setSubmitting(true);
-    const { error } = await supabase.from("service_requests").insert({
+    setUploadProgress(0);
+
+    // 1. Insert the service request
+    const { data: inserted, error } = await supabase.from("service_requests").insert({
       customer_id: user.id,
       service_id: form.serviceId,
       description: form.description.trim(),
       budget: form.budget ? Number(form.budget) : null,
       location_name: form.location.trim(),
-    });
-    setSubmitting(false);
-    if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-    } else {
-      toast({ title: "Request submitted!", description: "Providers will send you quotes soon." });
-      navigate("/dashboard");
+    } as any).select("id").single();
+
+    if (error || !inserted) {
+      toast({ title: "Error", description: error?.message || "Failed to create request.", variant: "destructive" });
+      setSubmitting(false);
+      return;
     }
+
+    const requestId = inserted.id;
+
+    // 2. Upload images if any
+    if (selectedFiles.length > 0) {
+      const imageUrls: string[] = [];
+      for (let i = 0; i < selectedFiles.length; i++) {
+        const file = selectedFiles[i];
+        const filePath = `${user.id}/${requestId}/${Date.now()}_${file.name}`;
+        const { error: uploadError } = await supabase.storage
+          .from("request-images")
+          .upload(filePath, file);
+
+        if (uploadError) {
+          console.error("Upload error:", uploadError);
+          continue;
+        }
+
+        const { data: urlData } = supabase.storage
+          .from("request-images")
+          .getPublicUrl(filePath);
+
+        imageUrls.push(urlData.publicUrl);
+        setUploadProgress(Math.round(((i + 1) / selectedFiles.length) * 100));
+      }
+
+      // 3. Update the row with image URLs
+      if (imageUrls.length > 0) {
+        await supabase.from("service_requests").update({ image_urls: imageUrls } as any).eq("id", requestId);
+      }
+    }
+
+    setSubmitting(false);
+    toast({ title: "Request submitted!", description: "Providers will send you quotes soon." });
+    navigate("/dashboard");
   };
 
   return (
@@ -133,6 +218,50 @@ const RequestService = () => {
                     <Textarea id="description" value={form.description} onChange={(e) => updateForm("description", e.target.value)} placeholder="E.g., I need my kitchen pipes fixed. There's a leak under the sink that started 2 days ago..." rows={5} />
                     <p className="text-xs text-muted-foreground">Be specific — this helps pros send you better quotes.</p>
                   </div>
+
+                  {/* Image Upload Area */}
+                  <div className="space-y-2">
+                    <Label className="text-base font-semibold">Photos (optional)</Label>
+                    <div
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={handleDrop}
+                      onClick={() => fileInputRef.current?.click()}
+                      className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-border p-6 transition-colors hover:border-primary/40 hover:bg-accent/30"
+                    >
+                      <ImagePlus className="mb-2 h-8 w-8 text-muted-foreground" />
+                      <p className="text-sm font-medium text-foreground">Drag & drop or click to upload</p>
+                      <p className="text-xs text-muted-foreground">Up to {MAX_IMAGES} images · JPG, PNG, WebP · Max 5MB each</p>
+                    </div>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept={ACCEPTED_TYPES.join(",")}
+                      multiple
+                      className="hidden"
+                      onChange={(e) => {
+                        handleFileSelect(e.target.files);
+                        e.target.value = "";
+                      }}
+                    />
+
+                    {/* Thumbnails */}
+                    {previews.length > 0 && (
+                      <div className="flex flex-wrap gap-2 pt-2">
+                        {previews.map((src, i) => (
+                          <div key={i} className="group relative h-20 w-20 overflow-hidden rounded-lg border border-border">
+                            <img src={src} alt={`Upload ${i + 1}`} className="h-full w-full object-cover" />
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); removeFile(i); }}
+                              className="absolute right-0.5 top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-destructive-foreground opacity-0 transition-opacity group-hover:opacity-100"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -169,11 +298,33 @@ const RequestService = () => {
                       {form.budget && (<div className="flex justify-between border-t border-border pt-3"><dt className="text-muted-foreground">Budget</dt><dd className="font-medium text-foreground">KES {Number(form.budget).toLocaleString()}</dd></div>)}
                       <div className="flex justify-between border-t border-border pt-3"><dt className="text-muted-foreground">Location</dt><dd className="font-medium text-foreground">{form.location}</dd></div>
                     </dl>
+
+                    {/* Review thumbnails */}
+                    {previews.length > 0 && (
+                      <div className="mt-4 border-t border-border pt-3">
+                        <p className="mb-2 text-sm text-muted-foreground">Photos ({previews.length})</p>
+                        <div className="flex flex-wrap gap-2">
+                          {previews.map((src, i) => (
+                            <div key={i} className="h-16 w-16 overflow-hidden rounded-lg border border-border">
+                              <img src={src} alt={`Photo ${i + 1}`} className="h-full w-full object-cover" />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
             </motion.div>
           </AnimatePresence>
+
+          {/* Upload progress */}
+          {submitting && selectedFiles.length > 0 && (
+            <div className="mt-4 space-y-1">
+              <p className="text-xs text-muted-foreground">Uploading photos… {uploadProgress}%</p>
+              <Progress value={uploadProgress} className="h-2" />
+            </div>
+          )}
 
           {/* Navigation */}
           <div className="mt-8 flex items-center justify-between">

@@ -18,6 +18,7 @@ interface ServiceRequest {
   status: string;
   created_at: string;
   services: { name: string } | null;
+  image_urls: string[] | null;
 }
 
 const sideLinks = [
@@ -36,7 +37,7 @@ const Dashboard = () => {
     if (!user) return;
     supabase
       .from("service_requests")
-      .select("id, description, budget, location_name, status, created_at, services(name)")
+      .select("id, description, budget, location_name, status, created_at, image_urls, services(name)")
       .eq("customer_id", user.id)
       .order("created_at", { ascending: false })
       .then(({ data }) => {
@@ -124,6 +125,20 @@ const Dashboard = () => {
                         {req.budget && <span>KES {Number(req.budget).toLocaleString()}</span>}
                         <span>{format(new Date(req.created_at), "MMM d, yyyy")}</span>
                       </div>
+                      {req.image_urls && req.image_urls.length > 0 && (
+                        <div className="mt-2 flex gap-1.5">
+                          {req.image_urls.slice(0, 3).map((url, i) => (
+                            <div key={i} className="h-10 w-10 overflow-hidden rounded-md border border-border">
+                              <img src={url} alt="" className="h-full w-full object-cover" />
+                            </div>
+                          ))}
+                          {req.image_urls.length > 3 && (
+                            <div className="flex h-10 w-10 items-center justify-center rounded-md border border-border bg-muted text-xs font-medium text-muted-foreground">
+                              +{req.image_urls.length - 3}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
