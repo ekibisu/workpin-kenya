@@ -1,64 +1,46 @@
 
 
-# Add Role Selection to Signup
+# Wire Up the "Send Quote" Button
 
-Currently, every new account is automatically assigned the "customer" role. There is no way for someone signing up as a service provider to indicate that during registration. This change adds a clear role picker to the signup form.
+The "Send Quote" button on the provider dashboard is currently non-functional -- it has no click handler or form behind it. This plan adds a quote submission dialog so providers can enter a price and message for each job request.
 
 ## What You'll See
 
-On the signup form, a new "I am a..." section will appear with two clearly labeled options:
+When a provider clicks "Send Quote" on a request card, a dialog pops up with:
+- A **price field** (required, numeric, in KES)
+- A **message field** (optional textarea for additional details)
+- A **Submit** button that saves the quote and shows a success toast
 
-- **Client** -- "I'm looking to hire service professionals"
-- **Service Provider** -- "I offer professional services"
-
-The selection defaults to "Client" and uses visually distinct, selectable cards so the choice is obvious. If someone arrives via the "Join as a Pro" or "Become a Pro" links, the provider option will be pre-selected automatically.
-
-After signup, the chosen role is stored in the user's metadata and used by a database trigger to assign the correct role.
+Once submitted, the button changes to "Quote Sent" (disabled) so the provider knows they've already quoted on that job.
 
 ## What Changes
 
-### 1. Signup Form UI (Auth.tsx)
-- Add a `role` state variable initialized from the `?role=provider` URL param (falling back to `"customer"`).
-- Render two selectable card-style options above the name/email/password fields.
-- Pass the selected role in `signUp({ options: { data: { full_name, role } } })`.
+### 1. Quote Dialog (ProviderDashboard.tsx)
+- Add a Dialog triggered by the "Send Quote" button containing a small form with price (number input) and message (textarea) fields.
+- On submit, insert a row into the `quotes` table with `provider_id` set to `auth.uid()`, `request_id` set to the job's ID, the entered `price`, and optional `message`.
+- After a successful insert, show a success toast and mark that request as "quoted" in local state so the button is disabled.
+- On load, fetch any existing quotes by the current provider to pre-disable buttons for already-quoted requests.
 
-### 2. Database Trigger Update (Migration)
-- Modify the `handle_new_user` trigger function to read `raw_user_meta_data->>'role'` and insert either `'customer'` or `'provider'` into `user_roles` (defaulting to `'customer'` if missing or invalid).
+### 2. No Database Changes Needed
+The `quotes` table and its RLS policies already exist:
+- **INSERT policy**: `auth.uid() = provider_id` -- providers can create quotes as themselves.
+- **SELECT policy**: providers can view their own quotes.
 
-### 3. Post-Signup Redirect Logic
-- After login, check the user's role and redirect providers to `/provider-dashboard` and customers to `/dashboard`.
+No migration is required.
 
 ---
 
 ## Technical Details
 
-**Migration SQL:**
-```sql
-CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS TRIGGER
-LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
-AS $$
-DECLARE
-  _role app_role;
-BEGIN
-  INSERT INTO public.profiles (id, phone, email, full_name)
-  VALUES (NEW.id, NEW.phone, NEW.email, COALESCE(NEW.raw_user_meta_data->>'full_name', ''));
-  
-  IF NEW.raw_user_meta_data->>'role' = 'provider' THEN
-    _role := 'provider';
-  ELSE
-    _role := 'customer';
-  END IF;
-  
-  INSERT INTO public.user_roles (user_id, role) VALUES (NEW.id, _role);
-  RETURN NEW;
-END;
-$$;
-```
+**State additions in `ProviderDashboard.tsx`:**
+- `quotedRequestIds: Set<string>` -- tracks which requests the provider has already quoted on (fetched on mount + updated on submit).
+- `quoteDialogRequestId: string | null` -- controls which request's quote dialog is open.
+- `quotePrice: string` and `quoteMessage: string` -- form field state.
+- `submittingQuote: boolean` -- loading state for the submit button.
 
-**Auth.tsx changes:**
-- Add `role` state: `useState(searchParams.get("role") === "provider" ? "provider" : "customer")`
-- Add role selector UI with two clickable cards using Search and Briefcase icons
-- Include role in signup metadata: `data: { full_name: fullName, role }`
-- On login success, query `user_roles` to determine redirect destination (`/dashboard` vs `/provider-dashboard`)
+**On mount:** Query `quotes` table filtered by `provider_id = user.id` to populate `quotedRequestIds`.
+
+**On submit:** Insert into `quotes` with `{ provider_id: user.id, request_id, price: Number(quotePrice), message: quoteMessage || null }`. On success, add the request ID to `quotedRequestIds` and close the dialog.
+
+**UI:** The "Send Quote" button becomes "Quote Sent" (disabled, muted style) for already-quoted requests.
 
