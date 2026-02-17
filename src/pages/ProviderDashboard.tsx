@@ -2,14 +2,18 @@ import { useEffect, useState } from "react";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { Link } from "react-router-dom";
 import {
   LayoutDashboard, FileText, MessageCircle, Settings,
-  Clock, MapPin, Banknote, Loader2, Image as ImageIcon,
+  Clock, MapPin, Banknote, Loader2, Image as ImageIcon, CheckCircle,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { format } from "date-fns";
+import { useToast } from "@/hooks/use-toast";
 import {
   Dialog,
   DialogContent,
@@ -38,21 +42,56 @@ const sideLinks = [
 
 const ProviderDashboard = () => {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [requests, setRequests] = useState<OpenRequest[]>([]);
   const [loading, setLoading] = useState(true);
+  const [quotedRequestIds, setQuotedRequestIds] = useState<Set<string>>(new Set());
+  const [quoteDialogRequestId, setQuoteDialogRequestId] = useState<string | null>(null);
+  const [quotePrice, setQuotePrice] = useState("");
+  const [quoteMessage, setQuoteMessage] = useState("");
+  const [submittingQuote, setSubmittingQuote] = useState(false);
 
   useEffect(() => {
     if (!user) return;
-    supabase
-      .from("service_requests")
-      .select("id, description, budget, location_name, status, created_at, image_urls, services(name)")
-      .eq("status", "open")
-      .order("created_at", { ascending: false })
-      .then(({ data }) => {
-        setRequests((data as unknown as OpenRequest[]) || []);
-        setLoading(false);
-      });
+    // Fetch open requests and existing quotes in parallel
+    Promise.all([
+      supabase
+        .from("service_requests")
+        .select("id, description, budget, location_name, status, created_at, image_urls, services(name)")
+        .eq("status", "open")
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("quotes")
+        .select("request_id")
+        .eq("provider_id", user.id),
+    ]).then(([reqRes, quoteRes]) => {
+      setRequests((reqRes.data as unknown as OpenRequest[]) || []);
+      const ids = new Set((quoteRes.data || []).map((q) => q.request_id));
+      setQuotedRequestIds(ids);
+      setLoading(false);
+    });
   }, [user]);
+
+  const handleSubmitQuote = async () => {
+    if (!user || !quoteDialogRequestId || !quotePrice) return;
+    setSubmittingQuote(true);
+    const { error } = await supabase.from("quotes").insert({
+      provider_id: user.id,
+      request_id: quoteDialogRequestId,
+      price: Number(quotePrice),
+      message: quoteMessage || null,
+    });
+    setSubmittingQuote(false);
+    if (error) {
+      toast({ title: "Error", description: "Could not send quote. Please try again.", variant: "destructive" });
+      return;
+    }
+    setQuotedRequestIds((prev) => new Set(prev).add(quoteDialogRequestId));
+    setQuoteDialogRequestId(null);
+    setQuotePrice("");
+    setQuoteMessage("");
+    toast({ title: "Quote sent!", description: "The customer will be notified." });
+  };
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -171,15 +210,68 @@ const ProviderDashboard = () => {
                     <span>{format(new Date(req.created_at), "MMM d")}</span>
                   </div>
 
-                  <Button variant="outline" size="sm" className="mt-3 w-full">
-                    Send Quote
-                  </Button>
+                  {quotedRequestIds.has(req.id) ? (
+                    <Button variant="outline" size="sm" className="mt-3 w-full" disabled>
+                      <CheckCircle className="mr-1.5 h-3.5 w-3.5" /> Quote Sent
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-3 w-full"
+                      onClick={() => {
+                        setQuoteDialogRequestId(req.id);
+                        setQuotePrice("");
+                        setQuoteMessage("");
+                      }}
+                    >
+                      Send Quote
+                    </Button>
+                  )}
                 </div>
               ))}
             </div>
           )}
         </main>
       </div>
+      {/* Quote Dialog */}
+      <Dialog open={!!quoteDialogRequestId} onOpenChange={(open) => { if (!open) setQuoteDialogRequestId(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Send a Quote</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="quote-price">Price (KES) *</Label>
+              <Input
+                id="quote-price"
+                type="number"
+                min="1"
+                placeholder="e.g. 5000"
+                value={quotePrice}
+                onChange={(e) => setQuotePrice(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="quote-message">Message (optional)</Label>
+              <Textarea
+                id="quote-message"
+                placeholder="Any details about your quote..."
+                value={quoteMessage}
+                onChange={(e) => setQuoteMessage(e.target.value)}
+              />
+            </div>
+            <Button
+              className="w-full"
+              disabled={!quotePrice || Number(quotePrice) <= 0 || submittingQuote}
+              onClick={handleSubmitQuote}
+            >
+              {submittingQuote && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Submit Quote
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
       <Footer />
     </div>
   );
