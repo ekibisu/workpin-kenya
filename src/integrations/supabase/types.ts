@@ -261,6 +261,7 @@ export type Database = {
           customer_id: string
           description: string
           id: string
+          image_urls: string[] | null
           location_name: string | null
           service_id: string
           status: string
@@ -272,6 +273,7 @@ export type Database = {
           customer_id: string
           description: string
           id?: string
+          image_urls?: string[] | null
           location_name?: string | null
           service_id: string
           status?: string
@@ -283,6 +285,7 @@ export type Database = {
           customer_id?: string
           description?: string
           id?: string
+          image_urls?: string[] | null
           location_name?: string | null
           service_id?: string
           status?: string
