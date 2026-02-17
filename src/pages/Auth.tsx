@@ -1,16 +1,62 @@
 import { useState } from "react";
-import { useSearchParams, Link } from "react-router-dom";
+import { useSearchParams, Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { MapPin, ArrowLeft, Phone, Mail, Lock, User } from "lucide-react";
+import { MapPin, ArrowLeft, Mail, Lock, User, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
+import { Navigate } from "react-router-dom";
 
 const Auth = () => {
   const [searchParams] = useSearchParams();
   const initialTab = searchParams.get("tab") === "signup" ? "signup" : "login";
   const [tab, setTab] = useState<"login" | "signup">(initialTab);
-  const [loginMethod, setLoginMethod] = useState<"phone" | "email">("phone");
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const { user, loading: authLoading } = useAuth();
+
+  // Form state
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [fullName, setFullName] = useState("");
+
+  if (authLoading) return null;
+  if (user) return <Navigate to="/dashboard" replace />;
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    setLoading(false);
+    if (error) {
+      toast({ title: "Login failed", description: error.message, variant: "destructive" });
+    } else {
+      navigate("/dashboard");
+    }
+  };
+
+  const handleSignup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { full_name: fullName },
+        emailRedirectTo: window.location.origin,
+      },
+    });
+    setLoading(false);
+    if (error) {
+      toast({ title: "Signup failed", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Check your email", description: "We sent you a confirmation link to verify your account." });
+    }
+  };
 
   return (
     <div className="flex min-h-screen">
@@ -71,86 +117,56 @@ const Auth = () => {
           </div>
 
           {tab === "login" && (
-            <div className="space-y-4">
-              {/* Method toggle */}
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setLoginMethod("phone")}
-                  className={`flex flex-1 items-center justify-center gap-2 rounded-lg border py-2.5 text-sm font-medium transition-all ${
-                    loginMethod === "phone" ? "border-primary bg-primary/5 text-primary" : "border-border text-muted-foreground hover:border-primary/30"
-                  }`}
-                >
-                  <Phone className="h-4 w-4" /> Phone
-                </button>
-                <button
-                  onClick={() => setLoginMethod("email")}
-                  className={`flex flex-1 items-center justify-center gap-2 rounded-lg border py-2.5 text-sm font-medium transition-all ${
-                    loginMethod === "email" ? "border-primary bg-primary/5 text-primary" : "border-border text-muted-foreground hover:border-primary/30"
-                  }`}
-                >
-                  <Mail className="h-4 w-4" /> Email
-                </button>
-              </div>
-
-              {loginMethod === "phone" ? (
-                <div className="space-y-2">
-                  <Label htmlFor="phone">Phone Number</Label>
-                  <div className="flex gap-2">
-                    <div className="flex h-10 items-center rounded-lg border border-input bg-secondary px-3 text-sm text-muted-foreground">
-                      +254
-                    </div>
-                    <Input id="phone" placeholder="712 345 678" className="flex-1" />
-                  </div>
+            <form onSubmit={handleLogin} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input id="email" type="email" placeholder="you@example.com" className="pl-9" value={email} onChange={(e) => setEmail(e.target.value)} required />
                 </div>
-              ) : (
-                <>
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
-                    <Input id="email" type="email" placeholder="you@example.com" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="password">Password</Label>
-                    <Input id="password" type="password" placeholder="••••••••" />
-                  </div>
-                </>
-              )}
-
-              <Button className="w-full" size="lg">
-                {loginMethod === "phone" ? "Send OTP" : "Sign in"}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input id="password" type="password" placeholder="••••••••" className="pl-9" value={password} onChange={(e) => setPassword(e.target.value)} required />
+                </div>
+              </div>
+              <Button className="w-full" size="lg" type="submit" disabled={loading}>
+                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Sign in
               </Button>
-            </div>
+            </form>
           )}
 
           {tab === "signup" && (
-            <div className="space-y-4">
+            <form onSubmit={handleSignup} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="fullName">Full Name</Label>
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input id="fullName" placeholder="John Kamau" className="pl-9" />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="signupPhone">Phone Number</Label>
-                <div className="flex gap-2">
-                  <div className="flex h-10 items-center rounded-lg border border-input bg-secondary px-3 text-sm text-muted-foreground">
-                    +254
-                  </div>
-                  <Input id="signupPhone" placeholder="712 345 678" className="flex-1" />
+                  <Input id="fullName" placeholder="John Kamau" className="pl-9" value={fullName} onChange={(e) => setFullName(e.target.value)} required />
                 </div>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="signupEmail">Email</Label>
-                <Input id="signupEmail" type="email" placeholder="you@example.com" />
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input id="signupEmail" type="email" placeholder="you@example.com" className="pl-9" value={email} onChange={(e) => setEmail(e.target.value)} required />
+                </div>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="signupPassword">Password</Label>
-                <Input id="signupPassword" type="password" placeholder="Create a strong password" />
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input id="signupPassword" type="password" placeholder="Create a strong password" className="pl-9" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} />
+                </div>
               </div>
-              <Button className="w-full" size="lg">
+              <Button className="w-full" size="lg" type="submit" disabled={loading}>
+                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Create Account
               </Button>
-            </div>
+            </form>
           )}
 
           <p className="mt-6 text-center text-xs text-muted-foreground">
