@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Menu, X, MapPin } from "lucide-react";
+import { Menu, X, MapPin, LogOut } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useAuth } from "@/contexts/AuthContext";
 
 const navLinks = [
   { href: "/", label: "Home" },
@@ -14,6 +15,13 @@ const navLinks = [
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, signOut } = useAuth();
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate("/");
+  };
 
   return (
     <nav className="sticky top-0 z-50 border-b border-border bg-card/80 backdrop-blur-xl">
@@ -45,12 +53,26 @@ const Navbar = () => {
         </div>
 
         <div className="hidden items-center gap-3 md:flex">
-          <Button variant="ghost" size="sm" asChild>
-            <Link to="/auth">Log in</Link>
-          </Button>
-          <Button size="sm" asChild>
-            <Link to="/auth?tab=signup">Get Started</Link>
-          </Button>
+          {user ? (
+            <>
+              <Button variant="ghost" size="sm" asChild>
+                <Link to="/dashboard">Dashboard</Link>
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleSignOut}>
+                <LogOut className="mr-1 h-4 w-4" />
+                Log out
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button variant="ghost" size="sm" asChild>
+                <Link to="/auth">Log in</Link>
+              </Button>
+              <Button size="sm" asChild>
+                <Link to="/auth?tab=signup">Get Started</Link>
+              </Button>
+            </>
+          )}
         </div>
 
         {/* Mobile toggle */}
@@ -87,12 +109,25 @@ const Navbar = () => {
                 </Link>
               ))}
               <div className="mt-3 flex flex-col gap-2">
-                <Button variant="outline" asChild>
-                  <Link to="/auth" onClick={() => setIsOpen(false)}>Log in</Link>
-                </Button>
-                <Button asChild>
-                  <Link to="/auth?tab=signup" onClick={() => setIsOpen(false)}>Get Started</Link>
-                </Button>
+                {user ? (
+                  <>
+                    <Button variant="outline" asChild>
+                      <Link to="/dashboard" onClick={() => setIsOpen(false)}>Dashboard</Link>
+                    </Button>
+                    <Button variant="ghost" onClick={() => { handleSignOut(); setIsOpen(false); }}>
+                      <LogOut className="mr-1 h-4 w-4" /> Log out
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button variant="outline" asChild>
+                      <Link to="/auth" onClick={() => setIsOpen(false)}>Log in</Link>
+                    </Button>
+                    <Button asChild>
+                      <Link to="/auth?tab=signup" onClick={() => setIsOpen(false)}>Get Started</Link>
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
           </motion.div>
