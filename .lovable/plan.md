@@ -1,32 +1,32 @@
 
 
-# Add Photo Uploads to Service Requests
+# Add Role Selection to Signup
 
-Allow customers to attach up to 5 photos when describing a job, so providers can better understand the work needed.
+Currently, every new account is automatically assigned the "customer" role. There is no way for someone signing up as a service provider to indicate that during registration. This change adds a clear role picker to the signup form.
+
+## What You'll See
+
+On the signup form, a new "I am a..." section will appear with two clearly labeled options:
+
+- **Client** -- "I'm looking to hire service professionals"
+- **Service Provider** -- "I offer professional services"
+
+The selection defaults to "Client" and uses visually distinct, selectable cards so the choice is obvious. If someone arrives via the "Join as a Pro" or "Become a Pro" links, the provider option will be pre-selected automatically.
+
+After signup, the chosen role is stored in the user's metadata and used by a database trigger to assign the correct role.
 
 ## What Changes
 
-### 1. Storage Setup (Database Migration)
-- Create a **public storage bucket** called `request-images` for storing uploaded job photos.
-- Add RLS policies so authenticated users can upload to their own folder and anyone authenticated can view images.
-- Add an `image_urls` column (text array) to the `service_requests` table to store the image paths.
+### 1. Signup Form UI (Auth.tsx)
+- Add a `role` state variable initialized from the `?role=provider` URL param (falling back to `"customer"`).
+- Render two selectable card-style options above the name/email/password fields.
+- Pass the selected role in `signUp({ options: { data: { full_name, role } } })`.
 
-### 2. Image Upload UI (Step 1 -- Details Step)
-- Add a drag-and-drop / click-to-upload area below the description field on **Step 2 (Details)**.
-- Support up to **5 images**, max 5MB each, image types only (jpg, png, webp).
-- Show thumbnail previews with a remove button for each selected image.
-- Use the Camera and ImagePlus icons from lucide-react for visual cues.
+### 2. Database Trigger Update (Migration)
+- Modify the `handle_new_user` trigger function to read `raw_user_meta_data->>'role'` and insert either `'customer'` or `'provider'` into `user_roles` (defaulting to `'customer'` if missing or invalid).
 
-### 3. Upload Logic on Submit
-- When the user submits the request, upload all selected images to the `request-images` bucket under the path `{user_id}/{request_id}/`.
-- After inserting the service request row, update it with the array of public image URLs.
-- Show upload progress feedback during submission.
-
-### 4. Review Step Update
-- Display uploaded image thumbnails in the **Review step (Step 4)** so customers can verify before submitting.
-
-### 5. Dashboard Update
-- Show image thumbnails (if any) on the request cards in the dashboard.
+### 3. Post-Signup Redirect Logic
+- After login, check the user's role and redirect providers to `/provider-dashboard` and customers to `/dashboard`.
 
 ---
 
@@ -34,35 +34,31 @@ Allow customers to attach up to 5 photos when describing a job, so providers can
 
 **Migration SQL:**
 ```sql
--- Create storage bucket
-INSERT INTO storage.buckets (id, name, public) VALUES ('request-images', 'request-images', true);
-
--- Allow authenticated users to upload to their own folder
-CREATE POLICY "Users can upload request images"
-ON storage.objects FOR INSERT TO authenticated
-WITH CHECK (bucket_id = 'request-images' AND (storage.foldername(name))[1] = auth.uid()::text);
-
--- Allow authenticated users to view all request images
-CREATE POLICY "Anyone can view request images"
-ON storage.objects FOR SELECT TO authenticated
-USING (bucket_id = 'request-images');
-
--- Allow users to delete their own images
-CREATE POLICY "Users can delete own request images"
-ON storage.objects FOR DELETE TO authenticated
-USING (bucket_id = 'request-images' AND (storage.foldername(name))[1] = auth.uid()::text);
-
--- Add image_urls column to service_requests
-ALTER TABLE service_requests ADD COLUMN image_urls text[] DEFAULT '{}';
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+  _role app_role;
+BEGIN
+  INSERT INTO public.profiles (id, phone, email, full_name)
+  VALUES (NEW.id, NEW.phone, NEW.email, COALESCE(NEW.raw_user_meta_data->>'full_name', ''));
+  
+  IF NEW.raw_user_meta_data->>'role' = 'provider' THEN
+    _role := 'provider';
+  ELSE
+    _role := 'customer';
+  END IF;
+  
+  INSERT INTO public.user_roles (user_id, role) VALUES (NEW.id, _role);
+  RETURN NEW;
+END;
+$$;
 ```
 
-**Frontend changes:**
-- `src/pages/RequestService.tsx`: Add `File[]` state for selected images, image picker UI in step 1, thumbnail previews, upload logic in `handleSubmit` using `supabase.storage.from('request-images').upload(...)`, and image display in review step.
-- `src/pages/Dashboard.tsx`: Show image thumbnails on request cards if `image_urls` is populated.
-
-**Upload flow:**
-1. User selects files locally (stored in component state, not uploaded yet).
-2. On submit: insert service_request row first to get the `id`.
-3. Upload each file to `request-images/{user_id}/{request_id}/{filename}`.
-4. Get public URLs and update the service_request row with the `image_urls` array.
+**Auth.tsx changes:**
+- Add `role` state: `useState(searchParams.get("role") === "provider" ? "provider" : "customer")`
+- Add role selector UI with two clickable cards using Search and Briefcase icons
+- Include role in signup metadata: `data: { full_name: fullName, role }`
+- On login success, query `user_roles` to determine redirect destination (`/dashboard` vs `/provider-dashboard`)
 
