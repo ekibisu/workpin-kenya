@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import {
   LayoutDashboard, FileText, MessageCircle, Settings, Plus,
-  TrendingUp, Clock, CheckCircle, DollarSign, MapPin, Loader2,
+  TrendingUp, Clock, CheckCircle, DollarSign, MapPin, Loader2, User,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -21,6 +21,18 @@ interface ServiceRequest {
   image_urls: string[] | null;
 }
 
+interface Quote {
+  id: string;
+  price: number;
+  message: string | null;
+  status: string;
+  created_at: string;
+  request_id: string;
+  provider_id: string;
+  profiles: { full_name: string | null } | null;
+  service_requests: { description: string; services: { name: string } | null } | null;
+}
+
 const sideLinks = [
   { label: "Overview", icon: LayoutDashboard, href: "/dashboard" },
   { label: "My Requests", icon: FileText, href: "/dashboard/requests" },
@@ -31,6 +43,7 @@ const sideLinks = [
 const Dashboard = () => {
   const { user } = useAuth();
   const [requests, setRequests] = useState<ServiceRequest[]>([]);
+  const [quotes, setQuotes] = useState<Quote[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -41,8 +54,22 @@ const Dashboard = () => {
       .eq("customer_id", user.id)
       .order("created_at", { ascending: false })
       .then(({ data }) => {
-        setRequests((data as unknown as ServiceRequest[]) || []);
-        setLoading(false);
+        const reqs = (data as unknown as ServiceRequest[]) || [];
+        setRequests(reqs);
+        const ids = reqs.map((r) => r.id);
+        if (ids.length > 0) {
+          supabase
+            .from("quotes")
+            .select("id, price, message, status, created_at, request_id, provider_id, profiles!quotes_provider_id_fkey(full_name), service_requests!quotes_request_id_fkey(description, services(name))")
+            .in("request_id", ids)
+            .order("created_at", { ascending: false })
+            .then(({ data: qData }) => {
+              setQuotes((qData as unknown as Quote[]) || []);
+              setLoading(false);
+            });
+        } else {
+          setLoading(false);
+        }
       });
   }, [user]);
 
@@ -51,7 +78,7 @@ const Dashboard = () => {
 
   const stats = [
     { label: "Active Requests", value: String(activeCount), icon: FileText, trend: `${requests.length} total` },
-    { label: "Quotes Received", value: "—", icon: TrendingUp, trend: "Coming soon" },
+    { label: "Quotes Received", value: String(quotes.length), icon: TrendingUp, trend: "Across all requests" },
     { label: "Jobs Completed", value: String(completedCount), icon: CheckCircle, trend: "This month" },
     { label: "Total Spent", value: "—", icon: DollarSign, trend: "Lifetime" },
   ];
@@ -138,6 +165,59 @@ const Dashboard = () => {
                             </div>
                           )}
                         </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Quotes Received Section */}
+          <div className="mt-8 rounded-2xl border border-border bg-card p-6">
+            <h2 className="mb-4 font-heading text-lg font-bold text-foreground">Quotes Received</h2>
+            {loading ? (
+              <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+            ) : quotes.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-10 text-center">
+                <TrendingUp className="mb-3 h-10 w-10 text-muted-foreground/30" />
+                <p className="text-sm text-muted-foreground">No quotes received yet</p>
+                <p className="mt-1 text-xs text-muted-foreground">Providers will send quotes once you post a request</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {quotes.map((quote) => (
+                  <div key={quote.id} className="flex items-start justify-between rounded-xl border border-border p-4 transition-colors hover:bg-accent/30">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-foreground">
+                          {quote.service_requests?.services?.name || "Service"}
+                        </span>
+                        <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                          quote.status === "pending" ? "bg-primary/10 text-primary" :
+                          quote.status === "accepted" ? "bg-accent text-accent-foreground" :
+                          "bg-muted text-muted-foreground"
+                        }`}>
+                          {quote.status}
+                        </span>
+                      </div>
+                      <p className="mt-1 line-clamp-1 text-sm text-muted-foreground">
+                        {quote.service_requests?.description}
+                      </p>
+                      <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          <User className="h-3 w-3" />
+                          {quote.profiles?.full_name || "Provider"}
+                        </span>
+                        <span className="font-semibold text-foreground">
+                          KES {Number(quote.price).toLocaleString()}
+                        </span>
+                        <span>{format(new Date(quote.created_at), "MMM d, yyyy")}</span>
+                      </div>
+                      {quote.message && (
+                        <p className="mt-2 line-clamp-2 text-sm italic text-muted-foreground">
+                          "{quote.message}"
+                        </p>
                       )}
                     </div>
                   </div>
