@@ -1,63 +1,47 @@
 
-
-# Wire Up "Start Job" Button to Change Request Status
-
-When a client clicks "Start Job" on a quote in the "Quotes Received" section, the corresponding service request will be updated from "open" to "pending" status.
+# Add "Complete" Button to Pending Jobs in Provider Dashboard
 
 ## What You'll See
 
-- Clicking "Start Job" on a quote will update the linked service request's status to "pending".
-- The button will show a loading spinner while the update is in progress.
-- A success toast will confirm the action.
-- The request card in "Your Requests" will immediately reflect the new "pending" status.
-- The quote's "Start Job" button will be disabled/hidden after the job is started.
+- Each job card in the "Jobs Pending" section will have a "Mark Complete" button at the bottom.
+- Clicking it shows a loading spinner, updates the service request status from "pending" to "completed", and shows a success toast.
+- The job card is removed from the pending list immediately after completion.
 
 ## What Changes
 
-### Dashboard.tsx
+### ProviderDashboard.tsx
 
-1. **Add a `handleStartJob` function** that:
-   - Takes the quote's `request_id`
-   - Calls `supabase.from("service_requests").update({ status: "pending" }).eq("id", request_id)`
-   - On success, updates local `requests` state to reflect the new status
-   - Shows a success or error toast
+1. **New state**: `completingJobId: string | null` to track which job is being completed (for per-button loading).
 
-2. **Wire the "Start Job" button** to call `handleStartJob(quote.request_id)` on click.
+2. **New handler** `handleCompleteJob(requestId)`:
+   - Updates the service request status to `"completed"` via `supabase.from("service_requests").update({ status: "completed" }).eq("id", requestId)`.
+   - On success, removes the request from `pendingRequests` state and shows a success toast.
+   - On error, shows an error toast.
 
-3. **Add a loading state** (`startingJobId: string | null`) to show a spinner on the clicked button.
-
-4. **Conditionally render the button**: Only show "Start Job" if the linked request is still "open". If the request is "pending" or later, show a disabled "Job Started" indicator instead.
+3. **UI update**: Add a "Mark Complete" button (with `CheckCircle` icon) at the bottom of each pending job card, after the metadata row (location/budget/date). The button shows a spinner when that specific job is being completed.
 
 ### No Database Changes Needed
 
-The existing RLS policy on `service_requests` already allows customers to update their own requests (`auth.uid() = customer_id` for UPDATE). The `status` column is a text field with no constraints beyond the default value.
+The provider doesn't own the `service_requests` row (the customer does), so the existing RLS UPDATE policy (`auth.uid() = customer_id`) would block the provider. However, since the "Start Job" flow already uses the customer's update permission, we need to add an RLS policy allowing providers to update the status of requests they have quoted on.
 
----
-
-## Technical Details
-
-**New handler:**
-```typescript
-const handleStartJob = async (requestId: string) => {
-  setStartingJobId(requestId);
-  const { error } = await supabase
-    .from("service_requests")
-    .update({ status: "pending" })
-    .eq("id", requestId);
-  setStartingJobId(null);
-  if (error) {
-    toast({ title: "Error", description: "Could not start job.", variant: "destructive" });
-    return;
-  }
-  setRequests(prev => prev.map(r => r.id === requestId ? { ...r, status: "pending" } : r));
-  toast({ title: "Job started!", description: "The request status has been updated." });
-};
+**New RLS policy on `service_requests`:**
+```sql
+CREATE POLICY "Provider can update request status"
+ON service_requests FOR UPDATE
+USING (
+  EXISTS (
+    SELECT 1 FROM quotes
+    WHERE quotes.request_id = service_requests.id
+    AND quotes.provider_id = auth.uid()
+  )
+)
+WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM quotes
+    WHERE quotes.request_id = service_requests.id
+    AND quotes.provider_id = auth.uid()
+  )
+);
 ```
 
-**Button logic per quote:**
-- Look up the request status from local state using `quote.request_id`
-- If status is "open": show active "Start Job" button
-- Otherwise: show disabled "Job Started" badge
-
-**New state:** `startingJobId: string | null` for per-button loading indicator.
-
+This ensures only providers who have submitted a quote for a given request can update it.
