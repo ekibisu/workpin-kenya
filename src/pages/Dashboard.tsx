@@ -167,9 +167,6 @@ const Dashboard = () => {
                         </div>
                       )}
                     </div>
-                    <Button variant="outline" size="sm" className="ml-4 shrink-0">
-                      <CheckCircle className="h-4 w-4" />Start Job
-                    </Button>
                   </div>
                 ))}
               </div>
@@ -223,6 +220,9 @@ const Dashboard = () => {
                         </p>
                       )}
                     </div>
+                    <Button variant="outline" size="sm" className="ml-4 shrink-0">
+                      <CheckCircle className="h-4 w-4" />Start Job
+                    </Button>
                   </div>
                 ))}
               </div>
