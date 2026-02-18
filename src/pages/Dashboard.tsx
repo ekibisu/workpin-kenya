@@ -9,6 +9,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { format } from "date-fns";
+import { useToast } from "@/hooks/use-toast";
 
 interface ServiceRequest {
   id: string;
@@ -42,9 +43,26 @@ const sideLinks = [
 
 const Dashboard = () => {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [requests, setRequests] = useState<ServiceRequest[]>([]);
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [loading, setLoading] = useState(true);
+  const [startingJobId, setStartingJobId] = useState<string | null>(null);
+
+  const handleStartJob = async (requestId: string) => {
+    setStartingJobId(requestId);
+    const { error } = await supabase
+      .from("service_requests")
+      .update({ status: "pending" })
+      .eq("id", requestId);
+    setStartingJobId(null);
+    if (error) {
+      toast({ title: "Error", description: "Could not start job.", variant: "destructive" });
+      return;
+    }
+    setRequests(prev => prev.map(r => r.id === requestId ? { ...r, status: "pending" } : r));
+    toast({ title: "Job started!", description: "The request status has been updated." });
+  };
 
   useEffect(() => {
     if (!user) return;
@@ -220,9 +238,30 @@ const Dashboard = () => {
                         </p>
                       )}
                     </div>
-                    <Button variant="outline" size="sm" className="ml-4 shrink-0">
-                      <CheckCircle className="h-4 w-4" />Start Job
-                    </Button>
+                    {(() => {
+                      const linkedRequest = requests.find(r => r.id === quote.request_id);
+                      const isOpen = linkedRequest?.status === "open";
+                      return isOpen ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="ml-4 shrink-0"
+                          disabled={startingJobId === quote.request_id}
+                          onClick={() => handleStartJob(quote.request_id)}
+                        >
+                          {startingJobId === quote.request_id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <CheckCircle className="h-4 w-4" />
+                          )}
+                          Start Job
+                        </Button>
+                      ) : (
+                        <span className="ml-4 shrink-0 rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
+                          Job Started
+                        </span>
+                      );
+                    })()}
                   </div>
                 ))}
               </div>
