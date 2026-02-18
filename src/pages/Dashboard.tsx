@@ -1,15 +1,23 @@
 import { useEffect, useState } from "react";
 import Navbar from "@/components/layout/Navbar";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { Link } from "react-router-dom";
 import {
   LayoutDashboard, FileText, MessageCircle, Settings, Plus,
-  TrendingUp, Clock, CheckCircle, DollarSign, MapPin, Loader2, User,
+  TrendingUp, Clock, CheckCircle, DollarSign, MapPin, Loader2, User, Star,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface ServiceRequest {
   id: string;
@@ -48,6 +56,12 @@ const Dashboard = () => {
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [loading, setLoading] = useState(true);
   const [startingJobId, setStartingJobId] = useState<string | null>(null);
+  const [confirmingJobId, setConfirmingJobId] = useState<string | null>(null);
+  const [feedbackRequestId, setFeedbackRequestId] = useState<string | null>(null);
+  const [feedbackProviderId, setFeedbackProviderId] = useState<string | null>(null);
+  const [feedbackRating, setFeedbackRating] = useState(5);
+  const [feedbackComment, setFeedbackComment] = useState("");
+  const [submittingFeedback, setSubmittingFeedback] = useState(false);
 
   const handleStartJob = async (requestId: string) => {
     setStartingJobId(requestId);
@@ -62,6 +76,60 @@ const Dashboard = () => {
     }
     setRequests(prev => prev.map(r => r.id === requestId ? { ...r, status: "pending" } : r));
     toast({ title: "Job started!", description: "The request status has been updated." });
+  };
+
+  const handleConfirmCompletion = async (requestId: string, providerId: string) => {
+    setConfirmingJobId(requestId);
+    const { error } = await supabase
+      .from("service_requests")
+      .update({ status: "completed" })
+      .eq("id", requestId);
+    setConfirmingJobId(null);
+    if (error) {
+      toast({ title: "Error", description: "Could not confirm completion.", variant: "destructive" });
+      return;
+    }
+    setRequests(prev => prev.map(r => r.id === requestId ? { ...r, status: "completed" } : r));
+    toast({ title: "Job confirmed!", description: "The job has been marked as completed." });
+    // Open feedback dialog
+    setFeedbackRequestId(requestId);
+    setFeedbackProviderId(providerId);
+    setFeedbackRating(5);
+    setFeedbackComment("");
+  };
+
+  const handleDeclineCompletion = async (requestId: string) => {
+    setConfirmingJobId(requestId);
+    const { error } = await supabase
+      .from("service_requests")
+      .update({ status: "pending" })
+      .eq("id", requestId);
+    setConfirmingJobId(null);
+    if (error) {
+      toast({ title: "Error", description: "Could not decline.", variant: "destructive" });
+      return;
+    }
+    setRequests(prev => prev.map(r => r.id === requestId ? { ...r, status: "pending" } : r));
+    toast({ title: "Completion declined", description: "The provider has been notified." });
+  };
+
+  const handleSubmitFeedback = async () => {
+    if (!user || !feedbackRequestId || !feedbackProviderId) return;
+    setSubmittingFeedback(true);
+    const { error } = await supabase.from("reviews").insert({
+      request_id: feedbackRequestId,
+      customer_id: user.id,
+      provider_id: feedbackProviderId,
+      rating: feedbackRating,
+      comment: feedbackComment || null,
+    });
+    setSubmittingFeedback(false);
+    if (error) {
+      toast({ title: "Error", description: "Could not submit feedback.", variant: "destructive" });
+      return;
+    }
+    setFeedbackRequestId(null);
+    toast({ title: "Thank you!", description: "Your feedback has been submitted." });
   };
 
   useEffect(() => {
@@ -103,6 +171,8 @@ const Dashboard = () => {
 
   const statusColor: Record<string, string> = {
     open: "bg-primary/10 text-primary",
+    pending: "bg-accent text-accent-foreground",
+    completion_pending: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300",
     matched: "bg-accent text-accent-foreground",
     completed: "bg-muted text-muted-foreground",
   };
@@ -162,7 +232,9 @@ const Dashboard = () => {
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         <span className="font-semibold text-foreground">{req.services?.name || "Service"}</span>
-                        <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusColor[req.status] || "bg-muted text-muted-foreground"}`}>{req.status}</span>
+                        <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusColor[req.status] || "bg-muted text-muted-foreground"}`}>
+                          {req.status === "completion_pending" ? "awaiting confirmation" : req.status}
+                        </span>
                       </div>
                       <p className="mt-1 line-clamp-1 text-sm text-muted-foreground">{req.description}</p>
                       <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
@@ -182,6 +254,32 @@ const Dashboard = () => {
                               +{req.image_urls.length - 3}
                             </div>
                           )}
+                        </div>
+                      )}
+                      {req.status === "completion_pending" && (
+                        <div className="mt-3 rounded-lg border border-yellow-200 bg-yellow-50 p-3 dark:border-yellow-800 dark:bg-yellow-900/20">
+                          <p className="mb-2 text-sm font-medium text-foreground">The provider has marked this job as complete. Confirm?</p>
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              disabled={confirmingJobId === req.id}
+                              onClick={() => {
+                                const quote = quotes.find(q => q.request_id === req.id);
+                                handleConfirmCompletion(req.id, quote?.provider_id || "");
+                              }}
+                            >
+                              {confirmingJobId === req.id ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <CheckCircle className="mr-1 h-3.5 w-3.5" />}
+                              Yes, Completed
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={confirmingJobId === req.id}
+                              onClick={() => handleDeclineCompletion(req.id)}
+                            >
+                              Not Yet
+                            </Button>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -269,6 +367,60 @@ const Dashboard = () => {
           </div>
         </main>
       </div>
+
+      {/* Feedback Dialog */}
+      <Dialog open={!!feedbackRequestId} onOpenChange={(open) => { if (!open) setFeedbackRequestId(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>How was the service?</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Rating</Label>
+              <div className="flex gap-1">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    key={star}
+                    type="button"
+                    onClick={() => setFeedbackRating(star)}
+                    className="p-0.5"
+                  >
+                    <Star
+                      className={`h-7 w-7 ${star <= feedbackRating ? "fill-primary text-primary" : "text-muted-foreground/30"}`}
+                    />
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="feedback-comment">Comments (optional)</Label>
+              <Textarea
+                id="feedback-comment"
+                placeholder="Share your experience..."
+                value={feedbackComment}
+                onChange={(e) => setFeedbackComment(e.target.value)}
+                maxLength={1000}
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button
+                className="flex-1"
+                disabled={submittingFeedback}
+                onClick={handleSubmitFeedback}
+              >
+                {submittingFeedback && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Submit Feedback
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setFeedbackRequestId(null)}
+              >
+                Skip
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

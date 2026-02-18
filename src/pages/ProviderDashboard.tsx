@@ -64,7 +64,7 @@ const ProviderDashboard = () => {
       supabase
         .from("service_requests")
         .select("id, description, budget, location_name, status, created_at, image_urls, services(name)")
-        .eq("status", "pending")
+        .in("status", ["pending", "completion_pending"])
         .order("created_at", { ascending: false }),
       supabase
         .from("quotes")
@@ -104,15 +104,15 @@ const ProviderDashboard = () => {
     setCompletingJobId(requestId);
     const { error } = await supabase
       .from("service_requests")
-      .update({ status: "completed" })
+      .update({ status: "completion_pending" })
       .eq("id", requestId);
     setCompletingJobId(null);
     if (error) {
-      toast({ title: "Error", description: "Could not complete job. Please try again.", variant: "destructive" });
+      toast({ title: "Error", description: "Could not request completion. Please try again.", variant: "destructive" });
       return;
     }
-    setPendingRequests((prev) => prev.filter((r) => r.id !== requestId));
-    toast({ title: "Job completed!", description: "The job has been marked as completed." });
+    setPendingRequests((prev) => prev.map((r) => r.id === requestId ? { ...r, status: "completion_pending" } : r));
+    toast({ title: "Completion requested!", description: "The client will be asked to confirm." });
   };
 
   return (
@@ -280,8 +280,10 @@ const ProviderDashboard = () => {
                       <span className="font-semibold text-foreground">
                         {req.services?.name || "Service"}
                       </span>
-                      <span className="rounded-full bg-accent px-2 py-0.5 text-xs font-medium text-accent-foreground">
-                        pending
+                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                        req.status === "completion_pending" ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300" : "bg-accent text-accent-foreground"
+                      }`}>
+                        {req.status === "completion_pending" ? "awaiting confirmation" : "pending"}
                       </span>
                     </div>
                     <p className="mb-3 line-clamp-3 text-sm text-muted-foreground">
@@ -317,20 +319,6 @@ const ProviderDashboard = () => {
                             ))}
                     </div>
 
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="mt-3 w-full"
-                      disabled={completingJobId === req.id}
-                      onClick={() => handleCompleteJob(req.id)}
-                    >
-                      {completingJobId === req.id ? (
-                        <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <CheckCircle className="mr-1.5 h-3.5 w-3.5" />
-                      )}
-                      {completingJobId === req.id ? "Completing..." : "Mark Complete"}
-                    </Button>
                         </DialogContent>
                       </Dialog>
                     )}
@@ -350,6 +338,28 @@ const ProviderDashboard = () => {
                       )}
                       <span>{format(new Date(req.created_at), "MMM d")}</span>
                     </div>
+
+                    {req.status === "completion_pending" ? (
+                      <Button variant="outline" size="sm" className="mt-3 w-full" disabled>
+                        <Clock className="mr-1.5 h-3.5 w-3.5" />
+                        Awaiting Client Confirmation
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="mt-3 w-full"
+                        disabled={completingJobId === req.id}
+                        onClick={() => handleCompleteJob(req.id)}
+                      >
+                        {completingJobId === req.id ? (
+                          <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <CheckCircle className="mr-1.5 h-3.5 w-3.5" />
+                        )}
+                        {completingJobId === req.id ? "Requesting..." : "Mark Complete"}
+                      </Button>
+                    )}
                   </div>
                 ))}
               </div>
