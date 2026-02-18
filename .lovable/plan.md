@@ -1,69 +1,63 @@
 
-# Display Received Quotes on the Client Dashboard
 
-The client dashboard currently shows "Quotes Received: -- Coming soon" in the stats and has no section to view quotes from providers. This change fetches quotes linked to the client's service requests and displays them prominently.
+# Wire Up "Start Job" Button to Change Request Status
+
+When a client clicks "Start Job" on a quote in the "Quotes Received" section, the corresponding service request will be updated from "open" to "pending" status.
 
 ## What You'll See
 
-1. **Stats card update** -- The "Quotes Received" stat will show the actual count of quotes instead of "--".
-
-2. **New "Quotes Received" section** below "Your Requests" showing each quote with:
-   - The service name and request description it's for
-   - The provider's quoted price (in KES)
-   - The provider's message (if any)
-   - When the quote was submitted
-   - The quote status (pending, accepted, etc.)
-
-3. If no quotes exist yet, an empty state message is shown.
+- Clicking "Start Job" on a quote will update the linked service request's status to "pending".
+- The button will show a loading spinner while the update is in progress.
+- A success toast will confirm the action.
+- The request card in "Your Requests" will immediately reflect the new "pending" status.
+- The quote's "Start Job" button will be disabled/hidden after the job is started.
 
 ## What Changes
 
 ### Dashboard.tsx
 
-**Data fetching:**
-- After fetching service requests, also fetch quotes for those requests by querying the `quotes` table joined with `service_requests` (filtered by `customer_id = user.id`) and `profiles` (for provider name).
-- Query: `supabase.from("quotes").select("id, price, message, status, created_at, request_id, provider_id, profiles!quotes_provider_id_fkey(full_name), service_requests!quotes_request_id_fkey(description, services(name))").eq("service_requests.customer_id", user.id)`
-- Since Supabase filters on joined tables don't exclude rows, we'll instead use the already-fetched request IDs to filter: `.in("request_id", requestIds)`.
+1. **Add a `handleStartJob` function** that:
+   - Takes the quote's `request_id`
+   - Calls `supabase.from("service_requests").update({ status: "pending" }).eq("id", request_id)`
+   - On success, updates local `requests` state to reflect the new status
+   - Shows a success or error toast
 
-**Stats update:**
-- Replace the hardcoded "--" and "Coming soon" with the actual quotes count.
+2. **Wire the "Start Job" button** to call `handleStartJob(quote.request_id)` on click.
 
-**New UI section:**
-- Add a "Quotes Received" card section after the "Your Requests" section.
-- Each quote is rendered as a card showing the service name, price, provider name, message, and date.
-- Uses the same design language (rounded-2xl borders, consistent spacing) as the existing request cards.
+3. **Add a loading state** (`startingJobId: string | null`) to show a spinner on the clicked button.
+
+4. **Conditionally render the button**: Only show "Start Job" if the linked request is still "open". If the request is "pending" or later, show a disabled "Job Started" indicator instead.
+
+### No Database Changes Needed
+
+The existing RLS policy on `service_requests` already allows customers to update their own requests (`auth.uid() = customer_id` for UPDATE). The `status` column is a text field with no constraints beyond the default value.
 
 ---
 
 ## Technical Details
 
-**New interface:**
+**New handler:**
 ```typescript
-interface Quote {
-  id: string;
-  price: number;
-  message: string | null;
-  status: string;
-  created_at: string;
-  request_id: string;
-  provider_id: string;
-  profiles: { full_name: string | null } | null;
-  service_requests: { description: string; services: { name: string } | null } | null;
-}
+const handleStartJob = async (requestId: string) => {
+  setStartingJobId(requestId);
+  const { error } = await supabase
+    .from("service_requests")
+    .update({ status: "pending" })
+    .eq("id", requestId);
+  setStartingJobId(null);
+  if (error) {
+    toast({ title: "Error", description: "Could not start job.", variant: "destructive" });
+    return;
+  }
+  setRequests(prev => prev.map(r => r.id === requestId ? { ...r, status: "pending" } : r));
+  toast({ title: "Job started!", description: "The request status has been updated." });
+};
 ```
 
-**Fetch logic (inside existing useEffect):**
-1. Fetch service requests (existing).
-2. Extract request IDs from the results.
-3. If there are request IDs, fetch quotes with `.in("request_id", ids)` joining `profiles` and `service_requests(services(name))`.
-4. Store in a new `quotes` state variable.
+**Button logic per quote:**
+- Look up the request status from local state using `quote.request_id`
+- If status is "open": show active "Start Job" button
+- Otherwise: show disabled "Job Started" badge
 
-**Stats update:**
-- `{ label: "Quotes Received", value: String(quotes.length), icon: TrendingUp, trend: "Across all requests" }`
+**New state:** `startingJobId: string | null` for per-button loading indicator.
 
-**Quotes section UI:**
-- Rendered below "Your Requests" in a similar bordered card container.
-- Each quote card shows: service name, quoted price (KES), provider name, optional message, date, and a status badge.
-- Empty state with a `TrendingUp` icon and "No quotes received yet" message.
-
-**No database or RLS changes needed** -- the existing `quotes` SELECT policy already allows customers to view quotes on their own requests via the `service_requests.customer_id = auth.uid()` check.
