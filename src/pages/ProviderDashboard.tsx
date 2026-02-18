@@ -51,6 +51,7 @@ const ProviderDashboard = () => {
   const [quotePrice, setQuotePrice] = useState("");
   const [quoteMessage, setQuoteMessage] = useState("");
   const [submittingQuote, setSubmittingQuote] = useState(false);
+  const [completingJobId, setCompletingJobId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -97,6 +98,21 @@ const ProviderDashboard = () => {
     setQuotePrice("");
     setQuoteMessage("");
     toast({ title: "Quote sent!", description: "The customer will be notified." });
+  };
+
+  const handleCompleteJob = async (requestId: string) => {
+    setCompletingJobId(requestId);
+    const { error } = await supabase
+      .from("service_requests")
+      .update({ status: "completed" })
+      .eq("id", requestId);
+    setCompletingJobId(null);
+    if (error) {
+      toast({ title: "Error", description: "Could not complete job. Please try again.", variant: "destructive" });
+      return;
+    }
+    setPendingRequests((prev) => prev.filter((r) => r.id !== requestId));
+    toast({ title: "Job completed!", description: "The job has been marked as completed." });
   };
 
   return (
@@ -299,7 +315,22 @@ const ProviderDashboard = () => {
                                 <img src={url} alt={`Job photo ${i + 1}`} className="h-48 w-full object-cover" />
                               </div>
                             ))}
-                          </div>
+                    </div>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-3 w-full"
+                      disabled={completingJobId === req.id}
+                      onClick={() => handleCompleteJob(req.id)}
+                    >
+                      {completingJobId === req.id ? (
+                        <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <CheckCircle className="mr-1.5 h-3.5 w-3.5" />
+                      )}
+                      {completingJobId === req.id ? "Completing..." : "Mark Complete"}
+                    </Button>
                         </DialogContent>
                       </Dialog>
                     )}
