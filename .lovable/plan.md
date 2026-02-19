@@ -1,77 +1,54 @@
 
 
-# Professional Profile Sidebar on Provider Dashboard
+# Relocate Profile Card, Add User Dropdown, Refine Dashboard
 
 ## Overview
-Add a right-hand sidebar (approx 300px) next to the "Open Service Requests" section in the Provider Dashboard. It contains a "Professional Profile" card showing the provider's average rating, total reviews, rating breakdown, and quick stats. On mobile, the sidebar stacks below the main content.
+Three structural changes: move the Professional Profile card to a dedicated Profile page, replace the navbar's "Log out" button with a user dropdown menu, and clean up the Provider Dashboard layout after removing the sidebar.
 
-## What Changes
+## 1. New Profile Page
 
-### 1. New Component: `ProviderProfileCard.tsx`
-**File: `src/components/provider/ProviderProfileCard.tsx`**
+**File: `src/pages/Profile.tsx`**
 
-A self-contained card component that:
-- Accepts a `userId` prop (the current provider's user ID)
-- Fetches the provider's record from `providers` table (rating, total_reviews)
-- Fetches all reviews for this provider from the `reviews` table to compute the 1-5 star breakdown
-- Displays:
-  - **Average Rating**: Large bold number + 5 star icons (filled with brand green `#059669`, unfilled gray)
-  - **Total Reviews**: Subtext like "Based on 24 reviews"
-  - **Rating Breakdown**: 5 horizontal progress bars (5-star to 1-star) showing count/percentage per level
-  - **Quick Stats**: Badges for "Response Time" (placeholder `< 2 hrs`) and "Completion Rate" (placeholder `98%`) since these aren't tracked in the DB yet
-- Styled with `rounded-xl border border-gray-100 bg-white` matching existing cards
+- A new protected page at `/profile`
+- Renders `Navbar`, the existing `ProviderProfileCard` component (passing `user.id`), and `Footer`
+- Clean centered layout with max-width container
+- Consistent styling with other pages
 
-### 2. Update Provider Dashboard Layout
+## 2. Update Navbar with User Dropdown
+
+**File: `src/components/layout/Navbar.tsx`**
+
+When user is logged in, replace the "Dashboard" button + "Log out" button with a single dropdown menu:
+
+- **Trigger**: An avatar icon (using the `Avatar` component with a `User` icon fallback) or the user's email
+- **Dropdown items**:
+  - "View Profile" -- links to `/profile`
+  - "Dashboard" -- links to `/dashboard`
+  - "Account Settings" -- links to `/dashboard/settings`
+  - Separator
+  - "Log out" -- calls `signOut()`
+- Uses existing `DropdownMenu` components from `src/components/ui/dropdown-menu.tsx`
+- Mobile menu updated similarly: replace standalone buttons with the same links
+
+## 3. Refine Provider Dashboard Layout
+
 **File: `src/pages/ProviderDashboard.tsx`**
 
-- Wrap the existing `<main>` content and a new right sidebar in a flex container with responsive behavior:
-  - Desktop (`lg:`): side-by-side layout, main content takes remaining space, sidebar is `w-[300px] shrink-0`
-  - Mobile: sidebar stacks below main content using `flex-col lg:flex-row`
-- Render `<ProviderProfileCard userId={user.id} />` inside the right sidebar
+- Remove the `ProviderProfileCard` import and the right-hand `<aside>` sidebar
+- Remove the flex-row wrapper (`flex-col lg:flex-row`) since the sidebar is gone
+- The main content area will use full width, giving cards more breathing room
 
-### Files Created
-- `src/components/provider/ProviderProfileCard.tsx`
+## 4. Add Route for Profile Page
 
-### Files Modified
-- `src/pages/ProviderDashboard.tsx` -- wrap main area in flex layout, add right sidebar with profile card
+**File: `src/App.tsx`**
 
----
+- Add route: `<Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />`
 
-## Technical Details
+## Files Created
+- `src/pages/Profile.tsx`
 
-### Data Fetching (inside ProviderProfileCard)
-```text
-1. Query providers table: SELECT rating, total_reviews WHERE user_id = userId
-2. Query reviews table: SELECT rating WHERE provider_id = userId
-3. Compute breakdown: count reviews per star level (1-5)
-4. Display using Progress component for each bar
-```
+## Files Modified
+- `src/App.tsx` -- add `/profile` route
+- `src/components/layout/Navbar.tsx` -- replace logout button with user dropdown
+- `src/pages/ProviderDashboard.tsx` -- remove profile card sidebar, simplify layout
 
-### Layout Change in ProviderDashboard
-```text
-Before:
-  <main className="flex-1 ...">
-    ...content...
-  </main>
-
-After:
-  <main className="flex-1 bg-background">
-    <div className="flex flex-col lg:flex-row gap-6 p-6 lg:p-8">
-      <div className="flex-1 min-w-0">
-        ...existing content...
-      </div>
-      <aside className="w-full lg:w-[300px] shrink-0">
-        <ProviderProfileCard userId={user.id} />
-      </aside>
-    </div>
-  </main>
-```
-
-### Star Rating Display
-- Uses 5 `Star` icons from lucide-react
-- Filled stars: `fill-[#059669] text-[#059669]`
-- Empty stars: `fill-gray-200 text-gray-200`
-- Supports partial fill via rounding to nearest half
-
-### Quick Stats (Placeholders)
-Response Time and Completion Rate are displayed as static placeholders since the database doesn't currently track these metrics. They can be wired up later when the data becomes available.
