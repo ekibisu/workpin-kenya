@@ -26,6 +26,8 @@ const Navbar = () => {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
 
+  const isProviderDashboard = location.pathname.startsWith("/provider-dashboard");
+
   const handleSignOut = async () => {
     await signOut();
     navigate("/");
@@ -74,11 +76,13 @@ const Navbar = () => {
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem asChild>
-                  <Link to="/client-profile" className="flex items-center gap-2">
-                    <User className="h-4 w-4" /> Client Profile
-                  </Link>
-                </DropdownMenuItem>
+                {!isProviderDashboard && (
+                  <DropdownMenuItem asChild>
+                    <Link to="/client-profile" className="flex items-center gap-2">
+                      <User className="h-4 w-4" /> Client Profile
+                    </Link>
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem asChild>
                   <Link to="/dashboard" className="flex items-center gap-2">
                     <LayoutDashboard className="h-4 w-4" /> Dashboard
@@ -143,9 +147,11 @@ const Navbar = () => {
               <div className="mt-3 flex flex-col gap-2">
                 {user ? (
                   <>
-                    <Link to="/client-profile" onClick={() => setIsOpen(false)} className="flex items-center gap-2 rounded-lg px-4 py-3 text-sm font-medium text-muted-foreground hover:bg-accent">
-                      <User className="h-4 w-4" /> Client Profile
-                    </Link>
+                    {!isProviderDashboard && (
+                      <Link to="/client-profile" onClick={() => setIsOpen(false)} className="flex items-center gap-2 rounded-lg px-4 py-3 text-sm font-medium text-muted-foreground hover:bg-accent">
+                        <User className="h-4 w-4" /> Client Profile
+                      </Link>
+                    )}
                     <Link to="/dashboard" onClick={() => setIsOpen(false)} className="flex items-center gap-2 rounded-lg px-4 py-3 text-sm font-medium text-muted-foreground hover:bg-accent">
                       <LayoutDashboard className="h-4 w-4" /> Dashboard
                     </Link>
