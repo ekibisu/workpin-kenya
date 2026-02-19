@@ -242,6 +242,15 @@ const Dashboard = () => {
                         {req.budget && <span>KES {Number(req.budget).toLocaleString()}</span>}
                         <span>{format(new Date(req.created_at), "MMM d, yyyy")}</span>
                       </div>
+                      {(req.status === "pending" || req.status === "completion_pending") && (() => {
+                        const acceptedQuote = quotes.find(q => q.request_id === req.id && q.status === "accepted");
+                        return acceptedQuote ? (
+                          <div className="mt-2 flex items-center gap-1.5 text-xs font-medium text-primary">
+                            <User className="h-3 w-3" />
+                            Hired: {acceptedQuote.profiles?.full_name || "Provider"}
+                          </div>
+                        ) : null;
+                      })()}
                       {req.image_urls && req.image_urls.length > 0 && (
                         <div className="mt-2 flex gap-1.5">
                           {req.image_urls.slice(0, 3).map((url, i) => (
