@@ -1,10 +1,10 @@
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
-import ProviderProfileCard from "@/components/provider/ProviderProfileCard";
+import ClientProfileCard from "@/components/profile/ClientProfileCard";
 import { useAuth } from "@/contexts/AuthContext";
 import { Loader2 } from "lucide-react";
 
-const Profile = () => {
+const ClientProfile = () => {
   const { user, loading } = useAuth();
 
   return (
@@ -12,13 +12,13 @@ const Profile = () => {
       <Navbar />
       <main className="flex-1 bg-background">
         <div className="container max-w-lg py-10">
-          <h1 className="mb-6 text-2xl font-extrabold text-foreground">Professional Profile</h1>
+          <h1 className="mb-6 text-2xl font-extrabold text-foreground">Client Profile</h1>
           {loading ? (
             <div className="flex justify-center py-10">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           ) : user ? (
-            <ProviderProfileCard userId={user.id} />
+            <ClientProfileCard userId={user.id} />
           ) : null}
         </div>
       </main>
@@ -27,4 +27,4 @@ const Profile = () => {
   );
 };
 
-export default Profile;
+export default ClientProfile;
