@@ -335,7 +335,7 @@ const ProviderDashboard = () => {
                 <p className="text-sm text-muted-foreground">No pending jobs yet.</p>
               </div>
             ) : (
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-4 sm:grid-cols-2">
                 {pendingRequests.map((req) => (
                   <div
                     key={req.id}
