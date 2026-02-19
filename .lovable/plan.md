@@ -3,13 +3,47 @@
 # In-App Messaging System
 
 ## Overview
-Add a real-time messaging feature that lets clients and hired providers communicate directly about a job. Messages are accessed via a slide-in drawer (Sheet) triggered from quote/job cards on both dashboards.
+Add a real-time messaging feature so clients and hired providers can chat directly about a job. Messages appear in a slide-in drawer triggered from job cards on both dashboards.
 
 ## What Changes
 
 ### 1. Database: Create `direct_messages` Table
-A new table to store messages tied to a service request between the customer and the accepted provider.
+A new migration creates the table with RLS policies ensuring only the customer and the accepted provider for a request can read/write messages. Realtime is enabled so new messages appear instantly.
 
+- Table columns: `id`, `request_id`, `sender_id`, `content`, `created_at`
+- RLS SELECT policy: customer of the request OR provider with an accepted quote
+- RLS INSERT policy: same participants, plus `sender_id` must match the authenticated user
+- Realtime enabled via `ALTER PUBLICATION supabase_realtime ADD TABLE public.direct_messages`
+
+### 2. New Component: `MessageDrawer`
+**File: `src/components/messaging/MessageDrawer.tsx`**
+
+A reusable Sheet (slide-in panel from the right) that:
+- Accepts `requestId`, `recipientName`, `open`, and `onOpenChange` props
+- Fetches existing messages ordered by `created_at` when opened
+- Subscribes to realtime `INSERT` events on `direct_messages` filtered by `request_id`
+- Displays messages in a scrollable area: own messages aligned right, others aligned left
+- Includes a text input and send button at the bottom
+- Auto-scrolls to the latest message on new arrivals
+
+### 3. Customer Dashboard (`Dashboard.tsx`)
+- Add state for `chatRequestId` and `chatRecipientName`
+- On request cards with status `pending` or `completion_pending`, add a "Message" button next to the hired provider info
+- Clicking opens the `MessageDrawer` with the provider's name
+- Render the `MessageDrawer` component at the bottom of the page
+
+### 4. Provider Dashboard (`ProviderDashboard.tsx`)
+- Add state for `chatRequestId` and `chatRecipientName`
+- Fetch customer names for pending requests by joining `service_requests.customer_id` with profiles
+- On "Jobs Pending" cards, add a "Message Client" button
+- Clicking opens the `MessageDrawer` with the customer's name
+- Render the `MessageDrawer` component at the bottom of the page
+
+---
+
+## Technical Details
+
+### Database Migration SQL
 ```sql
 CREATE TABLE public.direct_messages (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -21,87 +55,27 @@ CREATE TABLE public.direct_messages (
 
 ALTER TABLE public.direct_messages ENABLE ROW LEVEL SECURITY;
 
--- Only the customer or the hired provider for the request can read messages
 CREATE POLICY "Participants can view messages"
   ON public.direct_messages FOR SELECT TO authenticated
   USING (
-    EXISTS (
-      SELECT 1 FROM service_requests sr
-      WHERE sr.id = direct_messages.request_id
-        AND sr.customer_id = auth.uid()
-    )
-    OR EXISTS (
-      SELECT 1 FROM quotes q
-      WHERE q.request_id = direct_messages.request_id
-        AND q.provider_id = auth.uid()
-        AND q.status = 'accepted'
-    )
+    EXISTS (SELECT 1 FROM service_requests sr WHERE sr.id = request_id AND sr.customer_id = auth.uid())
+    OR EXISTS (SELECT 1 FROM quotes q WHERE q.request_id = direct_messages.request_id AND q.provider_id = auth.uid() AND q.status = 'accepted')
   );
 
--- Only participants can send messages
 CREATE POLICY "Participants can send messages"
   ON public.direct_messages FOR INSERT TO authenticated
   WITH CHECK (
     auth.uid() = sender_id
     AND (
-      EXISTS (
-        SELECT 1 FROM service_requests sr
-        WHERE sr.id = direct_messages.request_id
-          AND sr.customer_id = auth.uid()
-      )
-      OR EXISTS (
-        SELECT 1 FROM quotes q
-        WHERE q.request_id = direct_messages.request_id
-          AND q.provider_id = auth.uid()
-          AND q.status = 'accepted'
-      )
+      EXISTS (SELECT 1 FROM service_requests sr WHERE sr.id = request_id AND sr.customer_id = auth.uid())
+      OR EXISTS (SELECT 1 FROM quotes q WHERE q.request_id = direct_messages.request_id AND q.provider_id = auth.uid() AND q.status = 'accepted')
     )
   );
 
--- Enable realtime
 ALTER PUBLICATION supabase_realtime ADD TABLE public.direct_messages;
 ```
 
-### 2. New Component: `MessageDrawer`
-Create `src/components/messaging/MessageDrawer.tsx` -- a reusable Sheet component that:
-- Takes `requestId`, `recipientName`, and `open/onOpenChange` props
-- Fetches existing messages for the request on open
-- Subscribes to realtime inserts on `direct_messages` filtered by `request_id`
-- Displays messages in a scrollable area with sender alignment (own messages right, other left)
-- Has a text input and send button at the bottom
-- Shows timestamps and sender names
-- Auto-scrolls to the latest message
-
-### 3. Customer Dashboard Updates (`Dashboard.tsx`)
-- Import `MessageDrawer` and `MessageCircle` icon
-- Add state for `chatRequestId` and `chatRecipientName`
-- On request cards with status `pending` or `completion_pending`, add a "Message" button next to the hired provider name
-- Clicking opens the `MessageDrawer` with the request ID and provider name
-
-### 4. Provider Dashboard Updates (`ProviderDashboard.tsx`)
-- Import `MessageDrawer`
-- Add state for `chatRequestId` and `chatRecipientName`
-- On "Jobs Pending" cards, add a "Message Client" button
-- Need to fetch the customer name for pending requests (join with profiles via `service_requests.customer_id`)
-- Clicking opens the `MessageDrawer`
-
----
-
-## Technical Details
-
-### MessageDrawer Component Structure
-```text
-Sheet (side="right", ~400px wide)
-+-- SheetHeader: "Chat with {recipientName}"
-+-- ScrollArea: message list
-|   +-- Each message bubble:
-|       - Aligned right if sender_id === current user
-|       - Aligned left otherwise
-|       - Shows content + timestamp
-+-- Footer: input + send button
-```
-
-### Realtime Subscription Pattern
+### Realtime Subscription Pattern (in MessageDrawer)
 ```typescript
 const channel = supabase
   .channel(`dm-${requestId}`)
@@ -116,16 +90,10 @@ const channel = supabase
   .subscribe();
 ```
 
-### Data Flow
-- Messages are fetched with `SELECT * FROM direct_messages WHERE request_id = ? ORDER BY created_at ASC`
-- New messages are inserted and instantly appear via the realtime subscription
-- The sender sees their message immediately (optimistic or via realtime echo)
-- RLS ensures only the customer and hired provider can read/write messages for a given request
-
 ### Files Created
 - `src/components/messaging/MessageDrawer.tsx`
 
 ### Files Modified
-- `src/pages/Dashboard.tsx` -- add Message button on hired job cards
-- `src/pages/ProviderDashboard.tsx` -- add Message button on pending job cards, fetch customer names
+- `src/pages/Dashboard.tsx` -- add Message button + MessageDrawer on hired job cards
+- `src/pages/ProviderDashboard.tsx` -- add Message button + MessageDrawer on pending job cards, fetch customer names
 
