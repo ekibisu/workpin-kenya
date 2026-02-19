@@ -1,36 +1,14 @@
 
 
-# Decline Requests and Quotes
+# Decline Requests and Quotes Implementation
 
-## What Changes
+## Overview
 
-### Professional Side -- "Not Interested" on Open Requests
+Implement the ability for providers to dismiss open requests and for clients to decline quotes, with automatic rejection of competing quotes when a job is started.
 
-- Add a `hiddenRequestIds` state (loaded from `localStorage`) to track requests the provider has dismissed
-- Add a "Not Interested" button (with `XCircle` icon) next to "Send Quote" on each open request card
-- Clicking it adds the request ID to `hiddenRequestIds`, saves to `localStorage`, and hides the card from the feed instantly
-- No database changes needed -- this is a client-side preference stored locally
+## Step 1: Database Migration
 
-### Client Side -- "Decline Quote" and Auto-Reject Logic
-
-- Add a "Decline" button next to the "Start Job" button on each quote card (only shown for quotes with `pending` status on `open` requests)
-- **Decline Quote**: Updates that quote's status to `rejected` via `supabase.from("quotes").update({ status: "rejected" })`
-- **Start Job (enhanced)**: When a client clicks "Start Job" on a quote:
-  1. Update the selected quote's status to `accepted`
-  2. Automatically update all *other* quotes for the same request to `rejected`
-  3. Then update the request status to `pending` (existing behavior)
-- Declined/rejected quotes show a "Rejected" badge instead of action buttons
-
-### Database Considerations
-
-No new tables or columns are needed. The `quotes` table already has a `status` column (default `pending`). Existing RLS policies don't allow customers to update quotes directly, so we need one new policy:
-
-**New RLS policy on `quotes`:**
-- Customers can update quote status for quotes on their own requests (to set `accepted`/`rejected`)
-
-## Technical Details
-
-### Migration SQL
+Add an RLS policy so customers can update quote statuses (to `accepted`/`rejected`) for quotes on their own requests.
 
 ```sql
 CREATE POLICY "Customer can update quote status"
@@ -51,30 +29,51 @@ WITH CHECK (
 );
 ```
 
-### ProviderDashboard.tsx Changes
+## Step 2: Provider Dashboard -- "Not Interested" Button
 
-- New state: `hiddenRequestIds` initialized from `localStorage` key `hidden_requests`
-- New handler: `handleHideRequest(requestId)` -- adds to set, saves to localStorage, filters from display
-- Filter `requests` list to exclude hidden IDs before rendering
-- Add "Not Interested" ghost button on each open request card
+**File: `src/pages/ProviderDashboard.tsx`**
 
-### Dashboard.tsx Changes
+- Add `hiddenRequestIds` state initialized from `localStorage` key `hidden_requests`
+- Add `handleHideRequest(requestId)` handler that adds the ID to the set, persists to `localStorage`, and removes the card
+- Filter `requests` to exclude hidden IDs before rendering
+- Add a ghost "Not Interested" button (with `XCircle` icon) next to the existing "Send Quote" button on each open request card
 
-- New state: `decliningQuoteId` for loading indicator
-- New handler: `handleDeclineQuote(quoteId)` -- updates quote status to `rejected` in DB and local state
-- Enhanced `handleStartJob(requestId)`:
-  1. Find the accepted quote for this request
-  2. Update that quote to `accepted`
-  3. Update all other quotes for the same request to `rejected`
-  4. Update request status to `pending`
-  5. Update local state for all affected quotes
-- Update quote card UI to show "Decline" button alongside "Start Job" for pending quotes on open requests
-- Show "Rejected" badge for rejected quotes
+## Step 3: Client Dashboard -- Decline Quote and Auto-Reject
+
+**File: `src/pages/Dashboard.tsx`**
+
+- Add `decliningQuoteId` state for loading indicator
+- Add `handleDeclineQuote(quoteId)` -- updates quote status to `rejected` in DB and updates local `quotes` state
+- Enhance `handleStartJob(requestId, selectedQuoteId)`:
+  1. Update the selected quote to `accepted`
+  2. Update all other quotes for the same request to `rejected`
+  3. Update the service request status to `pending`
+  4. Refresh local state for all affected quotes and the request
+- On each quote card (for pending quotes on open requests):
+  - Show "Start Job" and "Decline" buttons side by side
+  - Pass the specific `quote.id` when clicking "Start Job"
+- For rejected quotes: show a red "Rejected" badge instead of action buttons
+- For accepted quotes: show a green "Accepted" badge
+
+## Technical Details
 
 ### Files Modified
 
 | File | Change |
 |------|--------|
-| `ProviderDashboard.tsx` | Add hidden requests logic and "Not Interested" button |
-| `Dashboard.tsx` | Add decline quote, auto-reject on accept, updated quote card UI |
-| Database migration | Add customer quote update policy |
+| Database migration | New RLS policy on `quotes` for customer updates |
+| `src/pages/ProviderDashboard.tsx` | Hidden requests via localStorage + "Not Interested" button |
+| `src/pages/Dashboard.tsx` | Decline quote, auto-reject on accept, updated quote card UI |
+
+### Key State Changes
+
+- **ProviderDashboard**: `hiddenRequestIds: Set<string>` from localStorage
+- **Dashboard**: `decliningQuoteId: string | null` for button loading state
+
+### Quote Card Status Display
+
+- `pending` on `open` request: Show "Start Job" + "Decline" buttons
+- `rejected`: Show red "Rejected" badge
+- `accepted`: Show green "Accepted" badge  
+- Any quote on non-open request: Show "Job Started" badge (existing behavior)
+
