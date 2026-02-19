@@ -1,17 +1,30 @@
 
 
-# Hide Client Profile Link on Provider Dashboard Pages
+# Show "Professional Profile" on Provider Dashboard Dropdown
 
-## Overview
-Conditionally hide the "Client Profile" link in the Navbar dropdown when the user is on provider dashboard routes (`/provider-dashboard`).
+## Problem
+The navbar dropdown currently only hides "Client Profile" on provider dashboard pages but doesn't replace it with "Professional Profile". The dropdown needs to swap between the two profile links depending on which dashboard context the user is in.
 
 ## What Changes
 
 ### File: `src/components/layout/Navbar.tsx`
 
-- Use the existing `location.pathname` to detect if the current route starts with `/provider-dashboard`
-- Add a boolean: `const isProviderDashboard = location.pathname.startsWith("/provider-dashboard")`
-- Wrap both "Client Profile" links (desktop dropdown on line 77-81, mobile menu on line 146-148) in a condition: only render when `!isProviderDashboard`
+**Desktop dropdown (lines 79-85):**
+- Keep the existing `!isProviderDashboard` condition for "Client Profile"
+- Add a new block: when `isProviderDashboard` is true, show "Professional Profile" linking to `/profile`
 
-No new files, no other changes needed.
+**Mobile menu (lines 150-154):**
+- Same logic: show "Client Profile" when NOT on provider dashboard, show "Professional Profile" when on provider dashboard
+
+### Result
+```text
+On client pages:         On provider dashboard:
+- Client Profile         - Professional Profile
+- Dashboard              - Dashboard
+- Account Settings       - Account Settings
+- Log out                - Log out
+```
+
+## No New Files
+Only `src/components/layout/Navbar.tsx` is modified.
 
