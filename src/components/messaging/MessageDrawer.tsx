@@ -27,9 +27,10 @@ interface MessageDrawerProps {
   recipientName: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onRead?: () => void;
 }
 
-const MessageDrawer = ({ requestId, recipientName, open, onOpenChange }: MessageDrawerProps) => {
+const MessageDrawer = ({ requestId, recipientName, open, onOpenChange, onRead }: MessageDrawerProps) => {
   const { user } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
@@ -37,10 +38,15 @@ const MessageDrawer = ({ requestId, recipientName, open, onOpenChange }: Message
   const [loading, setLoading] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  // Fetch messages when opened
+  // Mark as read & fetch messages when opened
   useEffect(() => {
-    if (!open || !requestId) return;
+    if (!open || !requestId || !user) return;
     setLoading(true);
+    // Upsert read status
+    supabase
+      .from("conversation_read_status")
+      .upsert({ user_id: user.id, request_id: requestId, last_read_at: new Date().toISOString() })
+      .then(() => onRead?.());
     supabase
       .from("direct_messages")
       .select("*")
