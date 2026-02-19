@@ -1,54 +1,79 @@
 
 
-# Relocate Profile Card, Add User Dropdown, Refine Dashboard
+# Two Profile Pages: Client Profile and Professional Profile
 
 ## Overview
-Three structural changes: move the Professional Profile card to a dedicated Profile page, replace the navbar's "Log out" button with a user dropdown menu, and clean up the Provider Dashboard layout after removing the sidebar.
+Create two separate profile pages -- one for clients and one for professionals (providers). The existing `/profile` page with `ProviderProfileCard` stays as the professional profile. A new client profile page is added with user details instead of ratings/metrics.
 
-## 1. New Profile Page
+## What Changes
 
+### 1. New Client Profile Page
+**File: `src/pages/ClientProfile.tsx`**
+
+A new page at `/client-profile` with:
+- Page title: "Client Profile"
+- A `ClientProfileCard` component showing:
+  - User avatar (circle with User icon, brand green background)
+  - Full name and email from the `profiles` table
+  - **Client Details grid** (2 columns desktop, 1 column mobile):
+    - **Location**: MapPin icon, placeholder "Nairobi, Kenya"
+    - **Member Since**: Calendar icon, formatted `created_at` date
+    - **Industry**: Briefcase icon, placeholder "Not specified"
+    - **Contact Email**: Mail icon, user's email
+  - Styled with `rounded-xl border border-border bg-card` and brand green icon accents
+
+### 2. New Component: `ClientProfileCard.tsx`
+**File: `src/components/profile/ClientProfileCard.tsx`**
+
+- Accepts `userId` prop
+- Fetches from `profiles` table: `full_name`, `email`, `phone`, `avatar_url`, `created_at`
+- Renders user header row + separator + details grid
+- Responsive: `grid-cols-1 sm:grid-cols-2` for details
+
+### 3. Rename Professional Profile Page Title
 **File: `src/pages/Profile.tsx`**
 
-- A new protected page at `/profile`
-- Renders `Navbar`, the existing `ProviderProfileCard` component (passing `user.id`), and `Footer`
-- Clean centered layout with max-width container
-- Consistent styling with other pages
+- Change heading from "My Profile" to "Professional Profile"
+- Keep `ProviderProfileCard` as-is (ratings, breakdown, stats)
 
-## 2. Update Navbar with User Dropdown
-
+### 4. Update Navbar Dropdown
 **File: `src/components/layout/Navbar.tsx`**
 
-When user is logged in, replace the "Dashboard" button + "Log out" button with a single dropdown menu:
+- Change "View Profile" link to show two options:
+  - "Client Profile" linking to `/client-profile`
+  - "Professional Profile" linking to `/profile`
 
-- **Trigger**: An avatar icon (using the `Avatar` component with a `User` icon fallback) or the user's email
-- **Dropdown items**:
-  - "View Profile" -- links to `/profile`
-  - "Dashboard" -- links to `/dashboard`
-  - "Account Settings" -- links to `/dashboard/settings`
-  - Separator
-  - "Log out" -- calls `signOut()`
-- Uses existing `DropdownMenu` components from `src/components/ui/dropdown-menu.tsx`
-- Mobile menu updated similarly: replace standalone buttons with the same links
-
-## 3. Refine Provider Dashboard Layout
-
-**File: `src/pages/ProviderDashboard.tsx`**
-
-- Remove the `ProviderProfileCard` import and the right-hand `<aside>` sidebar
-- Remove the flex-row wrapper (`flex-col lg:flex-row`) since the sidebar is gone
-- The main content area will use full width, giving cards more breathing room
-
-## 4. Add Route for Profile Page
-
+### 5. Add Route
 **File: `src/App.tsx`**
 
-- Add route: `<Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />`
+- Add: `<Route path="/client-profile" element={<ProtectedRoute><ClientProfile /></ProtectedRoute>} />`
 
 ## Files Created
-- `src/pages/Profile.tsx`
+- `src/pages/ClientProfile.tsx`
+- `src/components/profile/ClientProfileCard.tsx`
 
 ## Files Modified
-- `src/App.tsx` -- add `/profile` route
-- `src/components/layout/Navbar.tsx` -- replace logout button with user dropdown
-- `src/pages/ProviderDashboard.tsx` -- remove profile card sidebar, simplify layout
+- `src/pages/Profile.tsx` -- update heading to "Professional Profile"
+- `src/components/layout/Navbar.tsx` -- split "View Profile" into two links
+- `src/App.tsx` -- add `/client-profile` route
+
+## Technical Details
+
+### ClientProfileCard Data Fetching
+```text
+Query: supabase.from("profiles").select("full_name, email, phone, avatar_url, created_at").eq("id", userId).maybeSingle()
+```
+
+### Navbar Dropdown Structure (updated)
+```text
+Client Profile     -> /client-profile
+Professional Profile -> /profile
+Dashboard          -> /dashboard
+Account Settings   -> /dashboard/settings
+---
+Log out
+```
+
+### Responsive Layout
+Both profile pages use the same container: `container max-w-lg py-10` for a clean centered layout on all screen sizes. The client details grid uses `grid-cols-1 sm:grid-cols-2 gap-4`.
 
