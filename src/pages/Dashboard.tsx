@@ -56,6 +56,7 @@ const Dashboard = () => {
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [loading, setLoading] = useState(true);
   const [startingJobId, setStartingJobId] = useState<string | null>(null);
+  const [decliningQuoteId, setDecliningQuoteId] = useState<string | null>(null);
   const [confirmingJobId, setConfirmingJobId] = useState<string | null>(null);
   const [feedbackRequestId, setFeedbackRequestId] = useState<string | null>(null);
   const [feedbackProviderId, setFeedbackProviderId] = useState<string | null>(null);
@@ -63,8 +64,26 @@ const Dashboard = () => {
   const [feedbackComment, setFeedbackComment] = useState("");
   const [submittingFeedback, setSubmittingFeedback] = useState(false);
 
-  const handleStartJob = async (requestId: string) => {
+  const handleStartJob = async (requestId: string, selectedQuoteId: string) => {
     setStartingJobId(requestId);
+    // Accept selected quote
+    const { error: acceptErr } = await supabase
+      .from("quotes")
+      .update({ status: "accepted" })
+      .eq("id", selectedQuoteId);
+    if (acceptErr) {
+      setStartingJobId(null);
+      toast({ title: "Error", description: "Could not accept quote.", variant: "destructive" });
+      return;
+    }
+    // Reject all other quotes for this request
+    const otherQuoteIds = quotes
+      .filter(q => q.request_id === requestId && q.id !== selectedQuoteId && q.status === "pending")
+      .map(q => q.id);
+    if (otherQuoteIds.length > 0) {
+      await supabase.from("quotes").update({ status: "rejected" }).in("id", otherQuoteIds);
+    }
+    // Update request status
     const { error } = await supabase
       .from("service_requests")
       .update({ status: "pending" })
@@ -74,8 +93,29 @@ const Dashboard = () => {
       toast({ title: "Error", description: "Could not start job.", variant: "destructive" });
       return;
     }
+    // Update local state
     setRequests(prev => prev.map(r => r.id === requestId ? { ...r, status: "pending" } : r));
-    toast({ title: "Job started!", description: "The request status has been updated." });
+    setQuotes(prev => prev.map(q => {
+      if (q.request_id !== requestId) return q;
+      if (q.id === selectedQuoteId) return { ...q, status: "accepted" };
+      return { ...q, status: "rejected" };
+    }));
+    toast({ title: "Job started!", description: "The provider has been hired." });
+  };
+
+  const handleDeclineQuote = async (quoteId: string) => {
+    setDecliningQuoteId(quoteId);
+    const { error } = await supabase
+      .from("quotes")
+      .update({ status: "rejected" })
+      .eq("id", quoteId);
+    setDecliningQuoteId(null);
+    if (error) {
+      toast({ title: "Error", description: "Could not decline quote.", variant: "destructive" });
+      return;
+    }
+    setQuotes(prev => prev.map(q => q.id === quoteId ? { ...q, status: "rejected" } : q));
+    toast({ title: "Quote declined", description: "The provider has been notified." });
   };
 
   const handleConfirmCompletion = async (requestId: string, providerId: string) => {
@@ -348,21 +388,49 @@ const Dashboard = () => {
                     {(() => {
                       const linkedRequest = requests.find(r => r.id === quote.request_id);
                       const isOpen = linkedRequest?.status === "open";
+                      if (quote.status === "rejected") {
+                        return (
+                          <span className="ml-4 shrink-0 rounded-full bg-destructive/10 px-3 py-1 text-xs font-semibold text-destructive">
+                            Rejected
+                          </span>
+                        );
+                      }
+                      if (quote.status === "accepted") {
+                        return (
+                          <span className="ml-4 shrink-0 rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+                            Accepted
+                          </span>
+                        );
+                      }
                       return isOpen ? (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="ml-4 shrink-0"
-                          disabled={startingJobId === quote.request_id}
-                          onClick={() => handleStartJob(quote.request_id)}
-                        >
-                          {startingJobId === quote.request_id ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <CheckCircle className="h-4 w-4" />
-                          )}
-                          Start Job
-                        </Button>
+                        <div className="ml-4 flex shrink-0 gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={startingJobId === quote.request_id}
+                            onClick={() => handleStartJob(quote.request_id, quote.id)}
+                          >
+                            {startingJobId === quote.request_id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <CheckCircle className="h-4 w-4" />
+                            )}
+                            Start Job
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-muted-foreground hover:text-destructive"
+                            disabled={decliningQuoteId === quote.id}
+                            onClick={() => handleDeclineQuote(quote.id)}
+                          >
+                            {decliningQuoteId === quote.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              "Decline"
+                            )}
+                          </Button>
+                        </div>
                       ) : (
                         <span className="ml-4 shrink-0 rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
                           Job Started
