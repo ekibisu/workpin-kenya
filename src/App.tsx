@@ -13,6 +13,7 @@ import HowItWorks from "./pages/HowItWorks";
 import RequestService from "./pages/RequestService";
 import Dashboard from "./pages/Dashboard";
 import ProviderDashboard from "./pages/ProviderDashboard";
+import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -33,6 +34,7 @@ const App = () => (
             <Route path="/request" element={<RequestService />} />
             <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/dashboard/*" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+            <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
             <Route path="/provider-dashboard" element={<ProtectedRoute><ProviderDashboard /></ProtectedRoute>} />
             <Route path="/provider-dashboard/*" element={<ProtectedRoute><ProviderDashboard /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
