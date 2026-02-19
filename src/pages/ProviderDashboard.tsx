@@ -47,6 +47,7 @@ const ProviderDashboard = () => {
   const [pendingRequests, setPendingRequests] = useState<OpenRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [quotedRequestIds, setQuotedRequestIds] = useState<Set<string>>(new Set());
+  const [rejectedRequestIds, setRejectedRequestIds] = useState<Set<string>>(new Set());
   const [quoteDialogRequestId, setQuoteDialogRequestId] = useState<string | null>(null);
   const [quotePrice, setQuotePrice] = useState("");
   const [quoteMessage, setQuoteMessage] = useState("");
@@ -68,13 +69,16 @@ const ProviderDashboard = () => {
         .order("created_at", { ascending: false }),
       supabase
         .from("quotes")
-        .select("request_id")
+        .select("request_id, status")
         .eq("provider_id", user.id),
     ]).then(([reqRes, pendingRes, quoteRes]) => {
       setRequests((reqRes.data as unknown as OpenRequest[]) || []);
       setPendingRequests((pendingRes.data as unknown as OpenRequest[]) || []);
-      const ids = new Set((quoteRes.data || []).map((q) => q.request_id));
+      const quoteData = quoteRes.data || [];
+      const ids = new Set(quoteData.map((q) => q.request_id));
       setQuotedRequestIds(ids);
+      const rejected = new Set(quoteData.filter((q) => q.status === "rejected").map((q) => q.request_id));
+      setRejectedRequestIds(rejected);
       setLoading(false);
     });
   }, [user]);
@@ -233,9 +237,15 @@ const ProviderDashboard = () => {
                   </div>
 
                   {quotedRequestIds.has(req.id) ? (
-                    <Button variant="outline" size="sm" className="mt-3 w-full" disabled>
-                      <CheckCircle className="mr-1.5 h-3.5 w-3.5" /> Quote Sent
-                    </Button>
+                    rejectedRequestIds.has(req.id) ? (
+                      <div className="mt-3 flex w-full items-center justify-center rounded-md bg-destructive/10 px-3 py-1.5 text-xs font-semibold text-destructive">
+                        Quote Rejected
+                      </div>
+                    ) : (
+                      <Button variant="outline" size="sm" className="mt-3 w-full" disabled>
+                        <CheckCircle className="mr-1.5 h-3.5 w-3.5" /> Quote Sent
+                      </Button>
+                    )
                   ) : (
                     <Button
                       variant="outline"
