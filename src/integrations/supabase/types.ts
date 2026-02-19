@@ -14,6 +14,32 @@ export type Database = {
   }
   public: {
     Tables: {
+      conversation_read_status: {
+        Row: {
+          last_read_at: string
+          request_id: string
+          user_id: string
+        }
+        Insert: {
+          last_read_at?: string
+          request_id: string
+          user_id: string
+        }
+        Update: {
+          last_read_at?: string
+          request_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversation_read_status_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "service_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       direct_messages: {
         Row: {
           content: string

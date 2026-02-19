@@ -9,6 +9,8 @@ import {
   TrendingUp, Clock, CheckCircle, DollarSign, MapPin, Loader2, User, Star,
 } from "lucide-react";
 import MessageDrawer from "@/components/messaging/MessageDrawer";
+import { Badge } from "@/components/ui/badge";
+import { useUnreadMessageCount } from "@/hooks/useUnreadMessageCount";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { format } from "date-fns";
@@ -53,6 +55,7 @@ const sideLinks = [
 const Dashboard = () => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { unreadCount, resetCount } = useUnreadMessageCount();
   const [requests, setRequests] = useState<ServiceRequest[]>([]);
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [loading, setLoading] = useState(true);
@@ -229,6 +232,11 @@ const Dashboard = () => {
             {sideLinks.map((link) => (
               <Link key={link.label} to={link.href} className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground">
                 <link.icon className="h-4 w-4" />{link.label}
+                {link.label === "Messages" && unreadCount > 0 && (
+                  <Badge variant="destructive" className="ml-auto h-5 min-w-5 justify-center px-1.5 text-[10px]">
+                    {unreadCount}
+                  </Badge>
+                )}
               </Link>
             ))}
           </nav>
@@ -521,6 +529,7 @@ const Dashboard = () => {
         recipientName={chatRecipientName}
         open={!!chatRequestId}
         onOpenChange={(open) => { if (!open) setChatRequestId(null); }}
+        onRead={resetCount}
       />
     </div>
   );
