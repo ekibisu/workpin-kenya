@@ -1,99 +1,78 @@
 
 
-# In-App Messaging System
+# Unread Message Count Badge
 
 ## Overview
-Add a real-time messaging feature so clients and hired providers can chat directly about a job. Messages appear in a slide-in drawer triggered from job cards on both dashboards.
+Add a red badge showing the number of unread messages next to the "Messages" sidebar link in both the Customer Dashboard and Provider Dashboard. This requires tracking when each user last read messages for each conversation.
 
 ## What Changes
 
-### 1. Database: Create `direct_messages` Table
-A new migration creates the table with RLS policies ensuring only the customer and the accepted provider for a request can read/write messages. Realtime is enabled so new messages appear instantly.
+### 1. Database: Create `conversation_read_status` Table
+A small table to track when each user last viewed messages for a given request. Unread count = messages received after `last_read_at`.
 
-- Table columns: `id`, `request_id`, `sender_id`, `content`, `created_at`
-- RLS SELECT policy: customer of the request OR provider with an accepted quote
-- RLS INSERT policy: same participants, plus `sender_id` must match the authenticated user
-- Realtime enabled via `ALTER PUBLICATION supabase_realtime ADD TABLE public.direct_messages`
+```sql
+CREATE TABLE public.conversation_read_status (
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  request_id uuid NOT NULL REFERENCES public.service_requests(id) ON DELETE CASCADE,
+  last_read_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, request_id)
+);
 
-### 2. New Component: `MessageDrawer`
-**File: `src/components/messaging/MessageDrawer.tsx`**
+ALTER TABLE public.conversation_read_status ENABLE ROW LEVEL SECURITY;
 
-A reusable Sheet (slide-in panel from the right) that:
-- Accepts `requestId`, `recipientName`, `open`, and `onOpenChange` props
-- Fetches existing messages ordered by `created_at` when opened
-- Subscribes to realtime `INSERT` events on `direct_messages` filtered by `request_id`
-- Displays messages in a scrollable area: own messages aligned right, others aligned left
-- Includes a text input and send button at the bottom
-- Auto-scrolls to the latest message on new arrivals
+-- Users can only read/write their own read status
+CREATE POLICY "Users can manage own read status"
+  ON public.conversation_read_status FOR ALL TO authenticated
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+```
 
-### 3. Customer Dashboard (`Dashboard.tsx`)
-- Add state for `chatRequestId` and `chatRecipientName`
-- On request cards with status `pending` or `completion_pending`, add a "Message" button next to the hired provider info
-- Clicking opens the `MessageDrawer` with the provider's name
-- Render the `MessageDrawer` component at the bottom of the page
+### 2. New Hook: `useUnreadMessageCount`
+Create `src/hooks/useUnreadMessageCount.ts` that:
+- Fetches all `direct_messages` where the user is a participant (customer or accepted provider) and `sender_id != user.id`
+- Fetches `conversation_read_status` rows for the user
+- Counts messages with `created_at > last_read_at` (or all messages if no read status exists for that request)
+- Subscribes to realtime inserts on `direct_messages` to increment the count live
+- Returns the total unread count as a number
 
-### 4. Provider Dashboard (`ProviderDashboard.tsx`)
-- Add state for `chatRequestId` and `chatRecipientName`
-- Fetch customer names for pending requests by joining `service_requests.customer_id` with profiles
-- On "Jobs Pending" cards, add a "Message Client" button
-- Clicking opens the `MessageDrawer` with the customer's name
-- Render the `MessageDrawer` component at the bottom of the page
+### 3. Update `MessageDrawer` to Mark Messages as Read
+When the drawer opens for a request, upsert `conversation_read_status` with `last_read_at = now()` for the current user and request. This clears the unread count for that conversation.
+
+### 4. Update Both Dashboard Sidebars
+In both `Dashboard.tsx` and `ProviderDashboard.tsx`:
+- Call `useUnreadMessageCount()` to get the count
+- Render a small red `Badge` next to the "Messages" sidebar link when count > 0
 
 ---
 
 ## Technical Details
 
-### Database Migration SQL
-```sql
-CREATE TABLE public.direct_messages (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  request_id uuid NOT NULL REFERENCES public.service_requests(id) ON DELETE CASCADE,
-  sender_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  content text NOT NULL,
-  created_at timestamptz NOT NULL DEFAULT now()
-);
-
-ALTER TABLE public.direct_messages ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Participants can view messages"
-  ON public.direct_messages FOR SELECT TO authenticated
-  USING (
-    EXISTS (SELECT 1 FROM service_requests sr WHERE sr.id = request_id AND sr.customer_id = auth.uid())
-    OR EXISTS (SELECT 1 FROM quotes q WHERE q.request_id = direct_messages.request_id AND q.provider_id = auth.uid() AND q.status = 'accepted')
-  );
-
-CREATE POLICY "Participants can send messages"
-  ON public.direct_messages FOR INSERT TO authenticated
-  WITH CHECK (
-    auth.uid() = sender_id
-    AND (
-      EXISTS (SELECT 1 FROM service_requests sr WHERE sr.id = request_id AND sr.customer_id = auth.uid())
-      OR EXISTS (SELECT 1 FROM quotes q WHERE q.request_id = direct_messages.request_id AND q.provider_id = auth.uid() AND q.status = 'accepted')
-    )
-  );
-
-ALTER PUBLICATION supabase_realtime ADD TABLE public.direct_messages;
+### Unread Count Query Logic
+```text
+1. Get all request_ids where user is a participant
+   - Customer: service_requests.customer_id = user.id AND status IN ('pending','completion_pending')
+   - Provider: quotes.provider_id = user.id AND quotes.status = 'accepted'
+2. For each request_id, get last_read_at from conversation_read_status (default to epoch if none)
+3. Count direct_messages where request_id IN (...) AND sender_id != user.id AND created_at > last_read_at
 ```
 
-### Realtime Subscription Pattern (in MessageDrawer)
+### Mark-as-Read (in MessageDrawer)
 ```typescript
-const channel = supabase
-  .channel(`dm-${requestId}`)
-  .on('postgres_changes', {
-    event: 'INSERT',
-    schema: 'public',
-    table: 'direct_messages',
-    filter: `request_id=eq.${requestId}`,
-  }, (payload) => {
-    setMessages(prev => [...prev, payload.new]);
-  })
-  .subscribe();
+await supabase
+  .from("conversation_read_status")
+  .upsert({ user_id: user.id, request_id: requestId, last_read_at: new Date().toISOString() });
+```
+
+### Badge Rendering (sidebar)
+```text
+Messages [3]   <-- red circle badge when count > 0
 ```
 
 ### Files Created
-- `src/components/messaging/MessageDrawer.tsx`
+- `src/hooks/useUnreadMessageCount.ts`
 
 ### Files Modified
-- `src/pages/Dashboard.tsx` -- add Message button + MessageDrawer on hired job cards
-- `src/pages/ProviderDashboard.tsx` -- add Message button + MessageDrawer on pending job cards, fetch customer names
+- `src/components/messaging/MessageDrawer.tsx` -- upsert read status on open
+- `src/pages/Dashboard.tsx` -- use hook, render badge on Messages link
+- `src/pages/ProviderDashboard.tsx` -- use hook, render badge on Messages link
 
