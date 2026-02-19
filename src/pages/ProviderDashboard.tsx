@@ -10,7 +10,7 @@ import {
   LayoutDashboard, FileText, MessageCircle, Settings,
   Clock, MapPin, Banknote, Loader2, Image as ImageIcon, CheckCircle, XCircle,
 } from "lucide-react";
-import ProviderProfileCard from "@/components/provider/ProviderProfileCard";
+
 import MessageDrawer from "@/components/messaging/MessageDrawer";
 import { Badge } from "@/components/ui/badge";
 import { useUnreadMessageCount } from "@/hooks/useUnreadMessageCount";
@@ -182,8 +182,6 @@ const ProviderDashboard = () => {
         </aside>
 
         <main className="flex-1 bg-background p-6 lg:p-8">
-          <div className="flex flex-col lg:flex-row gap-6">
-            <div className="flex-1 min-w-0">
           <div className="mb-8">
             <h1 className="text-2xl font-extrabold text-foreground">Open Service Requests</h1>
             <p className="text-sm text-muted-foreground">Browse jobs posted by customers and send a quote.</p>
@@ -443,13 +441,6 @@ const ProviderDashboard = () => {
                   </div>
                 ))}
               </div>
-            )}
-          </div>
-            </div>
-            {user && (
-              <aside className="w-full lg:w-[300px] shrink-0">
-                <ProviderProfileCard userId={user.id} />
-              </aside>
             )}
           </div>
         </main>
