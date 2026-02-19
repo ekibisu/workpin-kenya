@@ -1,70 +1,131 @@
 
 
-# Real-Time Updates for Dashboards
+# In-App Messaging System
 
 ## Overview
-Add Supabase Realtime subscriptions to both the Customer Dashboard and Provider Dashboard so that quote and request status changes appear instantly without needing a page refresh.
+Add a real-time messaging feature that lets clients and hired providers communicate directly about a job. Messages are accessed via a slide-in drawer (Sheet) triggered from quote/job cards on both dashboards.
 
 ## What Changes
 
-### 1. Enable Realtime on Tables (Database Migration)
-Run a SQL migration to add the `service_requests` and `quotes` tables to the Supabase realtime publication:
+### 1. Database: Create `direct_messages` Table
+A new table to store messages tied to a service request between the customer and the accepted provider.
+
 ```sql
-ALTER PUBLICATION supabase_realtime ADD TABLE public.service_requests;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.quotes;
+CREATE TABLE public.direct_messages (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  request_id uuid NOT NULL REFERENCES public.service_requests(id) ON DELETE CASCADE,
+  sender_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  content text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+ALTER TABLE public.direct_messages ENABLE ROW LEVEL SECURITY;
+
+-- Only the customer or the hired provider for the request can read messages
+CREATE POLICY "Participants can view messages"
+  ON public.direct_messages FOR SELECT TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM service_requests sr
+      WHERE sr.id = direct_messages.request_id
+        AND sr.customer_id = auth.uid()
+    )
+    OR EXISTS (
+      SELECT 1 FROM quotes q
+      WHERE q.request_id = direct_messages.request_id
+        AND q.provider_id = auth.uid()
+        AND q.status = 'accepted'
+    )
+  );
+
+-- Only participants can send messages
+CREATE POLICY "Participants can send messages"
+  ON public.direct_messages FOR INSERT TO authenticated
+  WITH CHECK (
+    auth.uid() = sender_id
+    AND (
+      EXISTS (
+        SELECT 1 FROM service_requests sr
+        WHERE sr.id = direct_messages.request_id
+          AND sr.customer_id = auth.uid()
+      )
+      OR EXISTS (
+        SELECT 1 FROM quotes q
+        WHERE q.request_id = direct_messages.request_id
+          AND q.provider_id = auth.uid()
+          AND q.status = 'accepted'
+      )
+    )
+  );
+
+-- Enable realtime
+ALTER PUBLICATION supabase_realtime ADD TABLE public.direct_messages;
 ```
 
-### 2. Customer Dashboard (`src/pages/Dashboard.tsx`)
-Add a `useEffect` that subscribes to two realtime channels after the initial data load:
+### 2. New Component: `MessageDrawer`
+Create `src/components/messaging/MessageDrawer.tsx` -- a reusable Sheet component that:
+- Takes `requestId`, `recipientName`, and `open/onOpenChange` props
+- Fetches existing messages for the request on open
+- Subscribes to realtime inserts on `direct_messages` filtered by `request_id`
+- Displays messages in a scrollable area with sender alignment (own messages right, other left)
+- Has a text input and send button at the bottom
+- Shows timestamps and sender names
+- Auto-scrolls to the latest message
 
-- **`service_requests` changes** -- listen for `UPDATE` events where `customer_id` matches the current user. On change, update the matching request in local state (e.g. status going from `pending` to `completion_pending`).
-- **`quotes` changes** -- listen for `INSERT` and `UPDATE` events on quotes whose `request_id` is in the user's requests list. On insert, add the new quote to local state. On update, patch the matching quote's status/price.
+### 3. Customer Dashboard Updates (`Dashboard.tsx`)
+- Import `MessageDrawer` and `MessageCircle` icon
+- Add state for `chatRequestId` and `chatRecipientName`
+- On request cards with status `pending` or `completion_pending`, add a "Message" button next to the hired provider name
+- Clicking opens the `MessageDrawer` with the request ID and provider name
 
-Cleanup: unsubscribe from channels on component unmount.
-
-### 3. Provider Dashboard (`src/pages/ProviderDashboard.tsx`)
-Add a `useEffect` that subscribes to:
-
-- **`service_requests` changes** -- listen for `INSERT` (new open requests appear) and `UPDATE` events. When a request transitions to `open`, add it to the open list. When it transitions to `pending`/`completion_pending`, move it to the pending list. When it becomes `completed`, remove from pending.
-- **`quotes` changes** -- listen for `UPDATE` events where `provider_id` matches the current user. Update the `quotedRequestIds` and `rejectedRequestIds` sets when a quote is accepted or rejected by a client.
-
-Cleanup: unsubscribe on unmount.
+### 4. Provider Dashboard Updates (`ProviderDashboard.tsx`)
+- Import `MessageDrawer`
+- Add state for `chatRequestId` and `chatRecipientName`
+- On "Jobs Pending" cards, add a "Message Client" button
+- Need to fetch the customer name for pending requests (join with profiles via `service_requests.customer_id`)
+- Clicking opens the `MessageDrawer`
 
 ---
 
 ## Technical Details
 
-### Realtime subscription pattern (used in both dashboards):
-```typescript
-useEffect(() => {
-  if (!user) return;
-
-  const channel = supabase
-    .channel('dashboard-realtime')
-    .on('postgres_changes', {
-      event: '*',
-      schema: 'public',
-      table: 'service_requests',
-    }, (payload) => {
-      // Handle INSERT, UPDATE based on payload.eventType
-      // Update local state accordingly
-    })
-    .on('postgres_changes', {
-      event: '*',
-      schema: 'public',
-      table: 'quotes',
-    }, (payload) => {
-      // Handle INSERT, UPDATE
-      // Refetch related data or patch local state
-    })
-    .subscribe();
-
-  return () => { supabase.removeChannel(channel); };
-}, [user, /* relevant dependencies */]);
+### MessageDrawer Component Structure
+```text
+Sheet (side="right", ~400px wide)
++-- SheetHeader: "Chat with {recipientName}"
++-- ScrollArea: message list
+|   +-- Each message bubble:
+|       - Aligned right if sender_id === current user
+|       - Aligned left otherwise
+|       - Shows content + timestamp
++-- Footer: input + send button
 ```
 
-### Key considerations:
-- **RLS applies to realtime** -- users will only receive events for rows they have SELECT access to, so existing policies are sufficient.
-- For quotes on the customer dashboard, when a new quote arrives via realtime INSERT, we'll need to fetch the joined profile/service data with a follow-up query since the realtime payload only contains the raw row.
-- State updates use functional `setState` to avoid stale closure issues.
-- Each dashboard gets its own uniquely-named channel to avoid conflicts.
+### Realtime Subscription Pattern
+```typescript
+const channel = supabase
+  .channel(`dm-${requestId}`)
+  .on('postgres_changes', {
+    event: 'INSERT',
+    schema: 'public',
+    table: 'direct_messages',
+    filter: `request_id=eq.${requestId}`,
+  }, (payload) => {
+    setMessages(prev => [...prev, payload.new]);
+  })
+  .subscribe();
+```
+
+### Data Flow
+- Messages are fetched with `SELECT * FROM direct_messages WHERE request_id = ? ORDER BY created_at ASC`
+- New messages are inserted and instantly appear via the realtime subscription
+- The sender sees their message immediately (optimistic or via realtime echo)
+- RLS ensures only the customer and hired provider can read/write messages for a given request
+
+### Files Created
+- `src/components/messaging/MessageDrawer.tsx`
+
+### Files Modified
+- `src/pages/Dashboard.tsx` -- add Message button on hired job cards
+- `src/pages/ProviderDashboard.tsx` -- add Message button on pending job cards, fetch customer names
+
