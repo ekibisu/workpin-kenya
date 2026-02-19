@@ -1,98 +1,80 @@
 
 
-# Messaging System for Client-Provider Communication
+# Decline Requests and Quotes
 
-## Overview
+## What Changes
 
-Add a real-time chat system that lets clients and providers message each other directly from quote cards. Clicking a "Message" button opens a chat drawer filtered to that specific request and user pair.
+### Professional Side -- "Not Interested" on Open Requests
 
-## Database Changes
+- Add a `hiddenRequestIds` state (loaded from `localStorage`) to track requests the provider has dismissed
+- Add a "Not Interested" button (with `XCircle` icon) next to "Send Quote" on each open request card
+- Clicking it adds the request ID to `hiddenRequestIds`, saves to `localStorage`, and hides the card from the feed instantly
+- No database changes needed -- this is a client-side preference stored locally
 
-### Alter the existing `messages` table
+### Client Side -- "Decline Quote" and Auto-Reject Logic
 
-The current `messages` table references `job_id`, which isn't used in the active workflow. We'll create a new dedicated table `direct_messages` to avoid breaking existing schema:
+- Add a "Decline" button next to the "Start Job" button on each quote card (only shown for quotes with `pending` status on `open` requests)
+- **Decline Quote**: Updates that quote's status to `rejected` via `supabase.from("quotes").update({ status: "rejected" })`
+- **Start Job (enhanced)**: When a client clicks "Start Job" on a quote:
+  1. Update the selected quote's status to `accepted`
+  2. Automatically update all *other* quotes for the same request to `rejected`
+  3. Then update the request status to `pending` (existing behavior)
+- Declined/rejected quotes show a "Rejected" badge instead of action buttons
 
-- `id` (UUID, primary key)
-- `sender_id` (UUID, references profiles)
-- `receiver_id` (UUID, references profiles)
-- `request_id` (UUID, references service_requests)
-- `content` (text, not null)
-- `created_at` (timestamptz, default now())
+### Database Considerations
 
-**RLS Policies:**
-- SELECT: Users can read messages where they are sender or receiver
-- INSERT: Users can send messages where `sender_id = auth.uid()`
+No new tables or columns are needed. The `quotes` table already has a `status` column (default `pending`). Existing RLS policies don't allow customers to update quotes directly, so we need one new policy:
 
-**Realtime:** Enable realtime on `direct_messages` so new messages appear instantly.
-
-## UI Changes
-
-### 1. New ChatDrawer Component (`src/components/ChatDrawer.tsx`)
-
-A reusable drawer component that:
-- Accepts `requestId`, `otherUserId`, `otherUserName`, and `isOpen`/`onClose` props
-- Fetches messages filtered by `request_id` where the current user is sender or receiver AND the other party matches
-- Displays messages in a scrollable list (own messages right-aligned, other's left-aligned)
-- Has a text input + send button at the bottom
-- Subscribes to realtime updates for new messages
-
-### 2. Client Dashboard (`src/pages/Dashboard.tsx`)
-
-- Add a `MessageCircle` icon button to each quote card in the "Quotes Received" section
-- Clicking opens the ChatDrawer with `requestId = quote.request_id`, `otherUserId = quote.provider_id`, `otherUserName = quote.profiles.full_name`
-
-### 3. Provider Dashboard (`src/pages/ProviderDashboard.tsx`)
-
-- Add a `MessageCircle` icon button to each pending job card
-- Need to fetch the `customer_id` from service_requests to know who to message
-- Clicking opens the ChatDrawer with `requestId = req.id`, `otherUserId = req.customer_id`
+**New RLS policy on `quotes`:**
+- Customers can update quote status for quotes on their own requests (to set `accepted`/`rejected`)
 
 ## Technical Details
 
-### New migration SQL
+### Migration SQL
 
 ```sql
-CREATE TABLE public.direct_messages (
-  id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
-  sender_id UUID NOT NULL REFERENCES public.profiles(id),
-  receiver_id UUID NOT NULL REFERENCES public.profiles(id),
-  request_id UUID NOT NULL REFERENCES public.service_requests(id),
-  content TEXT NOT NULL,
-  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
+CREATE POLICY "Customer can update quote status"
+ON public.quotes FOR UPDATE
+USING (
+  EXISTS (
+    SELECT 1 FROM public.service_requests
+    WHERE service_requests.id = quotes.request_id
+    AND service_requests.customer_id = auth.uid()
+  )
+)
+WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM public.service_requests
+    WHERE service_requests.id = quotes.request_id
+    AND service_requests.customer_id = auth.uid()
+  )
 );
-
-ALTER TABLE public.direct_messages ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Users can view own messages"
-ON public.direct_messages FOR SELECT
-USING (auth.uid() = sender_id OR auth.uid() = receiver_id);
-
-CREATE POLICY "Users can send messages"
-ON public.direct_messages FOR INSERT
-WITH CHECK (auth.uid() = sender_id);
-
-ALTER PUBLICATION supabase_realtime ADD TABLE public.direct_messages;
 ```
 
-### ChatDrawer component structure
+### ProviderDashboard.tsx Changes
 
-- Uses the `Sheet` component (slide-in from right)
-- `useEffect` to fetch messages on open and subscribe to realtime inserts
-- Messages sorted by `created_at` ascending
-- Auto-scroll to bottom on new messages
-- Send handler inserts into `direct_messages` with sender_id, receiver_id, request_id, content
+- New state: `hiddenRequestIds` initialized from `localStorage` key `hidden_requests`
+- New handler: `handleHideRequest(requestId)` -- adds to set, saves to localStorage, filters from display
+- Filter `requests` list to exclude hidden IDs before rendering
+- Add "Not Interested" ghost button on each open request card
 
-### Data fetching adjustments
+### Dashboard.tsx Changes
 
-- **ProviderDashboard**: Update the service_requests query to also select `customer_id` so we know who to message
-- **Dashboard**: Already has `provider_id` from quote data -- no changes needed for data
+- New state: `decliningQuoteId` for loading indicator
+- New handler: `handleDeclineQuote(quoteId)` -- updates quote status to `rejected` in DB and local state
+- Enhanced `handleStartJob(requestId)`:
+  1. Find the accepted quote for this request
+  2. Update that quote to `accepted`
+  3. Update all other quotes for the same request to `rejected`
+  4. Update request status to `pending`
+  5. Update local state for all affected quotes
+- Update quote card UI to show "Decline" button alongside "Start Job" for pending quotes on open requests
+- Show "Rejected" badge for rejected quotes
 
-### Files to create/modify
+### Files Modified
 
-| File | Action |
+| File | Change |
 |------|--------|
-| `src/components/ChatDrawer.tsx` | Create -- reusable chat drawer component |
-| `src/pages/Dashboard.tsx` | Edit -- add Message button to quote cards |
-| `src/pages/ProviderDashboard.tsx` | Edit -- add Message button to pending cards, fetch customer_id |
-| Database migration | Create -- `direct_messages` table with RLS and realtime |
-
+| `ProviderDashboard.tsx` | Add hidden requests logic and "Not Interested" button |
+| `Dashboard.tsx` | Add decline quote, auto-reject on accept, updated quote card UI |
+| Database migration | Add customer quote update policy |
