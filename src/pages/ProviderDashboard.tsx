@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Link } from "react-router-dom";
 import {
   LayoutDashboard, FileText, MessageCircle, Settings,
-  Clock, MapPin, Banknote, Loader2, Image as ImageIcon, CheckCircle,
+  Clock, MapPin, Banknote, Loader2, Image as ImageIcon, CheckCircle, XCircle,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -48,6 +48,12 @@ const ProviderDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [quotedRequestIds, setQuotedRequestIds] = useState<Set<string>>(new Set());
   const [rejectedRequestIds, setRejectedRequestIds] = useState<Set<string>>(new Set());
+  const [hiddenRequestIds, setHiddenRequestIds] = useState<Set<string>>(() => {
+    try {
+      const stored = localStorage.getItem("hidden_requests");
+      return stored ? new Set(JSON.parse(stored)) : new Set();
+    } catch { return new Set(); }
+  });
   const [quoteDialogRequestId, setQuoteDialogRequestId] = useState<string | null>(null);
   const [quotePrice, setQuotePrice] = useState("");
   const [quoteMessage, setQuoteMessage] = useState("");
@@ -104,6 +110,13 @@ const ProviderDashboard = () => {
     toast({ title: "Quote sent!", description: "The customer will be notified." });
   };
 
+  const handleHideRequest = (requestId: string) => {
+    const updated = new Set(hiddenRequestIds).add(requestId);
+    setHiddenRequestIds(updated);
+    localStorage.setItem("hidden_requests", JSON.stringify([...updated]));
+    toast({ title: "Request hidden", description: "You won't see this request anymore." });
+  };
+
   const handleCompleteJob = async (requestId: string) => {
     setCompletingJobId(requestId);
     const { error } = await supabase
@@ -155,7 +168,7 @@ const ProviderDashboard = () => {
             </div>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {requests.map((req) => (
+              {requests.filter((req) => !hiddenRequestIds.has(req.id)).map((req) => (
                 <div
                   key={req.id}
                   className="flex flex-col rounded-2xl border border-border bg-card p-5 transition-colors hover:border-primary/30"
@@ -247,18 +260,28 @@ const ProviderDashboard = () => {
                       </Button>
                     )
                   ) : (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="mt-3 w-full"
-                      onClick={() => {
-                        setQuoteDialogRequestId(req.id);
-                        setQuotePrice("");
-                        setQuoteMessage("");
-                      }}
-                    >
-                      Send Quote
-                    </Button>
+                    <div className="mt-3 flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1"
+                        onClick={() => {
+                          setQuoteDialogRequestId(req.id);
+                          setQuotePrice("");
+                          setQuoteMessage("");
+                        }}
+                      >
+                        Send Quote
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-muted-foreground hover:text-destructive"
+                        onClick={() => handleHideRequest(req.id)}
+                      >
+                        <XCircle className="h-4 w-4" />
+                      </Button>
+                    </div>
                   )}
                 </div>
               ))}
