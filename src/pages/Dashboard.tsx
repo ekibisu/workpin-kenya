@@ -8,6 +8,7 @@ import {
   LayoutDashboard, FileText, MessageCircle, Settings, Plus,
   TrendingUp, Clock, CheckCircle, DollarSign, MapPin, Loader2, User, Star,
 } from "lucide-react";
+import MessageDrawer from "@/components/messaging/MessageDrawer";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { format } from "date-fns";
@@ -63,6 +64,8 @@ const Dashboard = () => {
   const [feedbackRating, setFeedbackRating] = useState(5);
   const [feedbackComment, setFeedbackComment] = useState("");
   const [submittingFeedback, setSubmittingFeedback] = useState(false);
+  const [chatRequestId, setChatRequestId] = useState<string | null>(null);
+  const [chatRecipientName, setChatRecipientName] = useState("");
 
   const handleStartJob = async (requestId: string, selectedQuoteId: string) => {
     setStartingJobId(requestId);
@@ -285,9 +288,23 @@ const Dashboard = () => {
                       {(req.status === "pending" || req.status === "completion_pending") && (() => {
                         const acceptedQuote = quotes.find(q => q.request_id === req.id && q.status === "accepted");
                         return acceptedQuote ? (
-                          <div className="mt-2 flex items-center gap-1.5 text-xs font-medium text-primary">
-                            <User className="h-3 w-3" />
-                            Hired: {acceptedQuote.profiles?.full_name || "Provider"}
+                          <div className="mt-2 flex items-center gap-2">
+                            <span className="flex items-center gap-1.5 text-xs font-medium text-primary">
+                              <User className="h-3 w-3" />
+                              Hired: {acceptedQuote.profiles?.full_name || "Provider"}
+                            </span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 px-2 text-xs"
+                              onClick={() => {
+                                setChatRequestId(req.id);
+                                setChatRecipientName(acceptedQuote.profiles?.full_name || "Provider");
+                              }}
+                            >
+                              <MessageCircle className="mr-1 h-3 w-3" />
+                              Message
+                            </Button>
                           </div>
                         ) : null;
                       })()}
@@ -498,6 +515,13 @@ const Dashboard = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      <MessageDrawer
+        requestId={chatRequestId}
+        recipientName={chatRecipientName}
+        open={!!chatRequestId}
+        onOpenChange={(open) => { if (!open) setChatRequestId(null); }}
+      />
     </div>
   );
 };

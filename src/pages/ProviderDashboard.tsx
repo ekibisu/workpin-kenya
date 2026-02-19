@@ -10,6 +10,7 @@ import {
   LayoutDashboard, FileText, MessageCircle, Settings,
   Clock, MapPin, Banknote, Loader2, Image as ImageIcon, CheckCircle, XCircle,
 } from "lucide-react";
+import MessageDrawer from "@/components/messaging/MessageDrawer";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { format } from "date-fns";
@@ -59,6 +60,9 @@ const ProviderDashboard = () => {
   const [quoteMessage, setQuoteMessage] = useState("");
   const [submittingQuote, setSubmittingQuote] = useState(false);
   const [completingJobId, setCompletingJobId] = useState<string | null>(null);
+  const [chatRequestId, setChatRequestId] = useState<string | null>(null);
+  const [chatRecipientName, setChatRecipientName] = useState("");
+  const [customerNames, setCustomerNames] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (!user) return;
@@ -70,7 +74,7 @@ const ProviderDashboard = () => {
         .order("created_at", { ascending: false }),
       supabase
         .from("service_requests")
-        .select("id, description, budget, location_name, status, created_at, image_urls, services(name)")
+        .select("id, description, budget, location_name, status, created_at, image_urls, customer_id, services(name)")
         .in("status", ["pending", "completion_pending"])
         .order("created_at", { ascending: false }),
       supabase
@@ -79,13 +83,30 @@ const ProviderDashboard = () => {
         .eq("provider_id", user.id),
     ]).then(([reqRes, pendingRes, quoteRes]) => {
       setRequests((reqRes.data as unknown as OpenRequest[]) || []);
-      setPendingRequests((pendingRes.data as unknown as OpenRequest[]) || []);
+      const pending = (pendingRes.data as unknown as OpenRequest[]) || [];
+      setPendingRequests(pending);
       const quoteData = quoteRes.data || [];
       const ids = new Set(quoteData.map((q) => q.request_id));
       setQuotedRequestIds(ids);
       const rejected = new Set(quoteData.filter((q) => q.status === "rejected").map((q) => q.request_id));
       setRejectedRequestIds(rejected);
       setLoading(false);
+
+      // Fetch customer names for pending requests
+      const customerIds = pending.map((r) => (r as any).customer_id).filter(Boolean);
+      if (customerIds.length > 0) {
+        supabase
+          .from("profiles")
+          .select("id, full_name")
+          .in("id", customerIds)
+          .then(({ data: profiles }) => {
+            const names: Record<string, string> = {};
+            (profiles || []).forEach((p: any) => {
+              names[p.id] = p.full_name || "Client";
+            });
+            setCustomerNames(names);
+          });
+      }
     });
   }, [user]);
 
@@ -372,27 +393,42 @@ const ProviderDashboard = () => {
                       <span>{format(new Date(req.created_at), "MMM d")}</span>
                     </div>
 
-                    {req.status === "completion_pending" ? (
-                      <Button variant="outline" size="sm" className="mt-3 w-full" disabled>
-                        <Clock className="mr-1.5 h-3.5 w-3.5" />
-                        Awaiting Client Confirmation
-                      </Button>
-                    ) : (
+                    <div className="mt-3 flex gap-2">
                       <Button
-                        variant="outline"
+                        variant="ghost"
                         size="sm"
-                        className="mt-3 w-full"
-                        disabled={completingJobId === req.id}
-                        onClick={() => handleCompleteJob(req.id)}
+                        className="flex-1 text-xs"
+                        onClick={() => {
+                          const custId = (req as any).customer_id;
+                          setChatRequestId(req.id);
+                          setChatRecipientName(customerNames[custId] || "Client");
+                        }}
                       >
-                        {completingJobId === req.id ? (
-                          <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                        ) : (
-                          <CheckCircle className="mr-1.5 h-3.5 w-3.5" />
-                        )}
-                        {completingJobId === req.id ? "Requesting..." : "Mark Complete"}
+                        <MessageCircle className="mr-1 h-3.5 w-3.5" />
+                        Message Client
                       </Button>
-                    )}
+                      {req.status === "completion_pending" ? (
+                        <Button variant="outline" size="sm" className="flex-1" disabled>
+                          <Clock className="mr-1.5 h-3.5 w-3.5" />
+                          Awaiting Confirmation
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1"
+                          disabled={completingJobId === req.id}
+                          onClick={() => handleCompleteJob(req.id)}
+                        >
+                          {completingJobId === req.id ? (
+                            <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <CheckCircle className="mr-1.5 h-3.5 w-3.5" />
+                          )}
+                          {completingJobId === req.id ? "Requesting..." : "Mark Complete"}
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -438,6 +474,12 @@ const ProviderDashboard = () => {
           </div>
         </DialogContent>
       </Dialog>
+      <MessageDrawer
+        requestId={chatRequestId}
+        recipientName={chatRecipientName}
+        open={!!chatRequestId}
+        onOpenChange={(open) => { if (!open) setChatRequestId(null); }}
+      />
       <Footer />
     </div>
   );
