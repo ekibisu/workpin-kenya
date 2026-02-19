@@ -1,79 +1,70 @@
 
 
-# Decline Requests and Quotes Implementation
+# Real-Time Updates for Dashboards
 
 ## Overview
+Add Supabase Realtime subscriptions to both the Customer Dashboard and Provider Dashboard so that quote and request status changes appear instantly without needing a page refresh.
 
-Implement the ability for providers to dismiss open requests and for clients to decline quotes, with automatic rejection of competing quotes when a job is started.
+## What Changes
 
-## Step 1: Database Migration
-
-Add an RLS policy so customers can update quote statuses (to `accepted`/`rejected`) for quotes on their own requests.
-
+### 1. Enable Realtime on Tables (Database Migration)
+Run a SQL migration to add the `service_requests` and `quotes` tables to the Supabase realtime publication:
 ```sql
-CREATE POLICY "Customer can update quote status"
-ON public.quotes FOR UPDATE
-USING (
-  EXISTS (
-    SELECT 1 FROM public.service_requests
-    WHERE service_requests.id = quotes.request_id
-    AND service_requests.customer_id = auth.uid()
-  )
-)
-WITH CHECK (
-  EXISTS (
-    SELECT 1 FROM public.service_requests
-    WHERE service_requests.id = quotes.request_id
-    AND service_requests.customer_id = auth.uid()
-  )
-);
+ALTER PUBLICATION supabase_realtime ADD TABLE public.service_requests;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.quotes;
 ```
 
-## Step 2: Provider Dashboard -- "Not Interested" Button
+### 2. Customer Dashboard (`src/pages/Dashboard.tsx`)
+Add a `useEffect` that subscribes to two realtime channels after the initial data load:
 
-**File: `src/pages/ProviderDashboard.tsx`**
+- **`service_requests` changes** -- listen for `UPDATE` events where `customer_id` matches the current user. On change, update the matching request in local state (e.g. status going from `pending` to `completion_pending`).
+- **`quotes` changes** -- listen for `INSERT` and `UPDATE` events on quotes whose `request_id` is in the user's requests list. On insert, add the new quote to local state. On update, patch the matching quote's status/price.
 
-- Add `hiddenRequestIds` state initialized from `localStorage` key `hidden_requests`
-- Add `handleHideRequest(requestId)` handler that adds the ID to the set, persists to `localStorage`, and removes the card
-- Filter `requests` to exclude hidden IDs before rendering
-- Add a ghost "Not Interested" button (with `XCircle` icon) next to the existing "Send Quote" button on each open request card
+Cleanup: unsubscribe from channels on component unmount.
 
-## Step 3: Client Dashboard -- Decline Quote and Auto-Reject
+### 3. Provider Dashboard (`src/pages/ProviderDashboard.tsx`)
+Add a `useEffect` that subscribes to:
 
-**File: `src/pages/Dashboard.tsx`**
+- **`service_requests` changes** -- listen for `INSERT` (new open requests appear) and `UPDATE` events. When a request transitions to `open`, add it to the open list. When it transitions to `pending`/`completion_pending`, move it to the pending list. When it becomes `completed`, remove from pending.
+- **`quotes` changes** -- listen for `UPDATE` events where `provider_id` matches the current user. Update the `quotedRequestIds` and `rejectedRequestIds` sets when a quote is accepted or rejected by a client.
 
-- Add `decliningQuoteId` state for loading indicator
-- Add `handleDeclineQuote(quoteId)` -- updates quote status to `rejected` in DB and updates local `quotes` state
-- Enhance `handleStartJob(requestId, selectedQuoteId)`:
-  1. Update the selected quote to `accepted`
-  2. Update all other quotes for the same request to `rejected`
-  3. Update the service request status to `pending`
-  4. Refresh local state for all affected quotes and the request
-- On each quote card (for pending quotes on open requests):
-  - Show "Start Job" and "Decline" buttons side by side
-  - Pass the specific `quote.id` when clicking "Start Job"
-- For rejected quotes: show a red "Rejected" badge instead of action buttons
-- For accepted quotes: show a green "Accepted" badge
+Cleanup: unsubscribe on unmount.
+
+---
 
 ## Technical Details
 
-### Files Modified
+### Realtime subscription pattern (used in both dashboards):
+```typescript
+useEffect(() => {
+  if (!user) return;
 
-| File | Change |
-|------|--------|
-| Database migration | New RLS policy on `quotes` for customer updates |
-| `src/pages/ProviderDashboard.tsx` | Hidden requests via localStorage + "Not Interested" button |
-| `src/pages/Dashboard.tsx` | Decline quote, auto-reject on accept, updated quote card UI |
+  const channel = supabase
+    .channel('dashboard-realtime')
+    .on('postgres_changes', {
+      event: '*',
+      schema: 'public',
+      table: 'service_requests',
+    }, (payload) => {
+      // Handle INSERT, UPDATE based on payload.eventType
+      // Update local state accordingly
+    })
+    .on('postgres_changes', {
+      event: '*',
+      schema: 'public',
+      table: 'quotes',
+    }, (payload) => {
+      // Handle INSERT, UPDATE
+      // Refetch related data or patch local state
+    })
+    .subscribe();
 
-### Key State Changes
+  return () => { supabase.removeChannel(channel); };
+}, [user, /* relevant dependencies */]);
+```
 
-- **ProviderDashboard**: `hiddenRequestIds: Set<string>` from localStorage
-- **Dashboard**: `decliningQuoteId: string | null` for button loading state
-
-### Quote Card Status Display
-
-- `pending` on `open` request: Show "Start Job" + "Decline" buttons
-- `rejected`: Show red "Rejected" badge
-- `accepted`: Show green "Accepted" badge  
-- Any quote on non-open request: Show "Job Started" badge (existing behavior)
-
+### Key considerations:
+- **RLS applies to realtime** -- users will only receive events for rows they have SELECT access to, so existing policies are sufficient.
+- For quotes on the customer dashboard, when a new quote arrives via realtime INSERT, we'll need to fetch the joined profile/service data with a follow-up query since the realtime payload only contains the raw row.
+- State updates use functional `setState` to avoid stale closure issues.
+- Each dashboard gets its own uniquely-named channel to avoid conflicts.
