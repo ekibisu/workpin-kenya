@@ -1,8 +1,10 @@
-import { useEffect, useState } from "react";
-import { MapPin, Calendar, Briefcase, Mail, User, Loader2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { MapPin, Calendar, Briefcase, Mail, User, Loader2, Upload } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { Separator } from "@/components/ui/separator";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { useToast } from "@/hooks/use-toast";
 
 interface ClientProfileCardProps {
   userId: string;
@@ -15,20 +17,64 @@ const ClientProfileCard = ({ userId }: ClientProfileCardProps) => {
     email: string | null;
     phone: string | null;
     created_at: string;
+    avatar_url: string | null;
   } | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
+
+  const fetchProfile = async () => {
+    setLoading(true);
+    const { data } = await supabase
+      .from("profiles")
+      .select("full_name, email, phone, avatar_url, created_at")
+      .eq("id", userId)
+      .maybeSingle();
+    setProfile(data);
+    setLoading(false);
+  };
 
   useEffect(() => {
-    const fetchProfile = async () => {
-      const { data } = await supabase
-        .from("profiles")
-        .select("full_name, email, phone, avatar_url, created_at")
-        .eq("id", userId)
-        .maybeSingle();
-      setProfile(data);
-      setLoading(false);
-    };
     fetchProfile();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
+
+  const handleAvatarClick = () => {
+    if (!uploading && fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      // Upload to Supabase Storage
+      const fileExt = file.name.split('.').pop();
+      const filePath = `${userId}_${Date.now()}.${fileExt}`;
+      const { error: uploadError } = await supabase.storage.from('avatars').upload(filePath, file, { upsert: true });
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(filePath);
+
+      // Update profile
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: publicUrl })
+        .eq('id', userId);
+      if (updateError) throw updateError;
+
+      toast({ title: "Avatar updated!", description: "Your profile picture was updated successfully." });
+      await fetchProfile();
+    } catch (err: any) {
+      toast({ title: "Upload failed", description: err.message || "Could not upload avatar.", variant: "destructive" });
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
 
   if (loading) {
     return (
@@ -55,8 +101,39 @@ const ClientProfileCard = ({ userId }: ClientProfileCardProps) => {
 
       {/* User header */}
       <div className="flex items-center gap-4">
-        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
-          <User className="h-6 w-6 text-primary" />
+        <div className="relative">
+          <Avatar className="h-12 w-12 cursor-pointer" onClick={handleAvatarClick}>
+            {profile?.avatar_url ? (
+              <AvatarImage src={profile.avatar_url} alt="Avatar" />
+            ) : (
+              <AvatarFallback>
+                <User className="h-6 w-6 text-primary" />
+              </AvatarFallback>
+            )}
+            {uploading && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full">
+                <Loader2 className="h-6 w-6 animate-spin text-white" />
+              </div>
+            )}
+          </Avatar>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleFileChange}
+            disabled={uploading}
+          />
+          <button
+            type="button"
+            className="absolute bottom-0 right-0 bg-primary text-white rounded-full p-1 shadow hover:bg-primary/80 focus:outline-none"
+            style={{ transform: 'translate(25%, 25%)' }}
+            onClick={handleAvatarClick}
+            disabled={uploading}
+            aria-label="Upload avatar"
+          >
+            <Upload className="h-4 w-4" />
+          </button>
         </div>
         <div>
           <p className="text-base font-semibold text-foreground">

@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Menu, X, MapPin, LogOut, User, Settings, LayoutDashboard } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { supabase } from "@/integrations/supabase/client";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,6 +26,31 @@ const Navbar = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [fullName, setFullName] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchProfileAndRole = async () => {
+      if (!user) return;
+      // Fetch avatar and name
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("avatar_url, full_name")
+        .eq("id", user.id)
+        .maybeSingle();
+      setAvatarUrl(profile?.avatar_url ?? null);
+      setFullName(profile?.full_name ?? null);
+      // Fetch user role
+      const { data: roleRow } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      setUserRole(roleRow?.role ?? null);
+    };
+    fetchProfileAndRole();
+  }, [user]);
 
   const isProviderDashboard = location.pathname.startsWith("/provider-dashboard");
 
@@ -60,6 +86,19 @@ const Navbar = () => {
               {link.label}
             </Link>
           ))}
+          {/* Dashboard link, only when logged in */}
+          {user && (
+            <Link
+              to="/dashboard"
+              className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                location.pathname === "/dashboard"
+                  ? "bg-accent text-accent-foreground"
+                  : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+              }`}
+            >
+              {userRole === "provider" ? "Pro Dashboard" : "Dashboard"}
+            </Link>
+          )}
         </div>
 
         <div className="hidden items-center gap-3 md:flex">
@@ -68,30 +107,35 @@ const Navbar = () => {
               <DropdownMenuTrigger asChild>
                 <button className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground">
                   <Avatar className="h-8 w-8">
+                    {avatarUrl ? (
+                      <AvatarImage src={avatarUrl} alt="Avatar" />
+                    ) : null}
                     <AvatarFallback className="bg-primary/10 text-primary">
-                      <User className="h-4 w-4" />
+                      {fullName
+                        ? fullName.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
+                        : user.email?.[0]?.toUpperCase() || <User className="h-4 w-4" />}
                     </AvatarFallback>
                   </Avatar>
                   <span className="max-w-[120px] truncate">{user.email}</span>
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
-                {isProviderDashboard ? (
-                  <DropdownMenuItem asChild>
-                    <Link to="/profile" className="flex items-center gap-2">
-                      <User className="h-4 w-4" /> Professional Profile
-                    </Link>
-                  </DropdownMenuItem>
-                ) : (
-                  <DropdownMenuItem asChild>
-                    <Link to="/client-profile" className="flex items-center gap-2">
-                      <User className="h-4 w-4" /> Client Profile
-                    </Link>
-                  </DropdownMenuItem>
-                )}
                 <DropdownMenuItem asChild>
-                  <Link to="/dashboard" className="flex items-center gap-2">
-                    <LayoutDashboard className="h-4 w-4" /> Dashboard
+                  <Link
+                    to={userRole === "provider" ? "/profile" : "/client-profile"}
+                    className="flex items-center gap-2"
+                  >
+                    <User className="h-4 w-4" />
+                    {userRole === "provider" ? "Professional Profile" : "Client Profile"}
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link
+                    to={userRole === "provider" ? "/provider-dashboard" : "/dashboard"}
+                    className="flex items-center gap-2"
+                  >
+                    <LayoutDashboard className="h-4 w-4" />
+                    {userRole === "provider" ? "Pro Dashboard" : "Dashboard"}
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
