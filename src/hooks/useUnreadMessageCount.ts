@@ -10,25 +10,53 @@ export const useUnreadMessageCount = () => {
     if (!user) return;
 
     const fetchCount = async () => {
-      // Get all messages for threads where user is a participant and not the sender
-      const { data: messages } = await supabase
-        .from("messages")
-        .select("work_thread_id, created_at, read_at, sender_id")
-        .neq("sender_id", user.id);
+      // Get threads the user participates in
+      const { data: threads } = await supabase
+        .from("work_threads")
+        .select("id")
+        .or(`client_id.eq.${user.id},provider_id.eq.${user.id}`);
 
-      if (!messages) {
+      if (!threads || threads.length === 0) {
         setCount(0);
         return;
       }
 
-      // Count unread: messages where read_at is null
-      const unread = messages.filter((msg: any) => !msg.read_at);
-      setCount(unread.length);
+      const threadIds = threads.map((t) => t.id);
+
+      // Get read status for each thread
+      const { data: readStatuses } = await supabase
+        .from("conversation_read_status")
+        .select("request_id, last_read_at")
+        .eq("user_id", user.id);
+
+      const readMap: Record<string, string> = {};
+      for (const rs of readStatuses || []) {
+        readMap[rs.request_id] = rs.last_read_at;
+      }
+
+      // Count messages from others that are newer than last_read_at
+      let totalUnread = 0;
+      for (const threadId of threadIds) {
+        let query = supabase
+          .from("messages")
+          .select("id", { count: "exact", head: true })
+          .eq("work_thread_id", threadId)
+          .neq("sender_id", user.id);
+
+        const lastRead = readMap[threadId];
+        if (lastRead) {
+          query = query.gt("created_at", lastRead);
+        }
+
+        const { count: c } = await query;
+        totalUnread += c || 0;
+      }
+
+      setCount(totalUnread);
     };
 
     fetchCount();
 
-    // Subscribe to new messages for live updates
     const channel = supabase
       .channel("unread-count")
       .on(
@@ -36,7 +64,7 @@ export const useUnreadMessageCount = () => {
         { event: "INSERT", schema: "public", table: "messages" },
         (payload) => {
           const msg = payload.new as any;
-          if (msg.sender_id !== user.id && !msg.read_at) {
+          if (msg.sender_id !== user.id) {
             setCount((prev) => prev + 1);
           }
         }
@@ -49,22 +77,7 @@ export const useUnreadMessageCount = () => {
   }, [user]);
 
   const resetCount = () => {
-    // Re-fetch after marking as read
-    if (!user) return;
-    setTimeout(async () => {
-      const { data: messages } = await supabase
-        .from("messages")
-        .select("work_thread_id, created_at, read_at, sender_id")
-        .neq("sender_id", user.id);
-
-      if (!messages) {
-        setCount(0);
-        return;
-      }
-
-      const unread = messages.filter((msg: any) => !msg.read_at);
-      setCount(unread.length);
-    }, 500);
+    setCount(0);
   };
 
   return { unreadCount: count, resetCount };

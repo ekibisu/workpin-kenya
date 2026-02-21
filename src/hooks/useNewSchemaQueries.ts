@@ -1,15 +1,15 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import type {
-    WorkThread,
-    ClientProfile,
-    Booking,
-    Dispute,
-    ProviderTemplate,
-    ProviderWallet,
-    WalletTransaction,
-    FixedPriceService
-} from "@/integrations/supabase/types";
+import type { Tables } from "@/integrations/supabase/types";
+
+type WorkThread = Tables<"work_threads">;
+type ClientProfile = Tables<"client_profiles">;
+type Booking = Tables<"bookings">;
+type Dispute = Tables<"disputes">;
+type ProviderTemplate = Tables<"provider_templates">;
+type ProviderWallet = Tables<"provider_wallets">;
+type WalletTransaction = Tables<"wallet_transactions">;
+type FixedPriceService = Tables<"fixed_price_services">;
 
 // ============================================
 // WORK THREADS
