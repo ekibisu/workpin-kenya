@@ -48,37 +48,14 @@ const Auth = () => {
 
       if (!data.user) throw new Error("Authentication failed: No user data.");
 
-      // 2. Check both client_profiles and provider_profiles for role and onboarding status
-      let profile = null;
-      let role = null;
-      let onboarding_complete = null;
-
-      // Try provider_profiles first
-      const { data: providerProfile, error: providerError } = await supabase
-        .from("provider_profiles")
-        .select("user_id, onboarding_complete")
-        .eq("user_id", data.user.id)
+      // 2. Fetch role and onboarding_complete from profiles
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("role, onboarding_complete")
+        .eq("id", data.user.id)
         .maybeSingle();
 
-      if (providerProfile) {
-        profile = providerProfile;
-        role = "provider";
-        onboarding_complete = providerProfile.onboarding_complete;
-      } else {
-        // Try client_profiles
-        const { data: clientProfile, error: clientError } = await supabase
-          .from("client_profiles")
-          .select("user_id, onboarding_complete")
-          .eq("user_id", data.user.id)
-          .maybeSingle();
-        if (clientProfile) {
-          profile = clientProfile;
-          role = "client";
-          onboarding_complete = clientProfile.onboarding_complete;
-        }
-        if (clientError) console.error("Client profile fetch error:", clientError);
-      }
-      if (providerError) console.error("Provider profile fetch error:", providerError);
+      if (profileError) console.error("Profile fetch error:", profileError);
 
       // 3. Success Notification
       toast({
@@ -86,12 +63,15 @@ const Auth = () => {
         description: "Successfully signed in.",
       });
 
-      // 4. Robust Routing Logic
-      if (onboarding_complete === false) {
+      // 4. Routing Logic: If onboarding not complete, go to /onboarding
+      if (profile?.onboarding_complete === false) {
         navigate("/onboarding");
-      } else if (role === "provider") {
+      } else if (profile?.role === "provider") {
         navigate("/provider-dashboard");
+      } else if (profile?.role === "client") {
+        navigate("/dashboard");
       } else {
+        // fallback: go to dashboard
         navigate("/dashboard");
       }
     } catch (error: any) {
