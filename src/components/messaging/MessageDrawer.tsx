@@ -18,9 +18,7 @@ interface Message {
   id: string;
   work_thread_id: string;
   sender_id: string;
-  body: string;
-  type: 'text' | 'quote' | 'system';
-  read_at: string | null;
+  content: string;
   created_at: string;
 }
 
@@ -44,14 +42,8 @@ const MessageDrawer = ({ workThreadId, recipientName, open, onOpenChange, onRead
   useEffect(() => {
     if (!open || !workThreadId || !user) return;
     setLoading(true);
-    // Mark all unread messages as read for this thread
-    supabase
-      .from("messages")
-      .update({ read_at: new Date().toISOString() })
-      .eq("work_thread_id", workThreadId)
-      .is("read_at", null)
-      .neq("sender_id", user.id)
-      .then(() => onRead?.());
+    // Notify parent that messages were read
+    onRead?.();
     supabase
       .from("messages")
       .select("*")
@@ -102,8 +94,7 @@ const MessageDrawer = ({ workThreadId, recipientName, open, onOpenChange, onRead
     const { error } = await supabase.from("messages").insert({
       work_thread_id: workThreadId,
       sender_id: user.id,
-      body: newMessage.trim(),
-      type: "text",
+      content: newMessage.trim(),
     });
     setSending(false);
     if (!error) {
@@ -151,7 +142,7 @@ const MessageDrawer = ({ workThreadId, recipientName, open, onOpenChange, onRead
                           : "bg-muted text-foreground"
                       }`}
                     >
-                      <p className="whitespace-pre-wrap break-words">{msg.body}</p>
+                      <p className="whitespace-pre-wrap break-words">{msg.content}</p>
                       <p
                         className={`mt-1 text-[10px] ${
                           isOwn ? "text-primary-foreground/70" : "text-muted-foreground"
