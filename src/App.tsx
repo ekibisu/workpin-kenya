@@ -15,6 +15,7 @@ import Dashboard from "./pages/Dashboard";
 import ProviderDashboard from "./pages/ProviderDashboard";
 import Profile from "./pages/Profile";
 import ClientProfile from "./pages/ClientProfile";
+import Onboarding from "./pages/Onboarding";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
