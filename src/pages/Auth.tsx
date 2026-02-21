@@ -48,14 +48,37 @@ const Auth = () => {
 
       if (!data.user) throw new Error("Authentication failed: No user data.");
 
-      // 2. Fetch profile using maybeSingle to avoid 406 errors if profile isn't ready
-      const { data: profile, error: profileError } = await supabase
-        .from("profiles")
-        .select("role, onboarding_complete")
-        .eq("id", data.user.id)
+      // 2. Check both client_profiles and provider_profiles for role and onboarding status
+      let profile = null;
+      let role = null;
+      let onboarding_complete = null;
+
+      // Try provider_profiles first
+      const { data: providerProfile, error: providerError } = await supabase
+        .from("provider_profiles")
+        .select("user_id, onboarding_complete")
+        .eq("user_id", data.user.id)
         .maybeSingle();
 
-      if (profileError) console.error("Profile fetch error:", profileError);
+      if (providerProfile) {
+        profile = providerProfile;
+        role = "provider";
+        onboarding_complete = providerProfile.onboarding_complete;
+      } else {
+        // Try client_profiles
+        const { data: clientProfile, error: clientError } = await supabase
+          .from("client_profiles")
+          .select("user_id, onboarding_complete")
+          .eq("user_id", data.user.id)
+          .maybeSingle();
+        if (clientProfile) {
+          profile = clientProfile;
+          role = "client";
+          onboarding_complete = clientProfile.onboarding_complete;
+        }
+        if (clientError) console.error("Client profile fetch error:", clientError);
+      }
+      if (providerError) console.error("Provider profile fetch error:", providerError);
 
       // 3. Success Notification
       toast({
@@ -64,9 +87,9 @@ const Auth = () => {
       });
 
       // 4. Robust Routing Logic
-      if (profile?.onboarding_complete === false) {
+      if (onboarding_complete === false) {
         navigate("/onboarding");
-      } else if (profile?.role === "provider") {
+      } else if (role === "provider") {
         navigate("/provider-dashboard");
       } else {
         navigate("/dashboard");
@@ -102,7 +125,7 @@ const Auth = () => {
             full_name: fullName, 
             role: role 
           },
-          emailRedirectTo: window.location.origin,
+          emailRedirectTo: globalThis.location.origin,
         },
       });
 
