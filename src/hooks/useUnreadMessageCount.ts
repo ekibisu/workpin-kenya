@@ -10,21 +10,10 @@ export const useUnreadMessageCount = () => {
     if (!user) return;
 
     const fetchCount = async () => {
-      // Get read statuses for the user
-      const { data: readStatuses } = await supabase
-        .from("conversation_read_status")
-        .select("request_id, last_read_at")
-        .eq("user_id", user.id);
-
-      const readMap = new Map<string, string>();
-      (readStatuses || []).forEach((rs: any) => {
-        readMap.set(rs.request_id, rs.last_read_at);
-      });
-
-      // Get all direct messages not sent by this user
+      // Get all messages for threads where user is a participant and not the sender
       const { data: messages } = await supabase
-        .from("direct_messages")
-        .select("request_id, created_at")
+        .from("messages")
+        .select("work_thread_id, created_at, read_at, sender_id")
         .neq("sender_id", user.id);
 
       if (!messages) {
@@ -32,13 +21,8 @@ export const useUnreadMessageCount = () => {
         return;
       }
 
-      // Count unread: messages where created_at > last_read_at (or no read status)
-      const unread = messages.filter((msg: any) => {
-        const lastRead = readMap.get(msg.request_id);
-        if (!lastRead) return true;
-        return new Date(msg.created_at) > new Date(lastRead);
-      });
-
+      // Count unread: messages where read_at is null
+      const unread = messages.filter((msg: any) => !msg.read_at);
       setCount(unread.length);
     };
 
@@ -49,10 +33,10 @@ export const useUnreadMessageCount = () => {
       .channel("unread-count")
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "direct_messages" },
+        { event: "INSERT", schema: "public", table: "messages" },
         (payload) => {
           const msg = payload.new as any;
-          if (msg.sender_id !== user.id) {
+          if (msg.sender_id !== user.id && !msg.read_at) {
             setCount((prev) => prev + 1);
           }
         }
@@ -68,19 +52,9 @@ export const useUnreadMessageCount = () => {
     // Re-fetch after marking as read
     if (!user) return;
     setTimeout(async () => {
-      const { data: readStatuses } = await supabase
-        .from("conversation_read_status")
-        .select("request_id, last_read_at")
-        .eq("user_id", user.id);
-
-      const readMap = new Map<string, string>();
-      (readStatuses || []).forEach((rs: any) => {
-        readMap.set(rs.request_id, rs.last_read_at);
-      });
-
       const { data: messages } = await supabase
-        .from("direct_messages")
-        .select("request_id, created_at")
+        .from("messages")
+        .select("work_thread_id, created_at, read_at, sender_id")
         .neq("sender_id", user.id);
 
       if (!messages) {
@@ -88,12 +62,7 @@ export const useUnreadMessageCount = () => {
         return;
       }
 
-      const unread = messages.filter((msg: any) => {
-        const lastRead = readMap.get(msg.request_id);
-        if (!lastRead) return true;
-        return new Date(msg.created_at) > new Date(lastRead);
-      });
-
+      const unread = messages.filter((msg: any) => !msg.read_at);
       setCount(unread.length);
     }, 500);
   };

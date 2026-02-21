@@ -7,134 +7,344 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.1"
-  }
   public: {
     Tables: {
-      conversation_read_status: {
+      profiles: {
         Row: {
-          last_read_at: string
-          request_id: string
-          user_id: string
-        }
-        Insert: {
-          last_read_at?: string
-          request_id: string
-          user_id: string
-        }
-        Update: {
-          last_read_at?: string
-          request_id?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "conversation_read_status_request_id_fkey"
-            columns: ["request_id"]
-            isOneToOne: false
-            referencedRelation: "service_requests"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      direct_messages: {
-        Row: {
-          content: string
-          created_at: string
           id: string
-          request_id: string
-          sender_id: string
-        }
-        Insert: {
-          content: string
-          created_at?: string
-          id?: string
-          request_id: string
-          sender_id: string
-        }
-        Update: {
-          content?: string
-          created_at?: string
-          id?: string
-          request_id?: string
-          sender_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "direct_messages_request_id_fkey"
-            columns: ["request_id"]
-            isOneToOne: false
-            referencedRelation: "service_requests"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      jobs: {
-        Row: {
+          full_name: string | null
+          email: string | null
+          phone: string | null
+          avatar_url: string | null
+          role: 'client' | 'provider'
+          onboarding_complete: boolean
           created_at: string
-          id: string
-          payment_status: string
-          quote_id: string
-          status: string
           updated_at: string
         }
         Insert: {
+          id: string
+          full_name?: string | null
+          email?: string | null
+          phone?: string | null
+          avatar_url?: string | null
+          role?: 'client' | 'provider'
+          onboarding_complete?: boolean
           created_at?: string
-          id?: string
-          payment_status?: string
-          quote_id: string
-          status?: string
           updated_at?: string
         }
         Update: {
-          created_at?: string
           id?: string
-          payment_status?: string
-          quote_id?: string
-          status?: string
+          full_name?: string | null
+          email?: string | null
+          phone?: string | null
+          avatar_url?: string | null
+          role?: 'client' | 'provider'
+          onboarding_complete?: boolean
+          created_at?: string
           updated_at?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "jobs_quote_id_fkey"
-            columns: ["quote_id"]
-            isOneToOne: false
-            referencedRelation: "quotes"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
-      messages: {
+
+      client_profiles: {
         Row: {
-          content: string
-          created_at: string
           id: string
-          job_id: string
-          sender_id: string
+          user_id: string
+          location_name: string | null
+          lat: number | null
+          lng: number | null
+          mpesa_phone: string | null
+          created_at: string
         }
         Insert: {
-          content: string
-          created_at?: string
           id?: string
-          job_id: string
-          sender_id: string
+          user_id: string
+          location_name?: string | null
+          lat?: number | null
+          lng?: number | null
+          mpesa_phone?: string | null
+          created_at?: string
         }
         Update: {
-          content?: string
-          created_at?: string
           id?: string
-          job_id?: string
-          sender_id?: string
+          user_id?: string
+          location_name?: string | null
+          lat?: number | null
+          lng?: number | null
+          mpesa_phone?: string | null
+          created_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "messages_job_id_fkey"
-            columns: ["job_id"]
+            foreignKeyName: "client_profiles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+
+      provider_profiles: {
+        Row: {
+          id: string
+          user_id: string
+          business_name: string
+          bio: string | null
+          location_name: string | null
+          location_lat: number | null
+          location_lng: number | null
+          mpesa_phone: string | null
+          avg_rating: number | null
+          total_reviews: number | null
+          is_verified: boolean | null
+          subscription_status: string | null
+          categories: string[] | null
+          service_radius_km: number | null
+          rate_kes: number | null
+          rate_type: 'hourly' | 'per_job' | null
+          portfolio_photos: string[] | null
+          availability_json: Json | null
+          response_time_minutes: number | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          business_name: string
+          bio?: string | null
+          location_name?: string | null
+          location_lat?: number | null
+          location_lng?: number | null
+          mpesa_phone?: string | null
+          avg_rating?: number | null
+          total_reviews?: number | null
+          is_verified?: boolean | null
+          subscription_status?: string | null
+          categories?: string[] | null
+          service_radius_km?: number | null
+          rate_kes?: number | null
+          rate_type?: 'hourly' | 'per_job' | null
+          portfolio_photos?: string[] | null
+          availability_json?: Json | null
+          response_time_minutes?: number | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          business_name?: string
+          bio?: string | null
+          location_name?: string | null
+          location_lat?: number | null
+          location_lng?: number | null
+          mpesa_phone?: string | null
+          avg_rating?: number | null
+          total_reviews?: number | null
+          is_verified?: boolean | null
+          subscription_status?: string | null
+          categories?: string[] | null
+          service_radius_km?: number | null
+          rate_kes?: number | null
+          rate_type?: 'hourly' | 'per_job' | null
+          portfolio_photos?: string[] | null
+          availability_json?: Json | null
+          response_time_minutes?: number | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "provider_profiles_user_id_fkey"
+            columns: ["user_id"]
             isOneToOne: false
-            referencedRelation: "jobs"
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+
+      services: {
+        Row: {
+          id: string
+          name: string
+          category: string
+          icon: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          category: string
+          icon?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          category?: string
+          icon?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+
+      job_requests: {
+        Row: {
+          id: string
+          client_id: string
+          service_id: string
+          description: string
+          budget_min_kes: number | null
+          budget_max_kes: number | null
+          status: 'open' | 'matched' | 'filled' | 'expired' | 'pending' | 'completed'
+          location_name: string | null
+          lat: number | null
+          lng: number | null
+          timeline: 'asap' | 'this_week' | 'this_month' | 'flexible' | null
+          image_urls: string[] | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          client_id: string
+          service_id: string
+          description: string
+          budget_min_kes?: number | null
+          budget_max_kes?: number | null
+          status?: 'open' | 'matched' | 'filled' | 'expired' | 'pending' | 'completed'
+          location_name?: string | null
+          lat?: number | null
+          lng?: number | null
+          timeline?: 'asap' | 'this_week' | 'this_month' | 'flexible' | null
+          image_urls?: string[] | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          client_id?: string
+          service_id?: string
+          description?: string
+          budget_min_kes?: number | null
+          budget_max_kes?: number | null
+          status?: 'open' | 'matched' | 'filled' | 'expired' | 'pending' | 'completed'
+          location_name?: string | null
+          lat?: number | null
+          lng?: number | null
+          timeline?: 'asap' | 'this_week' | 'this_month' | 'flexible' | null
+          image_urls?: string[] | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_requests_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_requests_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "services"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+
+      work_threads: {
+        Row: {
+          id: string
+          job_request_id: string | null
+          client_id: string
+          provider_id: string
+          status: 'new' | 'quoted' | 'negotiating' | 'active' | 'completed' | 'reviewed' | 'disputed'
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          job_request_id?: string | null
+          client_id: string
+          provider_id: string
+          status?: 'new' | 'quoted' | 'negotiating' | 'active' | 'completed' | 'reviewed' | 'disputed'
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          job_request_id?: string | null
+          client_id?: string
+          provider_id?: string
+          status?: 'new' | 'quoted' | 'negotiating' | 'active' | 'completed' | 'reviewed' | 'disputed'
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "work_threads_job_request_id_fkey"
+            columns: ["job_request_id"]
+            isOneToOne: false
+            referencedRelation: "job_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_threads_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_threads_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+
+      messages: {
+        Row: {
+          id: string
+          work_thread_id: string
+          sender_id: string
+          body: string
+          type: 'text' | 'quote' | 'system'
+          read_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          work_thread_id: string
+          sender_id: string
+          body: string
+          type?: 'text' | 'quote' | 'system'
+          read_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          work_thread_id?: string
+          sender_id?: string
+          body?: string
+          type?: 'text' | 'quote' | 'system'
+          read_at?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_work_thread_id_fkey"
+            columns: ["work_thread_id"]
+            isOneToOne: false
+            referencedRelation: "work_threads"
             referencedColumns: ["id"]
           },
           {
@@ -143,207 +353,160 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
-          },
+          }
         ]
       }
-      payments: {
-        Row: {
-          amount: number
-          created_at: string
-          id: string
-          mpesa_ref: string | null
-          status: string
-          user_id: string
-        }
-        Insert: {
-          amount: number
-          created_at?: string
-          id?: string
-          mpesa_ref?: string | null
-          status?: string
-          user_id: string
-        }
-        Update: {
-          amount?: number
-          created_at?: string
-          id?: string
-          mpesa_ref?: string | null
-          status?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "payments_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      profiles: {
-        Row: {
-          avatar_url: string | null
-          created_at: string
-          email: string | null
-          full_name: string | null
-          id: string
-          phone: string | null
-          updated_at: string
-        }
-        Insert: {
-          avatar_url?: string | null
-          created_at?: string
-          email?: string | null
-          full_name?: string | null
-          id: string
-          phone?: string | null
-          updated_at?: string
-        }
-        Update: {
-          avatar_url?: string | null
-          created_at?: string
-          email?: string | null
-          full_name?: string | null
-          id?: string
-          phone?: string | null
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      providers: {
-        Row: {
-          bio: string | null
-          business_name: string
-          created_at: string
-          id: string
-          is_verified: boolean | null
-          location_lat: number | null
-          location_long: number | null
-          rating: number | null
-          subscription_status: string | null
-          total_reviews: number | null
-          updated_at: string
-          user_id: string
-          whatsapp_number: string | null
-        }
-        Insert: {
-          bio?: string | null
-          business_name: string
-          created_at?: string
-          id?: string
-          is_verified?: boolean | null
-          location_lat?: number | null
-          location_long?: number | null
-          rating?: number | null
-          subscription_status?: string | null
-          total_reviews?: number | null
-          updated_at?: string
-          user_id: string
-          whatsapp_number?: string | null
-        }
-        Update: {
-          bio?: string | null
-          business_name?: string
-          created_at?: string
-          id?: string
-          is_verified?: boolean | null
-          location_lat?: number | null
-          location_long?: number | null
-          rating?: number | null
-          subscription_status?: string | null
-          total_reviews?: number | null
-          updated_at?: string
-          user_id?: string
-          whatsapp_number?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "providers_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: true
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
+
       quotes: {
         Row: {
-          created_at: string
           id: string
-          message: string | null
-          price: number
-          provider_id: string
           request_id: string
-          status: string
+          work_thread_id: string | null
+          provider_id: string
+          price_kes: number
+          message: string | null
+          timeline: string | null
+          status: 'pending' | 'accepted' | 'declined' | 'countered'
+          created_at: string
         }
         Insert: {
-          created_at?: string
           id?: string
-          message?: string | null
-          price: number
-          provider_id: string
           request_id: string
-          status?: string
+          work_thread_id?: string | null
+          provider_id: string
+          price_kes: number
+          message?: string | null
+          timeline?: string | null
+          status?: 'pending' | 'accepted' | 'declined' | 'countered'
+          created_at?: string
         }
         Update: {
-          created_at?: string
           id?: string
-          message?: string | null
-          price?: number
-          provider_id?: string
           request_id?: string
-          status?: string
+          work_thread_id?: string | null
+          provider_id?: string
+          price_kes?: number
+          message?: string | null
+          timeline?: string | null
+          status?: 'pending' | 'accepted' | 'declined' | 'countered'
+          created_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "quotes_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "job_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotes_work_thread_id_fkey"
+            columns: ["work_thread_id"]
+            isOneToOne: false
+            referencedRelation: "work_threads"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "quotes_provider_id_fkey"
             columns: ["provider_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "quotes_request_id_fkey"
-            columns: ["request_id"]
-            isOneToOne: false
-            referencedRelation: "service_requests"
-            referencedColumns: ["id"]
-          },
+          }
         ]
       }
-      reviews: {
+
+      payments: {
         Row: {
-          comment: string | null
-          created_at: string
-          customer_id: string
           id: string
-          provider_id: string
-          rating: number | null
-          request_id: string
+          client_id: string
+          work_thread_id: string | null
+          amount_kes: number
+          mpesa_checkout_request_id: string | null
+          mpesa_receipt_number: string | null
+          status: 'pending' | 'paid' | 'failed'
+          created_at: string
         }
         Insert: {
-          comment?: string | null
-          created_at?: string
-          customer_id: string
           id?: string
-          provider_id: string
-          rating?: number | null
-          request_id: string
+          client_id: string
+          work_thread_id?: string | null
+          amount_kes: number
+          mpesa_checkout_request_id?: string | null
+          mpesa_receipt_number?: string | null
+          status?: 'pending' | 'paid' | 'failed'
+          created_at?: string
         }
         Update: {
-          comment?: string | null
-          created_at?: string
-          customer_id?: string
           id?: string
-          provider_id?: string
-          rating?: number | null
-          request_id?: string
+          client_id?: string
+          work_thread_id?: string | null
+          amount_kes?: number
+          mpesa_checkout_request_id?: string | null
+          mpesa_receipt_number?: string | null
+          status?: 'pending' | 'paid' | 'failed'
+          created_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "reviews_customer_id_fkey"
-            columns: ["customer_id"]
+            foreignKeyName: "payments_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_work_thread_id_fkey"
+            columns: ["work_thread_id"]
+            isOneToOne: false
+            referencedRelation: "work_threads"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+
+      reviews: {
+        Row: {
+          id: string
+          work_thread_id: string
+          client_id: string
+          provider_id: string
+          rating: number | null
+          body: string | null
+          tags: string[] | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          work_thread_id: string
+          client_id: string
+          provider_id: string
+          rating?: number | null
+          body?: string | null
+          tags?: string[] | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          work_thread_id?: string
+          client_id?: string
+          provider_id?: string
+          rating?: number | null
+          body?: string | null
+          tags?: string[] | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reviews_work_thread_id_fkey"
+            columns: ["work_thread_id"]
+            isOneToOne: false
+            referencedRelation: "work_threads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reviews_client_id_fkey"
+            columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -354,258 +517,338 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "reviews_request_id_fkey"
-            columns: ["request_id"]
-            isOneToOne: false
-            referencedRelation: "service_requests"
-            referencedColumns: ["id"]
-          },
+          }
         ]
       }
-      service_requests: {
+
+      bookings: {
         Row: {
-          budget: number | null
-          created_at: string
-          customer_id: string
-          description: string
           id: string
-          image_urls: string[] | null
-          location_name: string | null
-          service_id: string
-          status: string
+          work_thread_id: string
+          scheduled_at: string
+          duration_minutes: number | null
+          is_quick_pin: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          work_thread_id: string
+          scheduled_at: string
+          duration_minutes?: number | null
+          is_quick_pin?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          work_thread_id?: string
+          scheduled_at?: string
+          duration_minutes?: number | null
+          is_quick_pin?: boolean
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bookings_work_thread_id_fkey"
+            columns: ["work_thread_id"]
+            isOneToOne: false
+            referencedRelation: "work_threads"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+
+      disputes: {
+        Row: {
+          id: string
+          work_thread_id: string
+          filed_by_id: string
+          reason: string
+          description: string | null
+          evidence_urls: string[] | null
+          status: 'open' | 'in_review' | 'resolved'
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          work_thread_id: string
+          filed_by_id: string
+          reason: string
+          description?: string | null
+          evidence_urls?: string[] | null
+          status?: 'open' | 'in_review' | 'resolved'
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          work_thread_id?: string
+          filed_by_id?: string
+          reason?: string
+          description?: string | null
+          evidence_urls?: string[] | null
+          status?: 'open' | 'in_review' | 'resolved'
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "disputes_work_thread_id_fkey"
+            columns: ["work_thread_id"]
+            isOneToOne: false
+            referencedRelation: "work_threads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "disputes_filed_by_id_fkey"
+            columns: ["filed_by_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+
+      provider_templates: {
+        Row: {
+          id: string
+          provider_id: string
+          title: string
+          body: string
+          sort_order: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          provider_id: string
+          title: string
+          body: string
+          sort_order?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          provider_id?: string
+          title?: string
+          body?: string
+          sort_order?: number
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "provider_templates_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+
+      provider_wallets: {
+        Row: {
+          id: string
+          provider_id: string
+          available_balance_kes: number
+          pending_balance_kes: number
           updated_at: string
         }
         Insert: {
-          budget?: number | null
-          created_at?: string
-          customer_id: string
-          description: string
           id?: string
-          image_urls?: string[] | null
-          location_name?: string | null
-          service_id: string
-          status?: string
+          provider_id: string
+          available_balance_kes?: number
+          pending_balance_kes?: number
           updated_at?: string
         }
         Update: {
-          budget?: number | null
-          created_at?: string
-          customer_id?: string
-          description?: string
           id?: string
-          image_urls?: string[] | null
-          location_name?: string | null
-          service_id?: string
-          status?: string
+          provider_id?: string
+          available_balance_kes?: number
+          pending_balance_kes?: number
           updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "service_requests_customer_id_fkey"
-            columns: ["customer_id"]
+            foreignKeyName: "provider_wallets_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+
+      wallet_transactions: {
+        Row: {
+          id: string
+          provider_id: string
+          type: 'credit' | 'debit' | 'fee'
+          amount_kes: number
+          description: string | null
+          mpesa_receipt: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          provider_id: string
+          type: 'credit' | 'debit' | 'fee'
+          amount_kes: number
+          description?: string | null
+          mpesa_receipt?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          provider_id?: string
+          type?: 'credit' | 'debit' | 'fee'
+          amount_kes?: number
+          description?: string | null
+          mpesa_receipt?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wallet_transactions_provider_id_fkey"
+            columns: ["provider_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "service_requests_service_id_fkey"
-            columns: ["service_id"]
-            isOneToOne: false
-            referencedRelation: "services"
-            referencedColumns: ["id"]
-          },
+          }
         ]
       }
-      services: {
+
+      fixed_price_services: {
         Row: {
-          category: string
-          created_at: string
-          icon: string | null
           id: string
-          name: string
+          provider_id: string
+          service_name: string
+          description: string | null
+          price_kes: number
+          duration_minutes: number | null
+          availability_json: Json
+          is_active: boolean
+          created_at: string
         }
         Insert: {
-          category: string
-          created_at?: string
-          icon?: string | null
           id?: string
-          name: string
+          provider_id: string
+          service_name: string
+          description?: string | null
+          price_kes: number
+          duration_minutes?: number | null
+          availability_json?: Json
+          is_active?: boolean
+          created_at?: string
         }
         Update: {
-          category?: string
-          created_at?: string
-          icon?: string | null
           id?: string
-          name?: string
-        }
-        Relationships: []
-      }
-      user_roles: {
-        Row: {
-          created_at: string
-          id: string
-          role: Database["public"]["Enums"]["app_role"]
-          user_id: string
-        }
-        Insert: {
+          provider_id?: string
+          service_name?: string
+          description?: string | null
+          price_kes?: number
+          duration_minutes?: number | null
+          availability_json?: Json
+          is_active?: boolean
           created_at?: string
-          id?: string
-          role: Database["public"]["Enums"]["app_role"]
-          user_id: string
         }
-        Update: {
-          created_at?: string
-          id?: string
-          role?: Database["public"]["Enums"]["app_role"]
-          user_id?: string
-        }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "fixed_price_services_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
       }
     }
+
     Views: {
       [_ in never]: never
     }
+
     Functions: {
-      has_role: {
+      match_providers: {
         Args: {
-          _role: Database["public"]["Enums"]["app_role"]
-          _user_id: string
+          job_lat: number
+          job_lng: number
+          job_cat: string
+          max_results?: number
         }
-        Returns: boolean
+        Returns: {
+          provider_id: string
+          distance_km: number
+          score: number
+        }[]
       }
     }
+
     Enums: {
-      app_role: "customer" | "provider" | "admin"
+      [_ in never]: never
     }
+
     CompositeTypes: {
       [_ in never]: never
     }
   }
 }
 
-type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+// ── Convenience type aliases ─────────────────────────────────────────
 
-type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
+export type Tables<T extends keyof Database['public']['Tables']> =
+  Database['public']['Tables'][T]['Row']
 
-export type Tables<
-  DefaultSchemaTableNameOrOptions extends
-    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-  }
-    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
-> = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
-}
-  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
-      Row: infer R
-    }
-    ? R
-    : never
-  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])
-    ? (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
-        Row: infer R
-      }
-      ? R
-      : never
-    : never
+export type TablesInsert<T extends keyof Database['public']['Tables']> =
+  Database['public']['Tables'][T]['Insert']
 
-export type TablesInsert<
-  DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-  }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
-> = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
-}
-  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-      Insert: infer I
-    }
-    ? I
-    : never
-  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-        Insert: infer I
-      }
-      ? I
-      : never
-    : never
+export type TablesUpdate<T extends keyof Database['public']['Tables']> =
+  Database['public']['Tables'][T]['Update']
 
-export type TablesUpdate<
-  DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-  }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
-> = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
-}
-  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-      Update: infer U
-    }
-    ? U
-    : never
-  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-        Update: infer U
-      }
-      ? U
-      : never
-    : never
+// ── Row type shortcuts ───────────────────────────────────────────────
 
-export type Enums<
-  DefaultSchemaEnumNameOrOptions extends
-    | keyof DefaultSchema["Enums"]
-    | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-  }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
-> = DefaultSchemaEnumNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
-}
-  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
-  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
-    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
-    : never
+export type Profile = Tables<'profiles'>
+export type ClientProfile = Tables<'client_profiles'>
+export type ProviderProfile = Tables<'provider_profiles'>
+export type Service = Tables<'services'>
+export type JobRequest = Tables<'job_requests'>
+export type WorkThread = Tables<'work_threads'>
+export type Message = Tables<'messages'>
+export type Quote = Tables<'quotes'>
+export type Payment = Tables<'payments'>
+export type Review = Tables<'reviews'>
+export type Booking = Tables<'bookings'>
+export type Dispute = Tables<'disputes'>
+export type ProviderTemplate = Tables<'provider_templates'>
+export type ProviderWallet = Tables<'provider_wallets'>
+export type WalletTransaction = Tables<'wallet_transactions'>
+export type FixedPriceService = Tables<'fixed_price_services'>
 
-export type CompositeTypes<
-  PublicCompositeTypeNameOrOptions extends
-    | keyof DefaultSchema["CompositeTypes"]
-    | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-  }
-    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
-> = PublicCompositeTypeNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
-}
-  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
-  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
-    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
-    : never
+// ── Status union types ───────────────────────────────────────────────
 
-export const Constants = {
-  public: {
-    Enums: {
-      app_role: ["customer", "provider", "admin"],
-    },
-  },
-} as const
+export type WorkThreadStatus =
+  | 'new'
+  | 'quoted'
+  | 'negotiating'
+  | 'active'
+  | 'completed'
+  | 'reviewed'
+  | 'disputed'
+
+export type JobRequestStatus =
+  | 'open'
+  | 'matched'
+  | 'filled'
+  | 'expired'
+  | 'pending'
+  | 'completed'
+
+export type QuoteStatus = 'pending' | 'accepted' | 'declined' | 'countered'
+export type PaymentStatus = 'pending' | 'paid' | 'failed'
+export type DisputeStatus = 'open' | 'in_review' | 'resolved'
+export type MessageType = 'text' | 'quote' | 'system'
+export type UserRole = 'client' | 'provider'
+export type RateType = 'hourly' | 'per_job'
+export type WalletTxType = 'credit' | 'debit' | 'fee'
+export type Timeline = 'asap' | 'this_week' | 'this_month' | 'flexible'
+
+// ── Utility: KES currency formatter ─────────────────────────────────
+
+export const formatKES = (amount: number): string =>
+  `KES ${amount.toLocaleString('en-KE')}`

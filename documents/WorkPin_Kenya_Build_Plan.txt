@@ -1,0 +1,701 @@
+WorkPin
+Kenya — Refactored Build Plan & AI Prompts
+Lovable  •  Supabase  •  M-Pesa  •  VS Code  •  Google Anti Gravity
+Service Marketplace for the Kenyan Market — Greenfield Build
+
+1. Updated Tech Stack
+The WorkPin build plan has been fully refactored for Lovable + Supabase as the primary build environment, VS Code with Google Anti Gravity for custom code and integrations, and M-Pesa (Safaricom Daraja API) as the sole payment system — the right choice for the Kenyan market where M-Pesa is used by over 85% of the population.
+
+Feature / Module	Description
+Layer	Tool / Service
+UI Builder	Lovable — AI-generated React frontend built with natural language prompts
+Backend & Database	Supabase — PostgreSQL, Auth, Realtime, Storage, Edge Functions (all-in-one)
+Custom Code Edits	VS Code — fine-tune components, integrations, and logic exported from Lovable
+AI Code Assistant	Google Anti Gravity — AI pair programmer in VS Code for complex logic and refactoring
+Payments	M-Pesa Daraja API (Safaricom) — STK Push for client payments, B2C for provider payouts
+SMS & OTP	Africa's Talking — Kenyan phone number verification (+254) and SMS notifications
+Maps & Location	Google Maps API — Kenya/Nairobi geocoding and service radius mapping
+File Storage	Supabase Storage — portfolio photos, ID documents, dispute evidence
+Hosting	Vercel (frontend) + Supabase Cloud (backend)
+Currency	Kenyan Shilling (KES) — all prices and payments displayed as KES or Ksh
+
+Why Lovable + Supabase?
+Lovable generates a full React + Supabase app from plain-English prompts — cutting initial build time by 60–80%. The output is clean React (Vite + TypeScript + Tailwind) that syncs directly to VS Code via GitHub for fine-tuning. Supabase replaces the entire custom backend: auth, PostgreSQL database, real-time subscriptions (replacing Socket.io), file storage, and serverless Edge Functions — all on one platform with a generous free tier, ideal for an MVP.
+
+Why M-Pesa over Stripe?
+Over 85% of Kenyans use M-Pesa as their primary payment method. Card penetration is low and Stripe is not natively supported in Kenya. M-Pesa's Daraja API provides: STK Push (client gets a phone prompt to enter PIN), C2B (customer-to-business paybill), and B2C (business-to-customer for provider payouts). No card form needed anywhere in the app — just a phone number.
+
+
+2. Kenya Market Adaptations
+WorkPin for Kenya is not a direct port — it is designed around how Kenyan users discover, hire, and pay for services. Mobile-first, M-Pesa-native, Swahili-friendly, and built around Nairobi's neighborhood culture.
+
+Feature / Module	Description
+Area	Kenya-Specific Design Decision
+Language	English + Swahili toggle. Key UI strings in both. Tagline: 'Pata Fundi Wako' (Find Your Pro).
+Phone-First Auth	Register and log in with Kenyan phone number (+254). OTP via SMS. No email required.
+Payment	M-Pesa only at launch. STK Push flow — no card input anywhere in the app.
+Currency	All amounts in KES. Displayed as 'KES 1,500' or 'Ksh 1,500'. No decimals.
+Service Categories	Localized for Kenya: Plumber, Electrician, Fundi (handyman), House Help, Painter, Catering, Tutor, Cleaner, Bodaboda Delivery, Watchman/Security, Event Setup, AC Repair.
+Location	Default map centers on Nairobi CBD. Neighborhoods (Westlands, Kilimani, Eastleigh, Karen, Kayole, etc.) used as primary location labels alongside county.
+Provider Verification	Copy of National ID (Kenyan) + business permit for commercial providers. Stored in Supabase Storage. Admin-reviewed.
+Trust Badges	Verified ID, Background Checked, Top Rated (4.8+ stars, 20+ completed jobs).
+Offline Resilience	Mobile-optimized UI with graceful degradation on 3G. Retry buttons on all failed requests.
+Platform Fee	WorkPin takes 8% commission, deducted at time of M-Pesa B2C payout to provider.
+
+
+3. Supabase Data Models
+All data lives in Supabase PostgreSQL. Row Level Security (RLS) policies ensure Clients only see their own data and Providers only see relevant leads. Enable the PostGIS extension for geo-based provider matching.
+
+Feature / Module	Description
+Supabase Table	Key Columns & Notes
+profiles	id (uuid, FK→auth.users), phone, role (client|provider), full_name, avatar_url, county, neighborhood, lang_pref (en|sw), created_at
+provider_profiles	id, user_id, bio, categories[], service_radius_km, hourly_rate_kes, portfolio_urls[], avg_rating, response_time_mins, is_verified, mpesa_number, total_jobs, lat, lng
+job_requests	id, client_id, category, description, county, neighborhood, lat, lng, budget_min_kes, budget_max_kes, timeline, status (open|matched|filled|expired), created_at
+work_threads	id, job_request_id (nullable), client_id, provider_id, status (new|quoted|negotiating|active|completed|reviewed|disputed), created_at
+messages	id, work_thread_id, sender_id, body, type (text|quote|system|payment_request), read_at, created_at
+quotes	id, work_thread_id, provider_id, price_kes, description, timeline, status (pending|accepted|declined|countered), created_at
+payments	id, work_thread_id, amount_kes, platform_fee_kes, net_kes, mpesa_checkout_request_id, mpesa_receipt_number, status (pending|paid|payout_pending|payout_done|failed|refunded), created_at
+reviews	id, work_thread_id, client_id, provider_id, rating (1-5), body, tags[], created_at
+disputes	id, work_thread_id, filed_by_id, reason, description, evidence_urls[], status (open|in_review|resolved), created_at
+quick_pins	id, provider_id, title, description, price_kes, duration_minutes, available_slots_json, is_active
+reply_templates	id, provider_id, title, body (max 500 chars), sort_order
+notifications	id, user_id, type, title, body, read (bool), metadata_json, created_at
+payouts_queue	id, payment_id, provider_id, gross_kes, platform_fee_kes, net_kes, mpesa_number, status (pending|processing|done|failed), created_at
+sms_logs	id, to_phone, template_key, status, sent_at
+
+Supabase Realtime replaces Socket.io
+Subscribe to work_threads and messages tables using Supabase Postgres Changes. This provides real-time messaging, WorkThread status updates, and payment confirmations with zero additional infrastructure or server management.
+
+
+4. Build Plan — 5 Phases
+Primary UI is built in Lovable with natural-language prompts. Complex backend logic (M-Pesa integration, matching algorithm, RLS policies) is written in VS Code with Google Anti Gravity assistance after syncing the Lovable project to GitHub.
+
+PHASE 1	Foundation — Supabase Setup, Auth & Profiles	Weeks 1–2
+
+Create the Supabase project, configure SMS auth with Kenyan phone numbers, build Client and Provider onboarding in Lovable, and establish English/Swahili language support.
+
+Feature / Module	Description
+Supabase Project Setup	Create project, enable Phone Auth via Africa's Talking, run schema migration, configure RLS policies, enable PostGIS extension.
+Phone OTP Auth	Login/register with +254 Kenyan number. OTP via SMS (Africa's Talking). No email required.
+Client Onboarding	Name, county, neighborhood, profile photo. Role = client. Language preference.
+Provider Onboarding	Bio, service categories (Kenya list), service radius, M-Pesa number, National ID upload, hourly rate in KES. Role = provider.
+Role Routing	After auth: detect role from profiles table. Client → /home. Provider → /provider/dashboard.
+Language Toggle	EN/SW context provider. Translations JSON file. Auto-detect device language on first launch.
+
+PHASE 2	Job Request, Matching & Open Pin Feed	Weeks 3–4
+
+Build the job intake form, the Supabase Edge Function matching algorithm, and the Open Pin feed for Providers.
+
+Feature / Module	Description
+Job Request Form	Multi-step (Lovable): category → county/neighborhood + geolocation → timeline → KES budget range → description.
+Matching Algorithm	Supabase Edge Function (VS Code): PostGIS radius filter + scoring (rating 40%, response time 30%, distance 20%, verified bonus 10%). Returns top 8. Creates work_threads.
+Lead Notifications	Push notification + SMS (Africa's Talking) to matched Providers: new job category, neighborhood, budget.
+Open Pin Feed	Provider feed of open job_requests in their area. Filter by category + radius. 'Send Quote' creates quote + message + work_thread.
+Lead Credits	Providers hold a credit balance. Deduct 1 credit per quote sent. Top-up via M-Pesa STK Push.
+
+PHASE 3	WorkThread Messaging & Quick Pin Booking	Weeks 5–7
+
+The core communication layer. Real-time messaging via Supabase Realtime, structured quote cards, and Quick Pin instant booking flow.
+
+Feature / Module	Description
+Real-Time Messaging	Supabase Realtime Postgres Changes on messages table. Live updates with no Socket.io.
+Message Types	text (chat bubble), quote (Accept/Counter/Decline card in KES), system (status label), payment_request (M-Pesa pay card with green button).
+WorkThread Status Flow	new → quoted → negotiating → active → completed → reviewed. Supabase RPC functions manage transitions.
+Quick Pin Booking	Provider creates quick_pin listing. Client books from provider profile → booking + work_thread (active) + system message created. M-Pesa STK Push triggered.
+Reply Templates	Up to 20 templates (500 chars). Lightning bolt icon inserts template with {clientName}/{jobType} variable replacement.
+Read Receipts	read_at timestamp on open. Unread count badge via Supabase Realtime.
+
+PHASE 4	M-Pesa Payments & Pin Ratings	Weeks 8–10
+
+M-Pesa Daraja API integration for all payment flows. All payment Edge Functions written in VS Code. Review system built in Lovable.
+
+Feature / Module	Description
+M-Pesa STK Push	Provider requests payment → Daraja STK Push to client phone → client enters M-Pesa PIN → callback confirms → thread marked complete.
+M-Pesa B2C Payout	WorkPin pays providers via Daraja B2C API. Triggered from admin payout queue. Net of 8% platform fee. Notification SMS on receipt.
+Payment Webhooks	Daraja callback → Supabase Edge Function → update payments table → Realtime pushes update to both users' UI in real-time.
+Pin Rating System	Post-job review prompt 24h after completion. 1-5 stars + written review + quick tags. Updates provider avg_rating.
+Provider Earnings	Dashboard: total KES earned, pending payouts, completed jobs, avg rating. Read from payments + reviews tables.
+Platform Fee	8% deducted from provider gross. Logged as platform_fee_kes in payments and payouts_queue tables.
+
+PHASE 5	Trust, Discovery & Kenya Scaling	Weeks 11–13
+
+Disputes, provider verification, search/discovery, SMS notifications, full Swahili UI, and multi-county expansion.
+
+Feature / Module	Description
+WorkPin Shield	Dispute filing from WorkThread. Evidence photo upload to Supabase Storage. Admin dashboard for claim management. KES compensation for eligible claims.
+Provider Verification	National ID + selfie upload → admin review → Verified ID badge. Future: integrate Jumio or local Kenyan KYC provider.
+Search & Discovery	Category + county filter + keyword search. Sort by: best match, highest rated, lowest price, fastest response. Full provider profile pages.
+SMS Notifications	Africa's Talking for critical events: new lead, quote accepted, payment received, payout sent. Both EN and SW templates.
+Full Swahili UI	Complete Swahili translation of all UI strings. Language toggle in profile settings.
+County Expansion	Configured for: Nairobi, Mombasa, Kisumu, Nakuru, Eldoret. Architecture supports all 47 Kenya counties.
+
+
+5. Lovable Prompts
+Paste these prompts directly into Lovable's AI chat to generate the WorkPin frontend. Each prompt builds one major feature. After generating, click 'Open in VS Code' (via GitHub sync) to add M-Pesa and custom backend logic.
+
+How to use Lovable prompts
+1. Open your WorkPin project in Lovable. 2. Paste the prompt. 3. Review the generated UI in the preview panel. 4. Iterate with short follow-up messages (e.g. 'Make the quote card green'). 5. When satisfied, sync to GitHub → pull into VS Code for M-Pesa Edge Functions.
+
+LOVABLE PROMPT 1 — App Shell, Auth & Onboarding
+
+Build the WorkPin app — a Kenyan service marketplace connecting Clients
+(people who need work) with Providers (fundis, plumbers, electricians, etc).
+
+App Shell:
+- App name: WorkPin. Primary color #FF6B35 (orange), accent #006B3F (Kenyan green).
+- Mobile-first. Bottom navigation: Home, Messages, Post Job (orange FAB center), Alerts, Profile.
+- Clean sans-serif UI. No clutter.
+
+Auth Screen:
+- Large WorkPin logo centered, tagline "Pata Fundi Wako" (Find Your Pro).
+- Single input: phone number with +254 prefix locked.
+- "Get OTP" button. Then 4-digit OTP input screen.
+- On verify: show role selection screen.
+
+Role Selection:
+- Two large illustrated cards:
+  "I need work done" → Client
+  "I do the work" → Provider
+- Orange bordered selection highlight.
+
+Client Onboarding (3 steps):
+- Step 1: Full name + profile photo upload.
+- Step 2: County (dropdown: Nairobi, Mombasa, Kisumu, Nakuru, Eldoret, Other)
+  + Neighborhood/Estate text input.
+- Step 3: Success screen: "You're all set! Find your first professional."
+
+Provider Onboarding (4 steps):
+- Step 1: Full name + profile photo + bio (150 char max with counter).
+- Step 2: Service categories — icon grid with multi-select checkboxes:
+  Plumber, Electrician, Fundi, House Help, Painter, Catering,
+  Tutor, Cleaner, Bodaboda, Security, Event Setup, AC Repair.
+- Step 3: Service area (county dropdown) + radius slider (2–50km).
+  Hourly rate (KES number input, "KES" label prefix).
+- Step 4: M-Pesa number (+254) + National ID upload button.
+  "You're ready to receive jobs!" success screen.
+
+Wire to Supabase: profiles table for all users, provider_profiles for providers.
+Show progress indicator (step X of Y) during onboarding.
+Handle Supabase errors with friendly toast messages.
+
+LOVABLE PROMPT 2 — Client Home & Job Request Form
+
+Add the Client home screen and job posting flow to WorkPin.
+
+Client Home (/home) — shown after login for clients:
+- Top: "Habari, [First Name]!" greeting + avatar + orange notification bell icon.
+- Service category grid (2 columns, 6 rows): Plumber, Electrician, Fundi, House Help,
+  Painter, Catering, Tutor, Cleaner, Bodaboda, Security, Event Setup, AC Repair.
+  Each: rounded card, flat icon, label below. Tapping opens job request form.
+- Section: "Your Active Jobs" — list cards from work_threads table.
+  Each: provider avatar, job category, status badge (color-coded), last message preview.
+- Orange FAB bottom-center: "Post a Job" (also opens job request form).
+
+Job Request Form (full-screen multi-step flow):
+- Step 1: Service category selector (same grid, re-selectable, pre-filled if tapped from grid).
+- Step 2: Job description textarea — placeholder: "Describe what you need done..."
+  300 char max with counter.
+- Step 3: Location — county dropdown + neighborhood text input +
+  "Use my location" button (browser GPS).
+- Step 4: Timeline radio buttons: Today / This Week / This Month / Flexible.
+  Budget range: two inputs Min KES / Max KES side by side.
+- Step 5: Review card (summary of all inputs) + "Find Providers" button (orange, full width).
+- Loading state: spinning WorkPin logo + "Finding the best providers near you..."
+- Success state: "We found providers! They'll message you shortly." with confetti.
+
+On submit: INSERT into job_requests table in Supabase.
+Use skeleton loaders on data fetches. Swahili string support (EN/SW).
+
+LOVABLE PROMPT 3 — Provider Dashboard & Open Pin Feed
+
+Add the Provider dashboard and Open Pin (opportunity) feed to WorkPin.
+
+Provider Dashboard (/provider/dashboard) — shown after login for providers:
+- Top: "Karibu, [Name]!" + avatar + verification badge if is_verified=true.
+- Stats row (4 cards): Active Jobs, Month Earnings (KES), Avg Rating (stars out of 5),
+  Response Rate (%).
+- Lead Credits indicator: "X leads left" + "Top Up" link (orange).
+- "New Leads" section: list of work_threads with status='new' assigned to this provider.
+  Each card: client avatar, job category + icon, description (80 char preview),
+  client neighborhood, time posted, budget range KES min–max.
+  "View & Quote" button opens the WorkThread.
+- "Active Jobs" section: work_threads with status='active'. Tap to open chat.
+- Real-time badge on "New Leads" count via Supabase Realtime.
+
+Open Pin Feed (/provider/open-pins) — tab in provider nav:
+- Notification badge on tab icon for new pins.
+- List of job_requests with status='open' filtered by provider's county and radius.
+- Each card: category icon, description preview, client neighborhood, posted X mins ago,
+  KES budget range.
+- "Send Quote" button opens bottom sheet drawer:
+  Price (KES number input), What's included (textarea, 200 chars),
+  Timeline (dropdown: Same day / 1–2 days / This week / Custom).
+  "Send Quote" button (orange, full width).
+- On submit: create quote row + message (type='quote') + work_thread in Supabase.
+  Deduct 1 lead credit. Show green success toast.
+- Empty state: illustration + "No open jobs nearby. Try expanding your radius."
+
+All data from Supabase with Realtime updates.
+
+LOVABLE PROMPT 4 — WorkThread Messaging UI
+
+Add the complete WorkThread messaging system to WorkPin.
+
+Inbox (/messages):
+- List of all work_threads for current user (client or provider view).
+- Each row: other party's avatar + name, job category label, last message preview (60 chars),
+  time since last message, unread count badge (orange pill).
+- Sort by most recent message. Realtime updates via Supabase.
+- Empty state: illustration + "No messages yet." + "Post a Job" button for clients.
+
+WorkThread Chat (/messages/[threadId]):
+- Header: back arrow, other party's name + avatar, job title, status badge pill.
+  Status colors: blue=new, amber=quoted/negotiating, green=active, grey=completed.
+- Message list, auto-scroll to newest. Virtualized for performance.
+
+Message bubble types:
+- type='text': chat bubble. Sender right (orange bg, white text). Receiver left (grey bg).
+  Timestamp + read tick below.
+- type='quote': structured card with orange left border.
+  "Quote from [Name]", price bold KES X,XXX, description, timeline.
+  Three action buttons: Accept (green), Counter (orange outline), Decline (red outline).
+- type='system': small centered grey pill. E.g. "Job marked Active ✓" or "Payment received ✓".
+- type='payment_request': M-Pesa card with green header.
+  Amount KES bold, job reference, "Pay via M-Pesa" green button with M-Pesa logo icon.
+
+Message input bar:
+- Expandable textarea (max 3 lines).
+- Left icons: attachment placeholder, lightning bolt (quick replies popover).
+- Right: send button (orange arrow icon).
+- Quick replies popover: list of provider's saved templates. Tap inserts into input.
+
+Realtime: Supabase Realtime Postgres Changes on messages table filtered by work_thread_id.
+Optimistic UI — append message to state immediately, confirm on Supabase insert response.
+Typing indicator: "[Name] is typing..." appears after 1s of keyboard activity from other party.
+
+Mark messages as read (update read_at) when thread is opened.
+
+LOVABLE PROMPT 5 — Provider Profile, Quick Pins & Reviews
+
+Add Provider profile pages, Quick Pin instant booking, and the review system to WorkPin.
+
+Provider Profile (/provider/[providerId]):
+- Hero: gradient cover (brand orange to green), large avatar, name,
+  top service category, county, member since year.
+- Trust badge row: "Verified ID" (green shield), "Top Rated" (gold star), "Fast Responder" (blue).
+- Stats: avg star rating + review count, total jobs, "Replies in Xh" response time.
+- About: bio text + service category chips.
+- Portfolio: 2-column photo grid (up to 6). Tap → full-screen lightbox.
+- Quick Pins section (if provider has active quick_pins):
+  "Book Instantly" header. Cards: service name, KES price, duration, "Book Now" orange button.
+- Reviews: list with star rating, "Verified Job" green badge, client name, tags chips,
+  review body, date. Sort: Most Recent / Highest.
+- Sticky bottom: "Message [Name]" (outline) + "Post a Job for [Name]" (orange filled).
+
+Quick Pin Booking (bottom sheet, 4 steps):
+- Step 1: Service summary card with provider info. "Continue" button.
+- Step 2: Date + time picker. Slots from quick_pin.available_slots_json.
+- Step 3: Confirm location (client's saved or edit in-line).
+- Step 4: Summary — provider, service, time, KES price.
+  "Pay KES X,XXX via M-Pesa" green button with M-Pesa logo.
+  On confirm: create booking + work_thread (active) + system message in Supabase.
+  Show: "Check your phone — complete payment on M-Pesa" spinner screen.
+
+Pin Rating (post-job modal — triggered 24h after completion):
+- "How was [Provider Name]?" heading.
+- Interactive 5-star picker (tap to rate).
+- Quick tags multi-select: On time, Quality work, Fair price, Great communication, Would hire again.
+- Optional written review textarea (300 chars).
+- "Submit Rating" button. On submit: insert review, trigger avg_rating recalculation.
+
+
+6. VS Code Prompts (Google Anti Gravity)
+After building the UI in Lovable, sync the project to GitHub and open in VS Code. Use these prompts with Google Anti Gravity (or Cursor) for M-Pesa integration, Supabase Edge Functions, the matching algorithm, and RLS policies.
+
+VS Code Setup
+1. In Lovable: Connect to GitHub. Clone repo locally. 2. npm install. 3. Copy .env.example → .env.local. Fill in: VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, MPESA_CONSUMER_KEY, MPESA_CONSUMER_SECRET, MPESA_SHORTCODE, MPESA_PASSKEY, MPESA_CALLBACK_URL, MPESA_ENV (sandbox|production), AT_API_KEY, AT_USERNAME. 4. Install Supabase CLI: npm i -g supabase. Run: supabase start.
+
+VS CODE PROMPT 1 — Full Database Schema, RLS & Seed Data
+
+You are building WorkPin, a Kenyan service marketplace.
+Backend: Supabase (PostgreSQL + PostGIS). Write SQL migration files.
+
+FILE 1: supabase/migrations/001_schema.sql
+Create all tables with exact columns:
+
+profiles: id uuid primary key references auth.users on delete cascade,
+  phone text unique not null, role text check(role in ('client','provider')),
+  full_name text, avatar_url text, county text, neighborhood text,
+  lang_pref text default 'en', created_at timestamptz default now()
+
+provider_profiles: id uuid default gen_random_uuid() primary key,
+  user_id uuid references profiles(id) on delete cascade unique,
+  bio text, categories text[], service_radius_km int default 10,
+  hourly_rate_kes int, portfolio_urls text[] default '{}',
+  avg_rating numeric(2,1) default 0, response_time_mins int default 60,
+  is_verified bool default false, mpesa_number text, total_jobs int default 0,
+  lat numeric(9,6), lng numeric(9,6)
+
+job_requests: id uuid default gen_random_uuid() primary key,
+  client_id uuid references profiles(id), category text,
+  description text, county text, neighborhood text,
+  lat numeric(9,6), lng numeric(9,6),
+  budget_min_kes int, budget_max_kes int, timeline text,
+  status text default 'open' check(status in ('open','matched','filled','expired')),
+  created_at timestamptz default now()
+
+work_threads: id uuid default gen_random_uuid() primary key,
+  job_request_id uuid references job_requests(id),
+  client_id uuid references profiles(id),
+  provider_id uuid references profiles(id),
+  status text default 'new', created_at timestamptz default now()
+
+messages: id uuid default gen_random_uuid() primary key,
+  work_thread_id uuid references work_threads(id) on delete cascade,
+  sender_id uuid references profiles(id), body text not null,
+  type text default 'text' check(type in ('text','quote','system','payment_request')),
+  read_at timestamptz, created_at timestamptz default now()
+
+quotes: id uuid default gen_random_uuid() primary key,
+  work_thread_id uuid references work_threads(id),
+  provider_id uuid references profiles(id),
+  price_kes int, description text, timeline text,
+  status text default 'pending', created_at timestamptz default now()
+
+payments: id uuid default gen_random_uuid() primary key,
+  work_thread_id uuid references work_threads(id),
+  amount_kes int, platform_fee_kes int, net_kes int,
+  mpesa_checkout_request_id text, mpesa_receipt_number text,
+  status text default 'pending', created_at timestamptz default now()
+
+reviews, disputes, quick_pins, reply_templates, notifications,
+payouts_queue, sms_logs — create all with appropriate columns.
+
+Enable PostGIS: CREATE EXTENSION IF NOT EXISTS postgis;
+Add lat/lng columns with GiST spatial index on provider_profiles and job_requests.
+Add index on messages(work_thread_id), work_threads(client_id), work_threads(provider_id).
+
+FILE 2: supabase/migrations/002_rls.sql
+Enable RLS on ALL tables. Policies:
+- profiles: select/update only own row (id = auth.uid())
+- provider_profiles: select for all authenticated users; insert/update only owner
+- work_threads: select/insert/update only where client_id=auth.uid() OR provider_id=auth.uid()
+- messages: select/insert only for work_thread participants
+- job_requests: client sees own; providers see all status='open'
+- payments, reviews, disputes: thread participants only
+- quick_pins: select for all authenticated; insert/update/delete by owner only
+- reply_templates: only owner
+
+FILE 3: supabase/seed.sql
+2 test clients (+254700000001, +254700000002 — Wanjiku Kamau, Brian Otieno, Nairobi)
+3 test providers (+254711000001 plumber Westlands KES 800/hr,
+  +254711000002 electrician Kilimani KES 1200/hr,
+  +254711000003 fundi Eastleigh KES 600/hr)
+2 open job_requests. 1 active work_thread with 6 messages.
+
+VS CODE PROMPT 2 — M-Pesa STK Push Edge Function
+
+You are building WorkPin, a Kenyan service marketplace.
+Backend: Supabase Edge Functions (Deno + TypeScript).
+Payment: Safaricom M-Pesa Daraja API.
+
+Create: supabase/functions/mpesa-stk-push/index.ts
+
+Called when a Provider requests payment or Client books a Quick Pin.
+
+Input body: { workThreadId: string, amountKes: number, phoneNumber: string, description: string }
+
+Steps:
+1. Normalize phone: 07XXXXXXXX or +2547XXXXXXXX → 2547XXXXXXXX.
+   Validate it starts with 2547 or 2541 (Kenyan numbers only).
+
+2. Get OAuth token:
+   GET https://{MPESA_HOST}/oauth/v1/generate?grant_type=client_credentials
+   Authorization: Basic base64(MPESA_CONSUMER_KEY:MPESA_CONSUMER_SECRET)
+   MPESA_HOST = sandbox.safaricom.co.ke (if MPESA_ENV=sandbox)
+              = api.safaricom.co.ke (if MPESA_ENV=production)
+
+3. Generate STK Push password:
+   timestamp = new Date().toISOString().replace(/[^0-9]/g,'').slice(0,14)
+   password = btoa(MPESA_SHORTCODE + MPESA_PASSKEY + timestamp)
+
+4. POST to /mpesa/stkpush/v1/processrequest:
+   {
+     BusinessShortCode: MPESA_SHORTCODE,
+     Password: password,
+     Timestamp: timestamp,
+     TransactionType: "CustomerPayBillOnline",
+     Amount: Math.ceil(amountKes),
+     PartyA: phoneNumber,
+     PartyB: MPESA_SHORTCODE,
+     PhoneNumber: phoneNumber,
+     CallBackURL: Deno.env.get("MPESA_CALLBACK_URL") + "/functions/v1/mpesa-callback",
+     AccountReference: "WP-" + workThreadId.slice(0,8).toUpperCase(),
+     TransactionDesc: description.slice(0,100)
+   }
+
+5. INSERT into payments: { work_thread_id, amount_kes, platform_fee_kes: ceil(amountKes*0.08),
+   net_kes: ceil(amountKes*0.92), mpesa_checkout_request_id, status: 'pending' }
+
+6. INSERT system message into messages:
+   "Payment request of KES {amount} sent. Check your phone and enter your M-Pesa PIN."
+
+7. Return: { success: true, checkoutRequestId, message: "Check your phone..." }
+
+Error handling: invalid phone → 400, M-Pesa API error → 502 with Daraja error message.
+Full TypeScript interfaces for DarajaTokenResponse, DarajaStkPushRequest, DarajaStkPushResponse.
+Export CORS headers for Lovable frontend requests.
+
+VS CODE PROMPT 3 — M-Pesa Callback & B2C Payout
+
+You are building WorkPin, a Kenyan service marketplace.
+Backend: Supabase Edge Functions (Deno + TypeScript).
+
+FILE 1: supabase/functions/mpesa-callback/index.ts
+Receives Safaricom's STK Push result webhook.
+
+Daraja callback structure:
+{ Body: { stkCallback: { MerchantRequestID, CheckoutRequestID, ResultCode,
+  ResultDesc, CallbackMetadata: { Item: [{Name, Value}] } } } }
+ResultCode 0 = success. Anything else = failure.
+
+Logic:
+1. Extract CheckoutRequestID from payload.
+2. Query payments table for this mpesa_checkout_request_id.
+3. If ResultCode === 0:
+   - Extract: Amount, MpesaReceiptNumber, PhoneNumber from CallbackMetadata.Item array.
+   - UPDATE payments: status='paid', mpesa_receipt_number, paid_at=now().
+   - UPDATE work_threads: status='completed'.
+   - INSERT system message: "Payment of KES {amount} confirmed.
+     M-Pesa Receipt: {receipt}. Job complete — please leave a rating!"
+   - INSERT notifications for both client and provider.
+   - INSERT into payouts_queue: { payment_id, provider_id, gross_kes=amount,
+     platform_fee_kes=ceil(amount*0.08), net_kes=floor(amount*0.92), status='pending' }
+4. If ResultCode !== 0:
+   - UPDATE payments: status='failed'.
+   - INSERT system message: "Payment was not completed ({ResultDesc}). Please try again."
+   - INSERT notification for client.
+5. ALWAYS return HTTP 200 to Safaricom (they will retry otherwise).
+
+FILE 2: supabase/functions/mpesa-payout/index.ts
+Admin-only endpoint to process provider payouts via Daraja B2C.
+Input: { payoutQueueId: string } (requires service_role header)
+
+Steps:
+1. Fetch payouts_queue row. Validate status='pending'.
+2. Fetch provider mpesa_number from provider_profiles.
+3. Get Daraja OAuth token.
+4. POST /mpesa/b2c/v1/paymentrequest:
+   { InitiatorName: MPESA_INITIATOR_NAME,
+     SecurityCredential: MPESA_B2C_CREDENTIAL,
+     CommandID: "BusinessPayment",
+     Amount: net_kes, PartyA: MPESA_SHORTCODE,
+     PartyB: mpesa_number,
+     Remarks: "WorkPin payout " + payoutQueueId.slice(0,8),
+     QueueTimeOutURL: CALLBACK_URL + "/mpesa-b2c-timeout",
+     ResultURL: CALLBACK_URL + "/mpesa-b2c-result" }
+5. UPDATE payouts_queue: status='processing', b2c_conversation_id.
+
+FILE 3: supabase/functions/mpesa-b2c-result/index.ts
+On success: status='done', notify provider via SMS: "KES {net} sent to your M-Pesa by WorkPin!"
+On fail: status='failed', alert admin via notification.
+
+Full TypeScript types for all Daraja API shapes.
+
+VS CODE PROMPT 4 — Provider Matching Algorithm
+
+You are building WorkPin, a Kenyan service marketplace.
+Backend: Supabase Edge Function (Deno + TypeScript + PostGIS).
+
+Create: supabase/functions/match-providers/index.ts
+Called immediately after a client submits a job_request. Returns top 8 matched providers.
+
+Input: { jobRequestId: string }
+
+Step 1: Fetch job_request row (category, lat, lng, budget_min_kes, budget_max_kes, client_id, county).
+
+Step 2: PostGIS geo-query to find candidate providers:
+  SELECT pp.*, p.full_name, p.avatar_url, p.phone,
+    ST_Distance(
+      ST_SetSRID(ST_MakePoint(pp.lng, pp.lat), 4326)::geography,
+      ST_SetSRID(ST_MakePoint($jobLng, $jobLat), 4326)::geography
+    ) AS distance_m
+  FROM provider_profiles pp
+  JOIN profiles p ON p.id = pp.user_id
+  WHERE $category = ANY(pp.categories)
+    AND p.role = 'provider'
+    AND ST_DWithin(
+      ST_SetSRID(ST_MakePoint(pp.lng, pp.lat), 4326)::geography,
+      ST_SetSRID(ST_MakePoint($jobLng, $jobLat), 4326)::geography,
+      pp.service_radius_km * 1000
+    )
+  ORDER BY distance_m ASC LIMIT 20;
+
+Fallback if PostGIS unavailable: Haversine formula in TypeScript.
+
+Step 3: Score each provider (0–100):
+  ratingScore   = (pp.avg_rating / 5) * 40      // max 40pts
+  responseScore = Math.max(0, 1 - pp.response_time_mins/120) * 30  // max 30pts
+  distanceScore = Math.max(0, 1 - distance_m / (pp.service_radius_km*1000)) * 20  // max 20pts
+  verifiedBonus = pp.is_verified ? 10 : 0       // max 10pts
+  total = ratingScore + responseScore + distanceScore + verifiedBonus
+
+Step 4: Sort by total DESC, take top 8.
+
+Step 5: For each matched provider:
+  a. INSERT work_threads: { job_request_id, client_id, provider_id, status:'new' }
+  b. INSERT messages (type='system'): "New job near you: {category} in {neighborhood}.
+     Client budget: KES {min}–{max}. Tap to send a quote."
+  c. INSERT notifications: { user_id: provider_id, type:'new_lead',
+     title:'New job request!', body: category + ' in ' + neighborhood }
+
+Step 6: UPDATE job_requests SET status='matched' WHERE id=jobRequestId.
+
+Step 7: Trigger SMS for each provider (call send-sms Edge Function internally).
+
+Return: { matched: N, workThreadIds: [...] }
+
+Edge case: 0 providers found → return { matched: 0 } and set job status to 'open' (not matched).
+TypeScript interfaces for all database rows. Use Supabase admin client (service_role key).
+
+VS CODE PROMPT 5 — Supabase Realtime Messaging Hook
+
+You are building WorkPin, a Kenyan service marketplace.
+Frontend: React + TypeScript (exported from Lovable). Backend: Supabase.
+
+Create: src/hooks/useWorkThread.ts
+A custom React hook for real-time WorkThread messaging using Supabase Realtime.
+Replaces any Socket.io references generated by Lovable.
+
+Hook signature:
+function useWorkThread(workThreadId: string): {
+  messages: Message[]
+  thread: WorkThread | null
+  otherParty: Profile | null
+  sendMessage: (body: string, type?: MessageType) => Promise<void>
+  sendQuote: (quote: QuotePayload) => Promise<void>
+  requestPayment: (amountKes: number) => Promise<void>
+  markAsRead: () => Promise<void>
+  isLoading: boolean
+  error: string | null
+}
+
+Implementation:
+1. Fetch initial data: messages (joined with profiles for sender info), thread details,
+   other party's profile.
+2. Subscribe to Supabase Realtime:
+   const channel = supabase.channel('thread:' + workThreadId)
+     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages',
+         filter: 'work_thread_id=eq.' + workThreadId },
+       payload => setMessages(prev => [...prev, payload.new as Message]))
+     .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'work_threads',
+         filter: 'id=eq.' + workThreadId },
+       payload => setThread(payload.new as WorkThread))
+     .subscribe()
+3. sendMessage: optimistic insert to local state → supabase.from('messages').insert(...)
+   On Supabase error: remove optimistic message, show toast "Message failed. Tap to retry."
+4. sendQuote: insert message (type='quote', body=JSON.stringify(quotePayload))
+   AND insert into quotes table atomically via Supabase RPC.
+5. requestPayment: insert message (type='payment_request', body=JSON.stringify({amountKes})).
+   Then call /functions/v1/mpesa-stk-push edge function.
+6. markAsRead: UPDATE messages SET read_at=now() WHERE work_thread_id=workThreadId
+   AND sender_id != currentUserId AND read_at IS NULL.
+7. Typing indicator: use Supabase Broadcast channel (ephemeral, no DB write):
+   Broadcast { event:'typing' } on keydown. Receive and show "[Name] is typing..." for 3s.
+8. Cleanup: channel.unsubscribe() on unmount.
+
+Also create: src/hooks/useUnreadCount.ts
+Returns total unread count across all threads. Realtime via Supabase Broadcast on new inserts.
+Used for nav bottom bar badge.
+
+Full TypeScript types: Message, WorkThread, Profile, QuotePayload, MessageType (enum).
+
+VS CODE PROMPT 6 — Africa's Talking SMS Service
+
+You are building WorkPin, a Kenyan service marketplace.
+Backend: Supabase Edge Function (Deno + TypeScript). SMS: Africa's Talking API.
+
+Create: supabase/functions/send-sms/index.ts
+
+Africa's Talking SMS:
+POST https://api.africastalking.com/version1/messaging
+Headers: apiKey: AT_API_KEY, Accept: application/json, Content-Type: application/x-www-form-urlencoded
+Body: username=AT_USERNAME&to={phone}&message={text}&from={AT_SENDER_ID}
+
+Input: { to: string, templateKey: string, variables: Record<string, string>, lang?: 'en'|'sw' }
+
+Templates object (support both EN and SW):
+
+new_lead_en: "WorkPin: New job near you! {category} in {neighborhood}.
+  Budget: KES {budgetMin}–{budgetMax}. Open app to send a quote."
+new_lead_sw: "WorkPin: Kazi mpya karibu nawe! {category} {neighborhood}.
+  Bajeti: KES {budgetMin}–{budgetMax}. Fungua app kutoa bei."
+
+quote_accepted_en: "WorkPin: {clientName} accepted your quote of KES {amount}!
+  Job reference: {jobRef}. Open app to confirm details."
+
+payment_received_en: "WorkPin: Payment of KES {amount} received from {clientName}.
+  M-Pesa Receipt: {receipt}. Well done!"
+payment_received_sw: "WorkPin: Umelipwa KES {amount} na {clientName}.
+  Risiti ya M-Pesa: {receipt}. Hongera!"
+
+payout_sent_en: "WorkPin: KES {netAmount} has been sent to your M-Pesa.
+  Job: {jobRef}. Keep up the great work!"
+
+job_booked_en: "WorkPin: {clientName} has booked you for {service} on {date} at {time}.
+  Location: {neighborhood}. Open app for details."
+
+dispute_filed_en: "WorkPin: A dispute has been filed on job {jobRef}.
+  Our team will contact both parties within 24 hours."
+
+Steps:
+1. Look up user's lang_pref from profiles table for the recipient.
+2. Select template by templateKey + '_' + lang. Fallback to '_en'.
+3. Replace all {variable} tokens from the variables object.
+4. Normalize phone to +2547XXXXXXXX format.
+5. Send via Africa's Talking API.
+6. INSERT into sms_logs: { to_phone, template_key, status, sent_at, at_response_json }
+7. Return: { success: bool, messageId }
+
+Also set up Supabase Database Webhooks to auto-trigger this function:
+- After INSERT on work_threads (status=new) → template: new_lead → notify provider
+- After UPDATE on quotes WHERE status changes to 'accepted' → template: quote_accepted → notify provider
+- After UPDATE on payments WHERE status changes to 'paid' → template: payment_received → notify provider
+
+
+7. M-Pesa Daraja Sandbox Setup
+Before writing any payment code, register on the Safaricom Developer Portal. This setup takes approximately 30 minutes and is required before any payment testing.
+
+Feature / Module	Description
+Step	Action
+1. Register	Go to developer.safaricom.co.ke. Create an account with a Kenyan phone number (+254).
+2. Create App	My Apps → Add New App. Name: 'WorkPin Dev'. Enable: Lipa Na M-Pesa Online (STK Push) + M-Pesa B2C.
+3. Get Credentials	Copy Consumer Key + Consumer Secret from your app dashboard into .env.local.
+4. Sandbox Test Number	Use phone: 254708374149 for all STK Push tests. Sandbox auto-confirms without real PIN.
+5. STK Push Shortcode	Sandbox paybill shortcode: 174379. Sandbox passkey: available in your Daraja app dashboard.
+6. ngrok for Callbacks	Run: ngrok http 54321 (Supabase local port). Use the ngrok HTTPS URL as MPESA_CALLBACK_URL.
+7. Test Full Flow	Call STK Push → check Supabase payments table → sandbox auto-triggers callback → verify status='paid'.
+8. Production Go-Live	Apply via Daraja portal. Requires: KRA PIN, business registration, M-Pesa Paybill/Till number, live test evidence.
+9. B2C Credentials	B2C uses a separate Initiator Name and Security Credential (encrypted password). Request from Safaricom after STK goes live.
+
+
+8. Recommended Build Order
+Follow this sequence. Every session produces a runnable, demo-able feature.
+
+Session	Tool	Action
+1	Supabase + VS Code	VS Code Prompt 1 — schema, RLS, seed. Verify in Supabase Studio.
+2	Lovable	Lovable Prompt 1 — Auth + onboarding. Test +254 OTP login for both roles.
+3	Lovable	Lovable Prompt 2 — Client home + job request form. Submit a test job.
+4	VS Code	VS Code Prompt 4 — Matching algorithm Edge Function. Confirm work_threads created.
+5	Lovable	Lovable Prompt 3 — Provider dashboard + Open Pin feed. Send a test quote.
+6	Lovable	Lovable Prompt 4 — WorkThread messaging UI. Full chat flow client ↔ provider.
+7	VS Code	VS Code Prompt 5 — Supabase Realtime hook. Wire live messaging.
+8	Lovable	Lovable Prompt 5 — Provider profile, Quick Pins, reviews.
+9	VS Code	VS Code Prompt 2 — M-Pesa STK Push. Test with Daraja sandbox.
+10	VS Code	VS Code Prompt 3 — M-Pesa callback + B2C payout. Full pay flow.
+11	VS Code	VS Code Prompt 6 — Africa's Talking SMS. Test all notification triggers.
+12	Lovable + VS Code	Disputes, provider verification, search/discovery. Polish empty states.
+13	Lovable	Full Swahili UI pass. Offline states. 3G performance testing.
+
+
+WorkPin Kenya — Refactored Build Plan & AI Prompts  •  Confidential  •  Lovable + Supabase + M-Pesa

@@ -16,21 +16,23 @@ import { format } from "date-fns";
 
 interface Message {
   id: string;
-  request_id: string;
+  work_thread_id: string;
   sender_id: string;
-  content: string;
+  body: string;
+  type: 'text' | 'quote' | 'system';
+  read_at: string | null;
   created_at: string;
 }
 
 interface MessageDrawerProps {
-  requestId: string | null;
+  workThreadId: string | null;
   recipientName: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onRead?: () => void;
 }
 
-const MessageDrawer = ({ requestId, recipientName, open, onOpenChange, onRead }: MessageDrawerProps) => {
+const MessageDrawer = ({ workThreadId, recipientName, open, onOpenChange, onRead }: MessageDrawerProps) => {
   const { user } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
@@ -40,36 +42,39 @@ const MessageDrawer = ({ requestId, recipientName, open, onOpenChange, onRead }:
 
   // Mark as read & fetch messages when opened
   useEffect(() => {
-    if (!open || !requestId || !user) return;
+    if (!open || !workThreadId || !user) return;
     setLoading(true);
-    // Upsert read status
+    // Mark all unread messages as read for this thread
     supabase
-      .from("conversation_read_status")
-      .upsert({ user_id: user.id, request_id: requestId, last_read_at: new Date().toISOString() })
+      .from("messages")
+      .update({ read_at: new Date().toISOString() })
+      .eq("work_thread_id", workThreadId)
+      .is("read_at", null)
+      .neq("sender_id", user.id)
       .then(() => onRead?.());
     supabase
-      .from("direct_messages")
+      .from("messages")
       .select("*")
-      .eq("request_id", requestId)
+      .eq("work_thread_id", workThreadId)
       .order("created_at", { ascending: true })
       .then(({ data }) => {
         setMessages((data as Message[]) || []);
         setLoading(false);
       });
-  }, [open, requestId]);
+  }, [open, workThreadId, user]);
 
   // Realtime subscription
   useEffect(() => {
-    if (!open || !requestId) return;
+    if (!open || !workThreadId) return;
     const channel = supabase
-      .channel(`dm-${requestId}`)
+      .channel(`messages-${workThreadId}`)
       .on(
         "postgres_changes",
         {
           event: "INSERT",
           schema: "public",
-          table: "direct_messages",
-          filter: `request_id=eq.${requestId}`,
+          table: "messages",
+          filter: `work_thread_id=eq.${workThreadId}`,
         },
         (payload) => {
           setMessages((prev) => {
@@ -84,7 +89,7 @@ const MessageDrawer = ({ requestId, recipientName, open, onOpenChange, onRead }:
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [open, requestId]);
+  }, [open, workThreadId]);
 
   // Auto-scroll
   useEffect(() => {
@@ -92,12 +97,13 @@ const MessageDrawer = ({ requestId, recipientName, open, onOpenChange, onRead }:
   }, [messages]);
 
   const handleSend = async () => {
-    if (!user || !requestId || !newMessage.trim()) return;
+    if (!user || !workThreadId || !newMessage.trim()) return;
     setSending(true);
-    const { error } = await supabase.from("direct_messages").insert({
-      request_id: requestId,
+    const { error } = await supabase.from("messages").insert({
+      work_thread_id: workThreadId,
       sender_id: user.id,
-      content: newMessage.trim(),
+      body: newMessage.trim(),
+      type: "text",
     });
     setSending(false);
     if (!error) {
@@ -145,7 +151,7 @@ const MessageDrawer = ({ requestId, recipientName, open, onOpenChange, onRead }:
                           : "bg-muted text-foreground"
                       }`}
                     >
-                      <p className="whitespace-pre-wrap break-words">{msg.content}</p>
+                      <p className="whitespace-pre-wrap break-words">{msg.body}</p>
                       <p
                         className={`mt-1 text-[10px] ${
                           isOwn ? "text-primary-foreground/70" : "text-muted-foreground"

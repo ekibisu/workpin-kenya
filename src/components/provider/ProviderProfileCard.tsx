@@ -15,10 +15,11 @@ const ProviderProfileCard = ({ userId }: ProviderProfileCardProps) => {
 
   useEffect(() => {
     const fetch = async () => {
+
       const [provRes, revRes] = await Promise.all([
         supabase
-          .from("providers")
-          .select("rating, total_reviews")
+          .from("provider_profiles")
+          .select("avg_rating, total_reviews")
           .eq("user_id", userId)
           .maybeSingle(),
         supabase
@@ -28,7 +29,7 @@ const ProviderProfileCard = ({ userId }: ProviderProfileCardProps) => {
       ]);
 
       if (provRes.data) {
-        setRating(Number(provRes.data.rating) || 0);
+        setRating(Number(provRes.data.avg_rating) || 0);
         setTotalReviews(Number(provRes.data.total_reviews) || 0);
       }
 

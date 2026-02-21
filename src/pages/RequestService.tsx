@@ -39,7 +39,7 @@ const RequestService = () => {
     service: preselected,
     serviceId: "",
     description: "",
-    budget: "",
+    budget_min_kes: "",
     location: "",
   });
 
@@ -117,14 +117,14 @@ const RequestService = () => {
     setSubmitting(true);
     setUploadProgress(0);
 
-    // 1. Insert the service request
-    const { data: inserted, error } = await supabase.from("service_requests").insert({
-      customer_id: user.id,
+    // 1. Insert the job request
+    const { data: inserted, error } = await supabase.from("job_requests").insert({
+      client_id: user.id,
       service_id: form.serviceId,
       description: form.description.trim(),
-      budget: form.budget ? Number(form.budget) : null,
+      budget_min_kes: form.budget_min_kes ? Number(form.budget_min_kes) : null,
       location_name: form.location.trim(),
-    } as any).select("id").single();
+    }).select("id").single();
 
     if (error || !inserted) {
       toast({ title: "Error", description: error?.message || "Failed to create request.", variant: "destructive" });
@@ -159,7 +159,7 @@ const RequestService = () => {
 
       // 3. Update the row with image URLs
       if (imageUrls.length > 0) {
-        await supabase.from("service_requests").update({ image_urls: imageUrls } as any).eq("id", requestId);
+        await supabase.from("job_requests").update({ image_urls: imageUrls }).eq("id", requestId);
       }
     }
 
@@ -196,9 +196,8 @@ const RequestService = () => {
                       <button
                         key={s.id}
                         onClick={() => selectService(s)}
-                        className={`rounded-xl border p-3 text-left text-sm font-medium transition-all ${
-                          form.serviceId === s.id ? "border-primary bg-primary/5 text-primary" : "border-border text-foreground hover:border-primary/30"
-                        }`}
+                        className={`rounded-xl border p-3 text-left text-sm font-medium transition-all ${form.serviceId === s.id ? "border-primary bg-primary/5 text-primary" : "border-border text-foreground hover:border-primary/30"
+                          }`}
                       >
                         {s.name}
                       </button>
@@ -271,7 +270,7 @@ const RequestService = () => {
                     <Label htmlFor="budget" className="text-base font-semibold">Budget (KES)</Label>
                     <div className="relative">
                       <Banknote className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                      <Input id="budget" type="number" value={form.budget} onChange={(e) => updateForm("budget", e.target.value)} placeholder="e.g., 5000" className="pl-9" />
+                      <Input id="budget" type="number" value={form.budget_min_kes} onChange={(e) => updateForm("budget_min_kes", e.target.value)} placeholder="e.g., 5000" className="pl-9" />
                     </div>
                     <p className="text-xs text-muted-foreground">Optional — helps pros give accurate quotes.</p>
                   </div>
@@ -295,7 +294,7 @@ const RequestService = () => {
                     <dl className="space-y-3 text-sm">
                       <div className="flex justify-between"><dt className="text-muted-foreground">Service</dt><dd className="font-medium text-foreground">{form.service}</dd></div>
                       <div className="border-t border-border pt-3"><dt className="mb-1 text-muted-foreground">Description</dt><dd className="text-foreground">{form.description}</dd></div>
-                      {form.budget && (<div className="flex justify-between border-t border-border pt-3"><dt className="text-muted-foreground">Budget</dt><dd className="font-medium text-foreground">KES {Number(form.budget).toLocaleString()}</dd></div>)}
+                      {form.budget_min_kes && (<div className="flex justify-between border-t border-border pt-3"><dt className="text-muted-foreground">Budget</dt><dd className="font-medium text-foreground">KES {Number(form.budget_min_kes).toLocaleString()}</dd></div>)}
                       <div className="flex justify-between border-t border-border pt-3"><dt className="text-muted-foreground">Location</dt><dd className="font-medium text-foreground">{form.location}</dd></div>
                     </dl>
 

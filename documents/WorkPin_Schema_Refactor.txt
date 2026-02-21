@@ -1,0 +1,716 @@
+WorkPin Kenya
+Database Schema Refactor Plan
+Current Schema → WorkPin Kenya Build Plan
+
+
+✓  KEEP		✎  ALTER / RENAME		+ ADD NEW		✕  DROP
+
+
+1.  What We Found — Current Schema Audit
+The current WorkPin database has 10 tables. Some are well-structured and can be kept with minor changes. Others need significant reworking to support the WorkPin Kenya communication model, M-Pesa payments, and the full WorkThread lifecycle.
+
+Current Tables — Quick Status
+Current Name	New Name	Action	What Changes
+profiles	profiles	ALTER	Good base. Add role column directly. Phone column exists but needs M-Pesa validation note.
+user_roles	— (absorbed)	DROP	Role moved into profiles.role. user_roles is redundant and creates a join on every auth check.
+providers	provider_profiles	RENAME	Rename + add 8 missing columns: categories[], service_radius_km, rate_kes, portfolio_photos[], availability_json, response_time_minutes, mpesa_phone, subscription_status stays.
+— (missing)	client_profiles	ADD	New table. Clients currently only have profiles. Need client_profiles for location (lat/lng) and M-Pesa phone.
+service_requests	job_requests	RENAME	Rename + split budget into budget_min_kes / budget_max_kes + add lat/lng + add timeline column.
+services	services	KEEP	16 service categories already exist and are Kenya-relevant. Keep as-is, add 4 more categories.
+quotes	quotes	ALTER	Rename 'rejected' status to 'declined'. Add timeline column. Otherwise good.
+direct_messages	messages	MIGRATE	Data migrated into new messages table. direct_messages linked to request_id — needs work_thread_id instead.
+conversation_read_status	— (absorbed)	DROP	Read tracking moved to messages.read_at timestamp column. Simpler and Realtime-compatible.
+messages	messages	ALTER	Currently empty/unused. Repurpose as the unified messages table with type column (text/quote/system).
+jobs	— (absorbed)	DROP	Empty. Job lifecycle is now managed by work_threads.status. jobs table is not needed.
+payments	payments	ALTER	Has mpesa_ref but missing: work_thread_id, mpesa_checkout_request_id, mpesa_receipt_number. amount column rename to amount_kes.
+reviews	reviews	ALTER	Currently empty. Add tags[] column. Rename request_id → work_thread_id.
+— (missing)	work_threads	ADD	Core new table. Ties a client, provider, and optional job_request into one conversation thread with a status lifecycle.
+— (missing)	bookings	ADD	New table for Quick Pin (Instant Book) scheduled appointments.
+— (missing)	disputes	ADD	New table for WorkPin Shield dispute filing with evidence storage.
+— (missing)	provider_templates	ADD	New table for Provider quick-reply message templates (up to 20 per provider).
+— (missing)	provider_wallets	ADD	New table. Tracks Provider KES balance, pending balance, and platform fee deductions.
+— (missing)	wallet_transactions	ADD	New table. Full transaction ledger for every credit, debit, and fee event per Provider.
+— (missing)	fixed_price_services	ADD	New table for Quick Pin listings created by Providers.
+
+Live Data Summary (What Must Be Preserved)
+Table	Rows	Migration Risk
+profiles	4	✓ Low — keep all rows, add role column, backfill from user_roles
+user_roles	4	Use to backfill profiles.role before dropping
+providers	0 rows shown	✓ Low — rename + add columns, no data loss
+service_requests	7	⚠ Medium — rename table, split budget, migrate request_id references in other tables
+services	16	✓ Low — keep all 16 rows, insert 4 new categories
+quotes	8	⚠ Medium — rename 'rejected' → 'declined', create work_threads first (quotes need work_thread_id)
+direct_messages	8	⚠ Medium — migrate into messages table. Must create work_threads per unique request_id first, then re-link messages to work_thread_id
+jobs / payments / reviews	0 each	✓ Low — empty tables, safe to alter structure freely
+
+
+2.  Table-by-Table Refactor Detail
+
+TABLE: profiles  →  profiles  (ALTER)
+
+Current Column	New Column	Change Details
+id	id	Keep — UUID primary key, links to auth.users
+full_name	full_name	Keep
+email	email	Keep
+phone	phone	Keep — rename note: this is the M-Pesa phone. Add comment to column.
+avatar_url	avatar_url	Keep
+created_at	created_at	Keep
+updated_at	updated_at	Keep
+— (missing)	role	ADD TEXT NOT NULL DEFAULT 'client' CHECK IN ('client','provider') — backfill from user_roles
+— (missing)	onboarding_complete	ADD BOOLEAN DEFAULT false — flag to gate app access until profile is set up
+
+TABLE: user_roles  →  DROP  (after backfilling profiles.role)
+
+user_roles holds 4 rows mapping user_id to 'customer' or 'provider'. Before dropping: run the backfill migration to copy role into profiles.role (converting 'customer' → 'client'). Then drop user_roles entirely.
+
+TABLE: providers  →  provider_profiles  (RENAME + ALTER)
+
+Current Column	New Column	Change Details
+id	id	Keep
+user_id	user_id	Keep — FK to profiles.id
+business_name	business_name	Keep — display name for their service business
+bio	bio	Keep — max 500 chars enforced at app level
+location_lat	location_lat	Keep
+location_long	location_lng	Rename long → lng for consistency
+whatsapp_number	mpesa_phone	Rename — this is the payout phone, not WhatsApp. +254 format.
+rating	avg_rating	Rename for clarity. Keep NUMERIC default 0.
+total_reviews	total_reviews	Keep
+is_verified	is_verified	Keep
+subscription_status	subscription_status	Keep — free/paid tier useful for future Pro features
+created_at	created_at	Keep
+updated_at	updated_at	Keep
+— (missing)	categories	ADD TEXT[] — array of service category names from services table
+— (missing)	service_radius_km	ADD INTEGER DEFAULT 10 — geo matching radius
+— (missing)	rate_kes	ADD INTEGER — starting rate in KES per hour or per job
+— (missing)	rate_type	ADD TEXT DEFAULT 'hourly' CHECK IN ('hourly','per_job')
+— (missing)	portfolio_photos	ADD TEXT[] DEFAULT '{}' — array of Supabase Storage URLs
+— (missing)	availability_json	ADD JSONB DEFAULT '{}' — weekly schedule {mon:[{start,end}],...}
+— (missing)	response_time_minutes	ADD INTEGER DEFAULT 60 — for matching score and profile display
+— (missing)	location_name	ADD TEXT — human-readable location e.g. 'Westlands, Nairobi'
+
+TABLE: — (missing)  →  client_profiles  (ADD NEW)
+
+Clients currently only have a row in profiles with no location data. client_profiles stores their saved location and M-Pesa phone number for payments.
+
+Current Column	New Column	Change Details
+— (missing)	id	UUID PRIMARY KEY DEFAULT gen_random_uuid()
+— (missing)	user_id	UUID NOT NULL UNIQUE REFERENCES profiles(id) ON DELETE CASCADE
+— (missing)	location_name	TEXT — e.g. 'Kilimani, Nairobi'
+— (missing)	lat	DOUBLE PRECISION — for geo matching
+— (missing)	lng	DOUBLE PRECISION — for geo matching
+— (missing)	mpesa_phone	TEXT — 07XX format, used for STK Push
+— (missing)	created_at	TIMESTAMPTZ DEFAULT now()
+
+TABLE: service_requests  →  job_requests  (RENAME + ALTER)
+
+Critical: 7 live rows must be preserved. Run the rename + ALTER before touching quotes or direct_messages since they reference this table via request_id.
+
+Current Column	New Column	Change Details
+id	id	Keep
+customer_id	client_id	Rename — aligns with WorkPin terminology (customer → client)
+service_id	service_id	Keep — FK to services.id
+description	description	Keep
+budget	budget_min_kes	Rename — current single budget becomes the minimum. Add budget_max_kes too. Existing values populate budget_min_kes.
+— (missing)	budget_max_kes	ADD INTEGER — max budget in KES. Nullable.
+status	status	Keep CHECK values — extend to include 'matched' and 'filled'. Current: open/pending/completed.
+location_name	location_name	Keep
+— (missing)	lat	ADD DOUBLE PRECISION — needed for geo matching with PostGIS
+— (missing)	lng	ADD DOUBLE PRECISION — needed for geo matching
+— (missing)	timeline	ADD TEXT — e.g. 'asap', 'this_week', 'this_month', 'flexible'
+image_urls	image_urls	Keep — existing Supabase Storage URLs remain valid
+created_at	created_at	Keep
+updated_at	updated_at	Keep
+
+TABLE: services  →  services  (KEEP + INSERT 4 rows)
+
+All 16 existing service categories are Kenya-relevant and can be kept. Insert 4 additional rows for completeness.
+
+Current Column	New Column	Change Details
+id	id	Keep
+name	name	Keep
+category	category	Keep
+icon	icon	Keep
+created_at	created_at	Keep
+— (missing rows)	Security / Usalama	INSERT — category: 'Safety'
+— (missing rows)	Beauty / Uzuri	INSERT — category: 'Health'
+— (missing rows)	Carpentry / Useremala	INSERT — category: 'Home'
+— (missing rows)	IT Support / Teknolojia	INSERT — category: 'Tech'
+
+TABLE: quotes  →  quotes  (ALTER)
+
+8 live quote rows. One is 'rejected' status — must be renamed to 'declined'. Add work_thread_id after work_threads is created.
+
+Current Column	New Column	Change Details
+id	id	Keep
+request_id	request_id	Keep for now — also add work_thread_id FK alongside it
+— (missing)	work_thread_id	ADD UUID REFERENCES work_threads(id) — backfill after migration
+provider_id	provider_id	Keep
+price	price_kes	Rename to be explicit about currency
+message	message	Keep
+— (missing)	timeline	ADD TEXT — estimated delivery timeline
+status	status	ALTER CHECK — rename 'rejected' value to 'declined' in existing rows + constraint
+created_at	created_at	Keep
+
+TABLE: — (missing)  →  work_threads  (ADD NEW — most critical)
+
+This is the most important new table. It is the central thread tying every conversation, quote, booking, payment, and review together. The 7 existing service requests each had direct messages — these become work_threads.
+
+Current Column	New Column	Change Details
+— (missing)	id	UUID PRIMARY KEY DEFAULT gen_random_uuid()
+— (missing)	job_request_id	UUID REFERENCES job_requests(id) — nullable (direct messages have no job request)
+— (missing)	client_id	UUID NOT NULL REFERENCES profiles(id)
+— (missing)	provider_id	UUID NOT NULL REFERENCES profiles(id)
+— (missing)	status	TEXT DEFAULT 'new' CHECK IN (new/quoted/negotiating/active/completed/reviewed/disputed)
+— (missing)	created_at	TIMESTAMPTZ DEFAULT now()
+— (missing)	updated_at	TIMESTAMPTZ DEFAULT now()
+
+TABLE: direct_messages  →  messages  (MIGRATE + REPURPOSE empty messages table)
+
+8 live messages in direct_messages. These must be migrated into the repurposed messages table after work_threads are created. direct_messages is then dropped.
+
+Current Column	New Column	Change Details
+direct_messages.id	id	Keep UUID value — migrate directly
+direct_messages.request_id	work_thread_id	Resolve: look up work_thread where job_request_id = request_id, use that thread's id
+direct_messages.sender_id	sender_id	Keep UUID value
+direct_messages.content	body	Rename content → body for consistency
+— (missing)	type	ADD TEXT DEFAULT 'text' CHECK IN (text/quote/system) — all migrated rows = 'text'
+— (missing)	read_at	ADD TIMESTAMPTZ nullable — replaces conversation_read_status table
+direct_messages.created_at	created_at	Keep
+
+TABLE: payments  →  payments  (ALTER)
+
+payments is currently empty, making this a safe ALTER. The table exists and has M-Pesa reference fields started — expand to the full Daraja integration structure.
+
+Current Column	New Column	Change Details
+id	id	Keep
+user_id	client_id	Rename user_id → client_id for clarity
+amount	amount_kes	Rename — explicit KES currency
+mpesa_ref	mpesa_receipt_number	Rename — this is the receipt after payment success
+— (missing)	work_thread_id	ADD UUID NOT NULL REFERENCES work_threads(id)
+— (missing)	mpesa_checkout_request_id	ADD TEXT — returned by STK Push, used for status polling
+status	status	Keep CHECK IN (pending/paid/failed)
+created_at	created_at	Keep
+
+TABLE: reviews  →  reviews  (ALTER)
+
+reviews is currently empty — safe to ALTER freely.
+
+Current Column	New Column	Change Details
+id	id	Keep
+request_id	work_thread_id	Rename — reviews now linked to work_thread, not raw request
+customer_id	client_id	Rename
+provider_id	provider_id	Keep
+rating	rating	Keep — INTEGER CHECK 1..5
+comment	body	Rename comment → body
+— (missing)	tags	ADD TEXT[] DEFAULT '{}' — quick review tags
+created_at	created_at	Keep
+
+NEW TABLES  →  bookings / disputes / provider_templates / provider_wallets / wallet_transactions / fixed_price_services
+
+These 6 tables are entirely new and have no current equivalent. They are safe to create fresh.
+
+New Table	Purpose
+bookings	Quick Pin scheduled appointments. Links work_thread_id, scheduled_at, duration_minutes, is_quick_pin.
+disputes	WorkPin Shield claim filing. Stores reason, description, evidence_urls (Supabase Storage), status lifecycle.
+provider_templates	Provider saved quick-reply templates. Up to 20 per provider, 500 chars each, with sort_order for drag-to-reorder.
+provider_wallets	Provider KES balance tracker. One row per provider. available_balance_kes + pending_balance_kes.
+wallet_transactions	Full ledger. Every credit (job payment), debit (withdrawal), and fee (10% WorkPin cut) recorded here.
+fixed_price_services	Quick Pin listings. Provider creates fixed-price bookable services with availability schedule in JSONB.
+
+
+3.  Migration SQL Scripts
+Run these scripts in order in the Supabase SQL Editor. Each script is safe to run independently. Do not skip steps — later scripts depend on earlier ones.
+
+Run each block in the Supabase Dashboard → SQL Editor. After each block, verify the changes in Table Editor before proceeding.
+
+STEP 1 — Add role to profiles & backfill from user_roles
+-- Step 1a: Add role column to profiles
+ALTER TABLE profiles
+  ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'client'
+    CHECK (role IN ('client', 'provider'));
+
+ALTER TABLE profiles
+  ADD COLUMN IF NOT EXISTS onboarding_complete BOOLEAN NOT NULL DEFAULT false;
+
+-- Step 1b: Backfill role from user_roles
+-- (converts 'customer' -> 'client', 'provider' stays 'provider')
+UPDATE profiles p
+SET role = CASE ur.role
+             WHEN 'customer' THEN 'client'
+             WHEN 'provider' THEN 'provider'
+             ELSE 'client'
+           END
+FROM user_roles ur
+WHERE ur.user_id = p.id;
+
+-- Step 1c: Verify backfill before dropping
+-- SELECT id, full_name, role FROM profiles;
+-- (Expected: 2 rows role='client', 2 rows role='provider')
+
+-- Step 1d: Drop user_roles (only after verifying step 1c)
+DROP TABLE IF EXISTS user_roles;
+
+STEP 2 — Rename & alter providers → provider_profiles
+-- Step 2a: Rename table
+ALTER TABLE providers RENAME TO provider_profiles;
+
+-- Step 2b: Rename columns
+ALTER TABLE provider_profiles RENAME COLUMN location_long  TO location_lng;
+ALTER TABLE provider_profiles RENAME COLUMN whatsapp_number TO mpesa_phone;
+ALTER TABLE provider_profiles RENAME COLUMN rating          TO avg_rating;
+
+-- Step 2c: Add missing columns
+ALTER TABLE provider_profiles
+  ADD COLUMN IF NOT EXISTS categories         TEXT[]           DEFAULT '{}',
+  ADD COLUMN IF NOT EXISTS service_radius_km  INTEGER          DEFAULT 10,
+  ADD COLUMN IF NOT EXISTS rate_kes           INTEGER,
+  ADD COLUMN IF NOT EXISTS rate_type          TEXT             DEFAULT 'hourly'
+                                                CHECK (rate_type IN ('hourly', 'per_job')),
+  ADD COLUMN IF NOT EXISTS portfolio_photos   TEXT[]           DEFAULT '{}',
+  ADD COLUMN IF NOT EXISTS availability_json  JSONB            DEFAULT '{}',
+  ADD COLUMN IF NOT EXISTS response_time_minutes INTEGER       DEFAULT 60,
+  ADD COLUMN IF NOT EXISTS location_name      TEXT;
+
+STEP 3 — Create client_profiles
+CREATE TABLE IF NOT EXISTS client_profiles (
+  id            UUID    PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id       UUID    NOT NULL UNIQUE REFERENCES profiles(id) ON DELETE CASCADE,
+  location_name TEXT,
+  lat           DOUBLE PRECISION,
+  lng           DOUBLE PRECISION,
+  mpesa_phone   TEXT,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Insert a row for each existing client profile
+INSERT INTO client_profiles (user_id)
+SELECT id FROM profiles
+WHERE role = 'client'
+ON CONFLICT (user_id) DO NOTHING;
+
+-- Enable RLS
+ALTER TABLE client_profiles ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Clients manage own profile"
+  ON client_profiles FOR ALL
+  USING (user_id = auth.uid());
+
+STEP 4 — Rename & alter service_requests → job_requests
+-- Step 4a: Rename table
+ALTER TABLE service_requests RENAME TO job_requests;
+
+-- Step 4b: Rename columns
+ALTER TABLE job_requests RENAME COLUMN customer_id TO client_id;
+ALTER TABLE job_requests RENAME COLUMN budget      TO budget_min_kes;
+
+-- Step 4c: Add missing columns
+ALTER TABLE job_requests
+  ADD COLUMN IF NOT EXISTS budget_max_kes INTEGER,
+  ADD COLUMN IF NOT EXISTS lat            DOUBLE PRECISION,
+  ADD COLUMN IF NOT EXISTS lng            DOUBLE PRECISION,
+  ADD COLUMN IF NOT EXISTS timeline       TEXT
+                             CHECK (timeline IN ('asap','this_week','this_month','flexible'));
+
+-- Step 4d: Extend status constraint to include new values
+-- Drop old constraint (Supabase auto-generates name — find it first)
+-- SELECT constraint_name FROM information_schema.table_constraints
+--   WHERE table_name='job_requests' AND constraint_type='CHECK';
+-- Then:
+-- ALTER TABLE job_requests DROP CONSTRAINT <constraint_name>;
+ALTER TABLE job_requests
+  ADD CONSTRAINT job_requests_status_check
+    CHECK (status IN ('open','matched','filled','expired','pending','completed'));
+
+STEP 5 — Insert 4 new service categories
+INSERT INTO services (name, category, icon) VALUES
+  ('Security / Usalama',        'Safety',    'shield'),
+  ('Beauty / Uzuri',            'Health',    'scissors'),
+  ('Carpentry / Useremala',     'Home',      'hammer'),
+  ('IT Support / Teknolojia',   'Tech',      'monitor')
+ON CONFLICT DO NOTHING;
+
+STEP 6 — Create work_threads (before migrating messages or quotes)
+CREATE TABLE IF NOT EXISTS work_threads (
+  id              UUID   PRIMARY KEY DEFAULT gen_random_uuid(),
+  job_request_id  UUID   REFERENCES job_requests(id) ON DELETE SET NULL,
+  client_id       UUID   NOT NULL REFERENCES profiles(id),
+  provider_id     UUID   NOT NULL REFERENCES profiles(id),
+  status          TEXT   NOT NULL DEFAULT 'new'
+                           CHECK (status IN ('new','quoted','negotiating','active',
+                                             'completed','reviewed','disputed')),
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Enable RLS: only participants can see their threads
+ALTER TABLE work_threads ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Participants can view their threads"
+  ON work_threads FOR SELECT
+  USING (client_id = auth.uid() OR provider_id = auth.uid());
+
+CREATE POLICY "Authenticated users can create threads"
+  ON work_threads FOR INSERT
+  WITH CHECK (auth.uid() IS NOT NULL);
+
+CREATE POLICY "Participants can update their threads"
+  ON work_threads FOR UPDATE
+  USING (client_id = auth.uid() OR provider_id = auth.uid());
+
+-- Enable Realtime on work_threads
+ALTER PUBLICATION supabase_realtime ADD TABLE work_threads;
+
+-- Create one work_thread per unique job_request that had direct messages.
+-- We use the customer_id from job_requests as client_id.
+-- We derive provider_id from the first quote on that request.
+INSERT INTO work_threads (job_request_id, client_id, provider_id, status)
+SELECT DISTINCT ON (jr.id)
+  jr.id         AS job_request_id,
+  jr.client_id  AS client_id,
+  q.provider_id AS provider_id,
+  CASE jr.status
+    WHEN 'completed' THEN 'completed'
+    WHEN 'pending'   THEN 'negotiating'
+    ELSE 'quoted'
+  END           AS status
+FROM job_requests jr
+JOIN quotes q ON q.request_id = jr.id
+WHERE jr.id IN (SELECT DISTINCT request_id FROM direct_messages)
+ORDER BY jr.id, q.created_at ASC;
+
+STEP 7 — Alter quotes table
+-- Add work_thread_id FK
+ALTER TABLE quotes
+  ADD COLUMN IF NOT EXISTS work_thread_id UUID REFERENCES work_threads(id),
+  ADD COLUMN IF NOT EXISTS timeline        TEXT;
+
+-- Rename price → price_kes
+ALTER TABLE quotes RENAME COLUMN price TO price_kes;
+
+-- Backfill work_thread_id from work_threads
+UPDATE quotes q
+SET work_thread_id = wt.id
+FROM work_threads wt
+WHERE wt.job_request_id = q.request_id;
+
+-- Rename 'rejected' status values to 'declined'
+UPDATE quotes SET status = 'declined' WHERE status = 'rejected';
+
+-- Update status CHECK constraint
+-- First find and drop old constraint, then add new one:
+ALTER TABLE quotes
+  ADD CONSTRAINT quotes_status_check_v2
+    CHECK (status IN ('pending','accepted','declined','countered'));
+
+STEP 8 — Migrate direct_messages → messages + drop conversation_read_status
+-- Step 8a: Alter the existing empty messages table to match new schema
+ALTER TABLE messages
+  ADD COLUMN IF NOT EXISTS work_thread_id UUID REFERENCES work_threads(id),
+  ADD COLUMN IF NOT EXISTS type           TEXT NOT NULL DEFAULT 'text'
+                             CHECK (type IN ('text', 'quote', 'system')),
+  ADD COLUMN IF NOT EXISTS read_at        TIMESTAMPTZ;
+
+-- Rename content → body if column name differs
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns
+             WHERE table_name='messages' AND column_name='content') THEN
+    ALTER TABLE messages RENAME COLUMN content TO body;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name='messages' AND column_name='body') THEN
+    ALTER TABLE messages ADD COLUMN body TEXT NOT NULL DEFAULT '';
+  END IF;
+END $$;
+
+-- Step 8b: Migrate data from direct_messages into messages
+-- Map request_id → work_thread_id via work_threads table
+INSERT INTO messages (id, work_thread_id, sender_id, body, type, created_at)
+SELECT
+  dm.id,
+  wt.id           AS work_thread_id,
+  dm.sender_id,
+  dm.content      AS body,
+  'text'          AS type,
+  dm.created_at
+FROM direct_messages dm
+JOIN work_threads wt ON wt.job_request_id = dm.request_id;
+
+-- Step 8c: Enable Realtime on messages
+ALTER PUBLICATION supabase_realtime ADD TABLE messages;
+
+-- Step 8d: Enable RLS on messages
+ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Thread participants can view messages"
+  ON messages FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM work_threads wt
+      WHERE wt.id = work_thread_id
+        AND (wt.client_id = auth.uid() OR wt.provider_id = auth.uid())
+    )
+  );
+
+CREATE POLICY "Thread participants can insert messages"
+  ON messages FOR INSERT
+  WITH CHECK (
+    auth.uid() = sender_id AND
+    EXISTS (
+      SELECT 1 FROM work_threads wt
+      WHERE wt.id = work_thread_id
+        AND (wt.client_id = auth.uid() OR wt.provider_id = auth.uid())
+    )
+  );
+
+-- Step 8e: Drop old tables
+DROP TABLE IF EXISTS direct_messages;
+DROP TABLE IF EXISTS conversation_read_status;
+
+STEP 9 — Alter payments, reviews + drop jobs
+-- Payments (currently empty — safe to alter freely)
+ALTER TABLE payments
+  RENAME COLUMN user_id    TO client_id;
+ALTER TABLE payments
+  RENAME COLUMN amount     TO amount_kes;
+ALTER TABLE payments
+  RENAME COLUMN mpesa_ref  TO mpesa_receipt_number;
+ALTER TABLE payments
+  ADD COLUMN IF NOT EXISTS work_thread_id             UUID REFERENCES work_threads(id),
+  ADD COLUMN IF NOT EXISTS mpesa_checkout_request_id  TEXT;
+
+-- Reviews (currently empty — safe to alter freely)
+ALTER TABLE reviews
+  RENAME COLUMN request_id  TO work_thread_id;
+ALTER TABLE reviews
+  RENAME COLUMN customer_id TO client_id;
+ALTER TABLE reviews
+  RENAME COLUMN comment     TO body;
+ALTER TABLE reviews
+  ADD COLUMN IF NOT EXISTS tags TEXT[] DEFAULT '{}';
+
+-- Add FK on reviews.work_thread_id
+ALTER TABLE reviews
+  ADD CONSTRAINT reviews_work_thread_id_fkey
+    FOREIGN KEY (work_thread_id) REFERENCES work_threads(id);
+
+-- Drop jobs table (empty, functionality absorbed by work_threads.status)
+DROP TABLE IF EXISTS jobs;
+
+STEP 10 — Create all new tables
+-- bookings
+CREATE TABLE IF NOT EXISTS bookings (
+  id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  work_thread_id   UUID NOT NULL REFERENCES work_threads(id),
+  scheduled_at     TIMESTAMPTZ NOT NULL,
+  duration_minutes INTEGER,
+  is_quick_pin     BOOLEAN NOT NULL DEFAULT false,
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- disputes
+CREATE TABLE IF NOT EXISTS disputes (
+  id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  work_thread_id UUID NOT NULL REFERENCES work_threads(id),
+  filed_by_id    UUID NOT NULL REFERENCES profiles(id),
+  reason         TEXT NOT NULL,
+  description    TEXT,
+  evidence_urls  TEXT[] DEFAULT '{}',
+  status         TEXT NOT NULL DEFAULT 'open'
+                   CHECK (status IN ('open', 'in_review', 'resolved')),
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- provider_templates
+CREATE TABLE IF NOT EXISTS provider_templates (
+  id          UUID    PRIMARY KEY DEFAULT gen_random_uuid(),
+  provider_id UUID    NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  title       TEXT    NOT NULL,
+  body        TEXT    NOT NULL CHECK (char_length(body) <= 500),
+  sort_order  INTEGER NOT NULL DEFAULT 0,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- provider_wallets
+CREATE TABLE IF NOT EXISTS provider_wallets (
+  id                   UUID    PRIMARY KEY DEFAULT gen_random_uuid(),
+  provider_id          UUID    NOT NULL UNIQUE REFERENCES profiles(id) ON DELETE CASCADE,
+  available_balance_kes INTEGER NOT NULL DEFAULT 0,
+  pending_balance_kes   INTEGER NOT NULL DEFAULT 0,
+  updated_at           TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- wallet_transactions
+CREATE TABLE IF NOT EXISTS wallet_transactions (
+  id             UUID    PRIMARY KEY DEFAULT gen_random_uuid(),
+  provider_id    UUID    NOT NULL REFERENCES profiles(id),
+  type           TEXT    NOT NULL CHECK (type IN ('credit', 'debit', 'fee')),
+  amount_kes     INTEGER NOT NULL,
+  description    TEXT,
+  mpesa_receipt  TEXT,
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- fixed_price_services (Quick Pins)
+CREATE TABLE IF NOT EXISTS fixed_price_services (
+  id                  UUID    PRIMARY KEY DEFAULT gen_random_uuid(),
+  provider_id         UUID    NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  service_name        TEXT    NOT NULL,
+  description         TEXT,
+  price_kes           INTEGER NOT NULL,
+  duration_minutes    INTEGER,
+  availability_json   JSONB   NOT NULL DEFAULT '{}',
+  is_active           BOOLEAN NOT NULL DEFAULT true,
+  created_at          TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Create provider_wallets row for each existing provider
+INSERT INTO provider_wallets (provider_id)
+SELECT id FROM profiles WHERE role = 'provider'
+ON CONFLICT (provider_id) DO NOTHING;
+
+STEP 11 — Enable PostGIS for geo matching
+-- Enable PostGIS extension (run once per project)
+CREATE EXTENSION IF NOT EXISTS postgis;
+
+-- Add PostGIS geometry columns to provider_profiles for efficient geo queries
+-- (These supplement the lat/lng columns for the ST_DWithin matching function)
+ALTER TABLE provider_profiles
+  ADD COLUMN IF NOT EXISTS geom GEOMETRY(Point, 4326);
+
+-- Backfill geom from existing lat/lng (if any rows have values)
+UPDATE provider_profiles
+SET geom = ST_SetSRID(ST_MakePoint(location_lng, location_lat), 4326)
+WHERE location_lat IS NOT NULL AND location_lng IS NOT NULL;
+
+-- Create spatial index for fast radius queries
+CREATE INDEX IF NOT EXISTS provider_profiles_geom_idx
+  ON provider_profiles USING GIST (geom);
+
+-- Create the provider matching function used by the job request flow
+CREATE OR REPLACE FUNCTION match_providers(
+  job_lat    DOUBLE PRECISION,
+  job_lng    DOUBLE PRECISION,
+  job_cat    TEXT,
+  max_results INTEGER DEFAULT 8
+)
+RETURNS TABLE (
+  provider_id UUID,
+  distance_km DOUBLE PRECISION,
+  score       DOUBLE PRECISION
+) AS $$
+BEGIN
+  RETURN QUERY
+  SELECT
+    pp.user_id                                    AS provider_id,
+    ST_Distance(
+      pp.geom::geography,
+      ST_SetSRID(ST_MakePoint(job_lng, job_lat), 4326)::geography
+    ) / 1000.0                                    AS distance_km,
+    (
+      COALESCE(pp.avg_rating, 0) * 0.4 +
+      (1.0 / NULLIF(pp.response_time_minutes, 0)) * 0.3 * 100 +
+      (1.0 / NULLIF(
+        ST_Distance(
+          pp.geom::geography,
+          ST_SetSRID(ST_MakePoint(job_lng, job_lat), 4326)::geography
+        ) / 1000.0, 0
+      )) * 0.3
+    )                                             AS score
+  FROM provider_profiles pp
+  WHERE
+    job_cat = ANY(pp.categories)
+    AND pp.geom IS NOT NULL
+    AND ST_DWithin(
+      pp.geom::geography,
+      ST_SetSRID(ST_MakePoint(job_lng, job_lat), 4326)::geography,
+      pp.service_radius_km * 1000
+    )
+  ORDER BY score DESC
+  LIMIT max_results;
+END;
+$$ LANGUAGE plpgsql;
+
+STEP 12 — Verification queries (run after all steps)
+-- Verify table names
+SELECT table_name FROM information_schema.tables
+WHERE table_schema = 'public'
+ORDER BY table_name;
+
+-- Expected tables:
+-- bookings, client_profiles, disputes, fixed_price_services,
+-- job_requests, messages, payments, profiles, provider_profiles,
+-- provider_templates, provider_wallets, quotes, reviews,
+-- services, wallet_transactions, work_threads
+
+-- Verify live data preserved
+SELECT 'profiles' AS tbl, COUNT(*) FROM profiles
+UNION ALL SELECT 'job_requests', COUNT(*) FROM job_requests
+UNION ALL SELECT 'quotes', COUNT(*) FROM quotes
+UNION ALL SELECT 'messages', COUNT(*) FROM messages
+UNION ALL SELECT 'work_threads', COUNT(*) FROM work_threads
+UNION ALL SELECT 'services', COUNT(*) FROM services;
+
+-- Expected: profiles=4, job_requests=7, quotes=8, messages=8,
+--           work_threads=4 (one per unique request with messages),
+--           services=20
+
+-- Verify no 'rejected' status remains in quotes
+SELECT COUNT(*) FROM quotes WHERE status = 'rejected';
+-- Expected: 0
+
+-- Verify role backfill
+SELECT role, COUNT(*) FROM profiles GROUP BY role;
+-- Expected: client=2, provider=2
+
+
+4.  Lovable Prompt — Schema Refactor
+After running all SQL migration steps manually in the Supabase SQL Editor, use this prompt in Lovable to update the app's TypeScript types, queries, and components to match the new schema.
+
+PASTE INTO LOVABLE COMPOSER
+
+The WorkPin database schema has been refactored directly in Supabase. Update all TypeScript
+types, Supabase queries, and React components to match the new schema.
+
+TABLES RENAMED:
+- service_requests  → job_requests  (column customer_id → client_id, budget → budget_min_kes)
+- providers         → provider_profiles  (column location_long → location_lng,
+                      whatsapp_number → mpesa_phone, rating → avg_rating)
+- direct_messages   → messages  (column content → body, new columns: work_thread_id, type, read_at)
+
+TABLES DROPPED:
+- user_roles  (role is now in profiles.role)
+- jobs        (lifecycle handled by work_threads.status)
+- conversation_read_status  (replaced by messages.read_at)
+
+TABLES ALTERED:
+- profiles: new columns role TEXT ('client'|'provider'), onboarding_complete BOOLEAN
+- quotes: price → price_kes, status 'rejected' is now 'declined', new column work_thread_id
+- payments: user_id → client_id, amount → amount_kes, mpesa_ref → mpesa_receipt_number,
+            new columns: work_thread_id, mpesa_checkout_request_id
+- reviews: request_id → work_thread_id, customer_id → client_id,
+           comment → body, new column tags TEXT[]
+
+NEW TABLES (generate TypeScript types + Supabase hooks for all):
+- work_threads (id, job_request_id, client_id, provider_id, status, created_at, updated_at)
+- client_profiles (id, user_id, location_name, lat, lng, mpesa_phone, created_at)
+- bookings (id, work_thread_id, scheduled_at, duration_minutes, is_quick_pin, created_at)
+- disputes (id, work_thread_id, filed_by_id, reason, description, evidence_urls[], status)
+- provider_templates (id, provider_id, title, body, sort_order)
+- provider_wallets (id, provider_id, available_balance_kes, pending_balance_kes)
+- wallet_transactions (id, provider_id, type, amount_kes, description, mpesa_receipt)
+- fixed_price_services (id, provider_id, service_name, description, price_kes,
+                        duration_minutes, availability_json, is_active)
+
+Tasks:
+1. Regenerate the Supabase TypeScript types file (supabase/types.ts) to reflect all changes
+2. Update all useQuery / useMutation hooks that reference old table or column names
+3. Update all components that use service_requests, direct_messages, user_roles,
+   customer_id, request_id (message context), whatsapp_number, or rating (provider)
+4. Update the messaging screen to use messages table with work_thread_id instead of
+   direct_messages with request_id
+5. Update the auth flow: after login, check profiles.role to route to client or provider dashboard.
+   Check onboarding_complete to gate dashboard access.
+6. All currency displayed as KES with comma formatting (e.g. KES 12,500)
+7. In the quotes component, rename any 'Rejected' label to 'Declined'
+
+WorkPin Kenya  •  Schema Refactor Plan  •  Confidential

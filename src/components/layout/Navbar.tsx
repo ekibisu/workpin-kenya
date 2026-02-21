@@ -33,21 +33,15 @@ const Navbar = () => {
   useEffect(() => {
     const fetchProfileAndRole = async () => {
       if (!user) return;
-      // Fetch avatar and name
+      // Fetch avatar, name, and role from profiles in a single query
       const { data: profile } = await supabase
         .from("profiles")
-        .select("avatar_url, full_name")
+        .select("avatar_url, full_name, role")
         .eq("id", user.id)
         .maybeSingle();
       setAvatarUrl(profile?.avatar_url ?? null);
       setFullName(profile?.full_name ?? null);
-      // Fetch user role
-      const { data: roleRow } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", user.id)
-        .maybeSingle();
-      setUserRole(roleRow?.role ?? null);
+      setUserRole(profile?.role ?? null);
     };
     fetchProfileAndRole();
   }, [user]);
@@ -77,11 +71,10 @@ const Navbar = () => {
             <Link
               key={link.href}
               to={link.href}
-              className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-                location.pathname === link.href
+              className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${location.pathname === link.href
                   ? "bg-accent text-accent-foreground"
                   : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-              }`}
+                }`}
             >
               {link.label}
             </Link>
@@ -90,11 +83,10 @@ const Navbar = () => {
           {user && (
             <Link
               to="/dashboard"
-              className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-                location.pathname === "/dashboard"
+              className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${location.pathname === "/dashboard"
                   ? "bg-accent text-accent-foreground"
                   : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-              }`}
+                }`}
             >
               {userRole === "provider" ? "Pro Dashboard" : "Dashboard"}
             </Link>
@@ -185,11 +177,10 @@ const Navbar = () => {
                   key={link.href}
                   to={link.href}
                   onClick={() => setIsOpen(false)}
-                  className={`rounded-lg px-4 py-3 text-sm font-medium transition-colors ${
-                    location.pathname === link.href
+                  className={`rounded-lg px-4 py-3 text-sm font-medium transition-colors ${location.pathname === link.href
                       ? "bg-accent text-accent-foreground"
                       : "text-muted-foreground hover:bg-accent"
-                  }`}
+                    }`}
                 >
                   {link.label}
                 </Link>
