@@ -41,9 +41,9 @@ const HeroSection = () => {
             className="flex flex-col gap-3 sm:flex-row sm:items-center"
           >
             <Button variant="hero" size="xl" asChild>
-              <Link to="/request">
+              <Link to="/register">
                 <Search className="h-5 w-5" />
-                Get Free Quotes
+                Get Started
               </Link>
             </Button>
             <Button

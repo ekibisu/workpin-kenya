@@ -10,9 +10,9 @@ export default defineConfig(({ mode }) => ({
     port: 8080,
     // Add this to help the HMR and Preview bypass proxy issues
     strictPort: true,
-    hmr: {
-      clientPort: 443,
-    },
+    // hmr: {
+    //   clientPort: 443,
+    // },
     allowedHosts: [
       ".lovable.app",
       ".lovable.dev"

@@ -52,7 +52,7 @@ const ClientProfileCard = ({ userId }: ClientProfileCardProps) => {
     try {
       // Upload to Supabase Storage
       const fileExt = file.name.split('.').pop();
-      const filePath = `${userId}_${Date.now()}.${fileExt}`;
+      const filePath = `${userId}/${userId}_${Date.now()}.${fileExt}`;
       const { error: uploadError } = await supabase.storage.from('avatars').upload(filePath, file, { upsert: true });
       if (uploadError) throw uploadError;
 

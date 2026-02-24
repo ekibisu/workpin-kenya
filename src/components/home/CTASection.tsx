@@ -18,8 +18,8 @@ const CTASection = () => (
           className="bg-primary-foreground text-primary hover:bg-primary-foreground/90 shadow-lg"
           asChild
         >
-          <Link to="/request">
-            Post a Request — It's Free
+          <Link to="/register">
+            Get Started
             <ArrowRight className="h-5 w-5" />
           </Link>
         </Button>

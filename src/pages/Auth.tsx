@@ -97,7 +97,7 @@ const Auth = () => {
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email: email.trim(),
         password,
         options: {
@@ -110,6 +110,14 @@ const Auth = () => {
       });
 
       if (error) throw error;
+
+      // Insert provider role in user_roles if registering as provider
+      if (role === "provider" && data?.user?.id) {
+        const { error: roleError } = await supabase
+          .from("user_roles")
+          .insert([{ user_id: data.user.id, role: "provider" }]);
+        if (roleError) throw roleError;
+      }
 
       toast({ 
         title: "Check your email", 
@@ -172,13 +180,13 @@ const Auth = () => {
             >
               Log in
             </button>
-            <button
-              onClick={() => setTab("signup")}
+            <a
+              href="/register"
               className={`flex-1 rounded-lg py-2.5 text-sm font-semibold transition-all ${tab === "signup" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"
                 }`}
             >
               Sign up
-            </button>
+            </a>
           </div>
 
           {tab === "login" && (
