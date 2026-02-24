@@ -8,15 +8,25 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 8080,
+    // Add this to help the HMR and Preview bypass proxy issues
+    strictPort: true,
     hmr: {
-      overlay: false,
+      clientPort: 443,
     },
+    allowedHosts: [
+      ".lovable.app",
+      ".lovable.dev"
+    ]
   },
-  plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
+  plugins: [
+    react(),
+    mode === "development" && componentTagger(),
+  ].filter(Boolean),
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
+    // Keep these to prevent duplicate library instances
     dedupe: ["react", "react-dom"],
   },
 }));

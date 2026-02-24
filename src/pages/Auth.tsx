@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useSearchParams, Link, useNavigate } from "react-router-dom";
+import { useSearchParams, Link, useNavigate, Navigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,7 +8,6 @@ import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { Navigate } from "react-router-dom";
 
 const Auth = () => {
   const [searchParams] = useSearchParams();
@@ -23,52 +22,107 @@ const Auth = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
-  const [role, setRole] = useState<"customer" | "provider">(
-    searchParams.get("role") === "provider" ? "provider" : "customer"
+  const [role, setRole] = useState<"client" | "provider">(
+    searchParams.get("role") === "provider" ? "provider" : "client"
   );
 
   if (authLoading) return null;
+  
+  // Already authenticated — redirect based on role
   if (user) return <Navigate to="/dashboard" replace />;
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) {
+
+    try {
+      // 1. Sanitize email to prevent trailing space errors
+      const cleanEmail = email.trim();
+      
+      const { data, error: authError } = await supabase.auth.signInWithPassword({ 
+        email: cleanEmail, 
+        password 
+      });
+
+      if (authError) throw authError;
+
+      if (!data.user) throw new Error("Authentication failed: No user data.");
+
+      // 2. Fetch role and onboarding_complete from profiles
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("role, onboarding_complete")
+        .eq("id", data.user.id)
+        .maybeSingle();
+
+      if (profileError) console.error("Profile fetch error:", profileError);
+
+      // 3. Success Notification
+      toast({
+        title: "Welcome back!",
+        description: "Successfully signed in.",
+      });
+
+      // 4. Routing Logic: If onboarding not complete, go to /onboarding
+      if (profile?.onboarding_complete === false) {
+        navigate("/onboarding");
+      } else if (profile?.role === "provider") {
+        navigate("/provider-dashboard");
+      } else if (profile?.role === "client") {
+        navigate("/dashboard");
+      } else {
+        // fallback: go to dashboard
+        navigate("/dashboard");
+      }
+    } catch (error: any) {
+      console.error("Login Error:", error.message);
+      
+      let friendlyMessage = error.message;
+      if (friendlyMessage.includes("Invalid login credentials")) {
+        friendlyMessage = "Invalid email or password. Please try again.";
+      }
+
+      toast({ 
+        title: "Login failed", 
+        description: friendlyMessage, 
+        variant: "destructive" 
+      });
+    } finally {
       setLoading(false);
-      toast({ title: "Login failed", description: error.message, variant: "destructive" });
-      return;
-    }
-    // Check role for redirect
-    const { data: roles } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", data.user.id)
-      .single();
-    setLoading(false);
-    if (roles?.role === "provider") {
-      navigate("/provider-dashboard");
-    } else {
-      navigate("/dashboard");
     }
   };
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { full_name: fullName, role },
-        emailRedirectTo: window.location.origin,
-      },
-    });
-    setLoading(false);
-    if (error) {
-      toast({ title: "Signup failed", description: error.message, variant: "destructive" });
-    } else {
-      toast({ title: "Check your email", description: "We sent you a confirmation link to verify your account." });
+
+    try {
+      const { error } = await supabase.auth.signUp({
+        email: email.trim(),
+        password,
+        options: {
+          data: { 
+            full_name: fullName, 
+            role: role 
+          },
+          emailRedirectTo: globalThis.location.origin,
+        },
+      });
+
+      if (error) throw error;
+
+      toast({ 
+        title: "Check your email", 
+        description: "We sent you a confirmation link to verify your account." 
+      });
+    } catch (error: any) {
+      toast({ 
+        title: "Signup failed", 
+        description: error.message, 
+        variant: "destructive" 
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -110,21 +164,18 @@ const Auth = () => {
             </p>
           </div>
 
-          {/* Tab switch */}
           <div className="mb-6 flex rounded-xl bg-secondary p-1">
             <button
               onClick={() => setTab("login")}
-              className={`flex-1 rounded-lg py-2.5 text-sm font-semibold transition-all ${
-                tab === "login" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"
-              }`}
+              className={`flex-1 rounded-lg py-2.5 text-sm font-semibold transition-all ${tab === "login" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"
+                }`}
             >
               Log in
             </button>
             <button
               onClick={() => setTab("signup")}
-              className={`flex-1 rounded-lg py-2.5 text-sm font-semibold transition-all ${
-                tab === "signup" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"
-              }`}
+              className={`flex-1 rounded-lg py-2.5 text-sm font-semibold transition-all ${tab === "signup" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"
+                }`}
             >
               Sign up
             </button>
@@ -155,35 +206,30 @@ const Auth = () => {
 
           {tab === "signup" && (
             <form onSubmit={handleSignup} className="space-y-4">
-              {/* Role selector */}
               <div className="space-y-2">
                 <Label>I am a...</Label>
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     type="button"
-                    onClick={() => setRole("customer")}
-                    className={`flex flex-col items-center gap-2 rounded-xl border-2 p-4 text-center transition-all ${
-                      role === "customer"
-                        ? "border-primary bg-primary/5 text-foreground shadow-sm"
-                        : "border-border text-muted-foreground hover:border-primary/40"
-                    }`}
+                    onClick={() => setRole("client")}
+                    className={`flex flex-col items-center gap-2 rounded-xl border-2 p-4 text-center transition-all ${role === "client"
+                      ? "border-primary bg-primary/5 text-foreground shadow-sm"
+                      : "border-border text-muted-foreground hover:border-primary/40"
+                      }`}
                   >
                     <Search className="h-5 w-5" />
                     <span className="text-sm font-semibold">Client</span>
-                    <span className="text-xs text-muted-foreground">I'm looking to hire service professionals</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setRole("provider")}
-                    className={`flex flex-col items-center gap-2 rounded-xl border-2 p-4 text-center transition-all ${
-                      role === "provider"
-                        ? "border-primary bg-primary/5 text-foreground shadow-sm"
-                        : "border-border text-muted-foreground hover:border-primary/40"
-                    }`}
+                    className={`flex flex-col items-center gap-2 rounded-xl border-2 p-4 text-center transition-all ${role === "provider"
+                      ? "border-primary bg-primary/5 text-foreground shadow-sm"
+                      : "border-border text-muted-foreground hover:border-primary/40"
+                      }`}
                   >
                     <Briefcase className="h-5 w-5" />
-                    <span className="text-sm font-semibold">Service Provider</span>
-                    <span className="text-xs text-muted-foreground">I offer professional services</span>
+                    <span className="text-sm font-semibold">Provider</span>
                   </button>
                 </div>
               </div>

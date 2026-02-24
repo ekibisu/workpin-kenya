@@ -1,0 +1,965 @@
+WorkPin Kenya
+Implementation Plan
+Step-by-step guide to migrate the database, update the app, and build M-Pesa payments
+
+
+Implementation Tracker — Print & Tick Off
+Phase	What	Est.	Status
+Phase 1	Pre-flight & Backup	30 min	?  Not started
+Phase 2	Database Migration (Steps 1–5)	45 min	?  Not started
+Phase 3	Core New Tables (Steps 6–10)	30 min	?  Not started
+Phase 4	PostGIS & Geo Setup (Step 11)	20 min	?  Not started
+Phase 5	Lovable App Update	60 min	?  Not started
+Phase 6	M-Pesa Edge Functions (VS Code)	2–3 hrs	?  Not started
+Phase 7	Elaine's Provider Profile Seed	15 min	?  Not started
+Phase 8	End-to-End Test	45 min	?  Not started
+
+Total estimated time: ~6–7 hours across all phases. Phases 1–5 can be done in one sitting. Phase 6 (M-Pesa Edge Functions) may span a second session.
+
+
+1	Pre-flight & Backup
+Before touching anything — protect your live data	TOOL
+Supabase	TIME
+30 min
+
+You have 7 live job requests, 8 quotes, and 8 messages from real users. Before running any migration SQL, snapshot everything so you can restore if anything goes wrong.
+
+1.1	Export a full database backup from Supabase	Supabase Dashboard
+
+Go to: Supabase Dashboard ? your WorkPin project ? Settings ? Database ? Backups.
+
+?	Click 'Download backup' or use Point-in-Time Recovery to create a snapshot right now
+?	Save the backup file somewhere safe (Google Drive or local disk)
+?	Note the timestamp of the backup — you'll reference this if you need to restore
+
+1.2	Export each live table as CSV right now	Supabase Dashboard
+
+Go to: Supabase Dashboard ? Table Editor ? select each table ? click the download CSV icon.
+
+?	Export: profiles (4 rows)
+?	Export: service_requests (7 rows)
+?	Export: quotes (8 rows)
+?	Export: direct_messages (8 rows)
+?	Export: user_roles (4 rows)
+?	Export: services (16 rows)
+?	Save all 6 CSV files in a folder labelled 'workpin_pre_migration_YYYYMMDD'
+
+1.3	Confirm Supabase project ID and confirm PostGIS is not yet enabled	Supabase Dashboard
+
+?	Go to Settings ? General ? copy your Project Reference ID (you'll need it for Supabase CLI in Phase 6)
+?	Go to Database ? Extensions ? search 'postgis' ? confirm it shows as disabled (Step 11 will enable it)
+?	Go to Database ? Replication ? confirm messages and work_threads are NOT yet in the publication (Step 8 will add them)
+
+?  VERIFY BEFORE MOVING ON
+    ? Backup downloaded and saved
+    ? All 6 CSV exports saved locally
+    ? Project Reference ID noted
+
+
+2	Database Migration — Steps 1 to 5
+Run SQL scripts in order. Verify after each one.	TOOL
+Supabase SQL Editor	TIME
+45 min
+
+Go to: Supabase Dashboard ? SQL Editor ? New query. Paste each block, click Run, verify the result, then move to the next.
+
+2.1	Add role to profiles & backfill from user_roles, then drop user_roles	Supabase SQL Editor
+
+This gives every user a role column directly on profiles. The 4 existing users get their roles from user_roles before it's dropped.
+
+SQL — Supabase SQL Editor
+-- Add role + onboarding flag to profiles
+ALTER TABLE profiles
+  ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'client'
+    CHECK (role IN ('client', 'provider'));
+
+ALTER TABLE profiles
+  ADD COLUMN IF NOT EXISTS onboarding_complete BOOLEAN NOT NULL DEFAULT false;
+
+-- Backfill: copy role from user_roles (convert 'customer' -> 'client')
+UPDATE profiles p
+SET role = CASE ur.role
+             WHEN 'customer' THEN 'client'
+             WHEN 'provider' THEN 'provider'
+             ELSE 'client'
+           END
+FROM user_roles ur
+WHERE ur.user_id = p.id;
+
+-- Verify before dropping (should show 2 client, 2 provider)
+-- SELECT id, full_name, role FROM profiles;
+
+-- Drop user_roles
+DROP TABLE IF EXISTS user_roles;
+
+?  VERIFY BEFORE MOVING ON
+    ? Run: SELECT id, full_name, role FROM profiles;
+    ? Expected: Elaine Muhombe (elainees.devs) = provider, Elaine Muhombe (emuhombe) = client, Eric Kibisu (kibisu) = client, Eric Kibisu (eric.kibisu) = provider
+    ? Confirm user_roles table no longer appears in Table Editor
+
+2.2	Rename providers ? provider_profiles and add missing columns	Supabase SQL Editor
+
+Renames the table and adds all 8 missing columns needed for search, matching, and M-Pesa payouts.
+
+SQL — Supabase SQL Editor
+ALTER TABLE providers RENAME TO provider_profiles;
+
+-- Rename columns
+ALTER TABLE provider_profiles RENAME COLUMN location_long    TO location_lng;
+ALTER TABLE provider_profiles RENAME COLUMN whatsapp_number  TO mpesa_phone;
+ALTER TABLE provider_profiles RENAME COLUMN rating           TO avg_rating;
+
+-- Add missing columns
+ALTER TABLE provider_profiles
+  ADD COLUMN IF NOT EXISTS categories            TEXT[]   DEFAULT '{}',
+  ADD COLUMN IF NOT EXISTS service_radius_km     INTEGER  DEFAULT 10,
+  ADD COLUMN IF NOT EXISTS rate_kes              INTEGER,
+  ADD COLUMN IF NOT EXISTS rate_type             TEXT     DEFAULT 'hourly'
+                             CHECK (rate_type IN ('hourly','per_job')),
+  ADD COLUMN IF NOT EXISTS portfolio_photos      TEXT[]   DEFAULT '{}',
+  ADD COLUMN IF NOT EXISTS availability_json     JSONB    DEFAULT '{}',
+  ADD COLUMN IF NOT EXISTS response_time_minutes INTEGER  DEFAULT 60,
+  ADD COLUMN IF NOT EXISTS location_name         TEXT;
+
+?  VERIFY BEFORE MOVING ON
+    ? Table Editor shows 'provider_profiles' (not 'providers')
+    ? Columns mpesa_phone, categories, service_radius_km, rate_kes visible in schema
+
+2.3	Create client_profiles and insert rows for existing clients	Supabase SQL Editor
+
+Clients currently have no location or M-Pesa phone stored anywhere. This creates client_profiles and inserts a row for each of the 2 existing client users.
+
+SQL — Supabase SQL Editor
+CREATE TABLE IF NOT EXISTS client_profiles (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id       UUID NOT NULL UNIQUE REFERENCES profiles(id) ON DELETE CASCADE,
+  location_name TEXT,
+  lat           DOUBLE PRECISION,
+  lng           DOUBLE PRECISION,
+  mpesa_phone   TEXT,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Insert a row for each client
+INSERT INTO client_profiles (user_id)
+SELECT id FROM profiles WHERE role = 'client'
+ON CONFLICT (user_id) DO NOTHING;
+
+-- Enable RLS
+ALTER TABLE client_profiles ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Clients manage own profile"
+  ON client_profiles FOR ALL
+  USING (user_id = auth.uid());
+
+?  VERIFY BEFORE MOVING ON
+    ? client_profiles table visible in Table Editor
+    ? 2 rows present (one per client user)
+    ? RLS enabled on the table
+
+2.4	Rename service_requests ? job_requests and alter columns	Supabase SQL Editor
+
+Renames the table and adds budget_max_kes, lat/lng, and timeline. The 7 existing job request rows are preserved with customer_id renamed to client_id.
+
+SQL — Supabase SQL Editor
+ALTER TABLE service_requests RENAME TO job_requests;
+
+ALTER TABLE job_requests RENAME COLUMN customer_id TO client_id;
+ALTER TABLE job_requests RENAME COLUMN budget      TO budget_min_kes;
+
+ALTER TABLE job_requests
+  ADD COLUMN IF NOT EXISTS budget_max_kes INTEGER,
+  ADD COLUMN IF NOT EXISTS lat            DOUBLE PRECISION,
+  ADD COLUMN IF NOT EXISTS lng            DOUBLE PRECISION,
+  ADD COLUMN IF NOT EXISTS timeline       TEXT
+                             CHECK (timeline IN ('asap','this_week','this_month','flexible'));
+
+-- Extend status check to include all WorkPin states
+-- First find the existing constraint name:
+SELECT constraint_name FROM information_schema.table_constraints
+WHERE table_name = 'job_requests' AND constraint_type = 'CHECK';
+-- Then drop it and add the new one (replace <constraint_name> below):
+-- ALTER TABLE job_requests DROP CONSTRAINT <constraint_name>;
+ALTER TABLE job_requests
+  ADD CONSTRAINT job_requests_status_check
+    CHECK (status IN ('open','matched','filled','expired','pending','completed'));
+
+?  VERIFY BEFORE MOVING ON
+    ? Table Editor shows 'job_requests' with 7 rows intact
+    ? Columns client_id, budget_min_kes, lat, lng, timeline all visible
+    ? All 7 rows still present with original data
+
+2.5	Insert 4 new service categories	Supabase SQL Editor
+
+
+SQL — Supabase SQL Editor
+INSERT INTO services (name, category, icon) VALUES
+  ('Security / Usalama',       'Safety', 'shield'),
+  ('Beauty / Uzuri',           'Health', 'scissors'),
+  ('Carpentry / Useremala',    'Home',   'hammer'),
+  ('IT Support / Teknolojia',  'Tech',   'monitor')
+ON CONFLICT DO NOTHING;
+
+?  VERIFY BEFORE MOVING ON
+    ? services table now shows 20 rows (was 16)
+    ? New categories visible in Table Editor
+
+
+
+3	Core New Tables — Steps 6 to 10
+Create work_threads, migrate messages, create new tables	TOOL
+Supabase SQL Editor	TIME
+30 min
+
+Steps 6–10 must be run IN ORDER. work_threads must exist before messages can reference it. Messages must be migrated before direct_messages is dropped.
+
+3.1	Create work_threads (the most critical new table)	Supabase SQL Editor
+
+Creates work_threads and backfills one thread per unique job_request that had messages. The 4 active conversations (2 unique request IDs with messages) will each get a thread.
+
+SQL — Supabase SQL Editor
+CREATE TABLE IF NOT EXISTS work_threads (
+  id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  job_request_id UUID REFERENCES job_requests(id) ON DELETE SET NULL,
+  client_id      UUID NOT NULL REFERENCES profiles(id),
+  provider_id    UUID NOT NULL REFERENCES profiles(id),
+  status         TEXT NOT NULL DEFAULT 'new'
+                   CHECK (status IN ('new','quoted','negotiating','active',
+                                     'completed','reviewed','disputed')),
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+ALTER TABLE work_threads ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Participants view their threads"
+  ON work_threads FOR SELECT
+  USING (client_id = auth.uid() OR provider_id = auth.uid());
+
+CREATE POLICY "Authenticated users create threads"
+  ON work_threads FOR INSERT
+  WITH CHECK (auth.uid() IS NOT NULL);
+
+CREATE POLICY "Participants update their threads"
+  ON work_threads FOR UPDATE
+  USING (client_id = auth.uid() OR provider_id = auth.uid());
+
+ALTER PUBLICATION supabase_realtime ADD TABLE work_threads;
+
+-- Backfill: create a thread for each job_request that has messages.
+-- Uses the accepted quote's provider as provider_id.
+-- Falls back to the first quote if no accepted quote exists.
+INSERT INTO work_threads (job_request_id, client_id, provider_id, status)
+SELECT DISTINCT ON (jr.id)
+  jr.id         AS job_request_id,
+  jr.client_id  AS client_id,
+  q.provider_id AS provider_id,
+  CASE jr.status
+    WHEN 'completed' THEN 'completed'
+    WHEN 'pending'   THEN 'negotiating'
+    ELSE 'quoted'
+  END           AS status
+FROM job_requests jr
+JOIN quotes q ON q.request_id = jr.id
+WHERE jr.id IN (SELECT DISTINCT request_id FROM direct_messages)
+ORDER BY jr.id,
+  CASE q.status WHEN 'accepted' THEN 0 ELSE 1 END,
+  q.created_at ASC;
+
+?  VERIFY BEFORE MOVING ON
+    ? work_threads table exists with RLS enabled
+    ? SELECT COUNT(*) FROM work_threads; ? expect 2 rows (one per unique request_id in direct_messages)
+    ? Realtime publication includes work_threads — check Database ? Replication
+
+3.2	Alter quotes table — add work_thread_id, rename price, fix 'rejected'	Supabase SQL Editor
+
+
+SQL — Supabase SQL Editor
+ALTER TABLE quotes
+  ADD COLUMN IF NOT EXISTS work_thread_id UUID REFERENCES work_threads(id),
+  ADD COLUMN IF NOT EXISTS timeline        TEXT;
+
+ALTER TABLE quotes RENAME COLUMN price TO price_kes;
+
+-- Backfill work_thread_id
+UPDATE quotes q
+SET work_thread_id = wt.id
+FROM work_threads wt
+WHERE wt.job_request_id = q.request_id;
+
+-- Fix status: rename 'rejected' -> 'declined'
+UPDATE quotes SET status = 'declined' WHERE status = 'rejected';
+
+?  VERIFY BEFORE MOVING ON
+    ? quotes has work_thread_id column (backfilled for rows with matching request_id)
+    ? SELECT COUNT(*) FROM quotes WHERE status = 'rejected'; ? must return 0
+    ? Column price_kes visible (was price)
+
+3.3	Migrate direct_messages ? messages, enable Realtime, drop old tables	Supabase SQL Editor
+
+The 8 live messages move from direct_messages into the repurposed messages table, linked to work_thread_id. Both direct_messages and conversation_read_status are then dropped.
+
+SQL — Supabase SQL Editor
+-- Alter the existing (empty) messages table
+ALTER TABLE messages
+  ADD COLUMN IF NOT EXISTS work_thread_id UUID REFERENCES work_threads(id),
+  ADD COLUMN IF NOT EXISTS type           TEXT NOT NULL DEFAULT 'text'
+                             CHECK (type IN ('text','quote','system')),
+  ADD COLUMN IF NOT EXISTS read_at        TIMESTAMPTZ;
+
+-- Rename content -> body if it exists
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns
+             WHERE table_name='messages' AND column_name='content') THEN
+    ALTER TABLE messages RENAME COLUMN content TO body;
+  END IF;
+END $$;
+
+-- Migrate the 8 messages from direct_messages
+INSERT INTO messages (id, work_thread_id, sender_id, body, type, created_at)
+SELECT
+  dm.id,
+  wt.id      AS work_thread_id,
+  dm.sender_id,
+  dm.content  AS body,
+  'text'      AS type,
+  dm.created_at
+FROM direct_messages dm
+JOIN work_threads wt ON wt.job_request_id = dm.request_id;
+
+-- Enable Realtime
+ALTER PUBLICATION supabase_realtime ADD TABLE messages;
+
+-- Enable RLS
+ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Thread participants view messages"
+  ON messages FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM work_threads wt
+      WHERE wt.id = work_thread_id
+        AND (wt.client_id = auth.uid() OR wt.provider_id = auth.uid())
+    )
+  );
+
+CREATE POLICY "Thread participants insert messages"
+  ON messages FOR INSERT
+  WITH CHECK (
+    auth.uid() = sender_id AND
+    EXISTS (
+      SELECT 1 FROM work_threads wt
+      WHERE wt.id = work_thread_id
+        AND (wt.client_id = auth.uid() OR wt.provider_id = auth.uid())
+    )
+  );
+
+-- Drop old tables
+DROP TABLE IF EXISTS direct_messages;
+DROP TABLE IF EXISTS conversation_read_status;
+
+?  VERIFY BEFORE MOVING ON
+    ? SELECT COUNT(*) FROM messages; ? must return 8
+    ? direct_messages table no longer exists in Table Editor
+    ? conversation_read_status table no longer exists
+    ? Realtime publication includes messages
+
+3.4	Alter payments & reviews, drop empty jobs table	Supabase SQL Editor
+
+All three tables are empty so this is risk-free. Aligns their column names and adds M-Pesa fields to payments.
+
+SQL — Supabase SQL Editor
+-- payments
+ALTER TABLE payments RENAME COLUMN user_id    TO client_id;
+ALTER TABLE payments RENAME COLUMN amount     TO amount_kes;
+ALTER TABLE payments RENAME COLUMN mpesa_ref  TO mpesa_receipt_number;
+ALTER TABLE payments
+  ADD COLUMN IF NOT EXISTS work_thread_id            UUID REFERENCES work_threads(id),
+  ADD COLUMN IF NOT EXISTS mpesa_checkout_request_id TEXT;
+
+-- reviews
+ALTER TABLE reviews RENAME COLUMN request_id  TO work_thread_id;
+ALTER TABLE reviews RENAME COLUMN customer_id TO client_id;
+ALTER TABLE reviews RENAME COLUMN comment     TO body;
+ALTER TABLE reviews
+  ADD COLUMN IF NOT EXISTS tags TEXT[] DEFAULT '{}';
+
+ALTER TABLE reviews
+  ADD CONSTRAINT reviews_work_thread_fk
+    FOREIGN KEY (work_thread_id) REFERENCES work_threads(id);
+
+-- Drop empty jobs table
+DROP TABLE IF EXISTS jobs;
+
+?  VERIFY BEFORE MOVING ON
+    ? payments has client_id, amount_kes, mpesa_receipt_number, work_thread_id columns
+    ? reviews has work_thread_id, client_id, body, tags columns
+    ? jobs table no longer exists
+
+3.5	Create all 6 remaining new tables	Supabase SQL Editor
+
+
+SQL — Supabase SQL Editor
+-- bookings
+CREATE TABLE IF NOT EXISTS bookings (
+  id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  work_thread_id   UUID NOT NULL REFERENCES work_threads(id),
+  scheduled_at     TIMESTAMPTZ NOT NULL,
+  duration_minutes INTEGER,
+  is_quick_pin     BOOLEAN NOT NULL DEFAULT false,
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- disputes
+CREATE TABLE IF NOT EXISTS disputes (
+  id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  work_thread_id UUID NOT NULL REFERENCES work_threads(id),
+  filed_by_id    UUID NOT NULL REFERENCES profiles(id),
+  reason         TEXT NOT NULL,
+  description    TEXT,
+  evidence_urls  TEXT[] DEFAULT '{}',
+  status         TEXT NOT NULL DEFAULT 'open'
+                   CHECK (status IN ('open','in_review','resolved')),
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- provider_templates
+CREATE TABLE IF NOT EXISTS provider_templates (
+  id          UUID    PRIMARY KEY DEFAULT gen_random_uuid(),
+  provider_id UUID    NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  title       TEXT    NOT NULL,
+  body        TEXT    NOT NULL CHECK (char_length(body) <= 500),
+  sort_order  INTEGER NOT NULL DEFAULT 0,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- provider_wallets
+CREATE TABLE IF NOT EXISTS provider_wallets (
+  id                    UUID    PRIMARY KEY DEFAULT gen_random_uuid(),
+  provider_id           UUID    NOT NULL UNIQUE REFERENCES profiles(id) ON DELETE CASCADE,
+  available_balance_kes INTEGER NOT NULL DEFAULT 0,
+  pending_balance_kes   INTEGER NOT NULL DEFAULT 0,
+  updated_at            TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- wallet_transactions
+CREATE TABLE IF NOT EXISTS wallet_transactions (
+  id            UUID    PRIMARY KEY DEFAULT gen_random_uuid(),
+  provider_id   UUID    NOT NULL REFERENCES profiles(id),
+  type          TEXT    NOT NULL CHECK (type IN ('credit','debit','fee')),
+  amount_kes    INTEGER NOT NULL,
+  description   TEXT,
+  mpesa_receipt TEXT,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- fixed_price_services (Quick Pins)
+CREATE TABLE IF NOT EXISTS fixed_price_services (
+  id                UUID    PRIMARY KEY DEFAULT gen_random_uuid(),
+  provider_id       UUID    NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  service_name      TEXT    NOT NULL,
+  description       TEXT,
+  price_kes         INTEGER NOT NULL,
+  duration_minutes  INTEGER,
+  availability_json JSONB   NOT NULL DEFAULT '{}',
+  is_active         BOOLEAN NOT NULL DEFAULT true,
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Create wallet rows for the 2 existing providers
+INSERT INTO provider_wallets (provider_id)
+SELECT id FROM profiles WHERE role = 'provider'
+ON CONFLICT (provider_id) DO NOTHING;
+
+?  VERIFY BEFORE MOVING ON
+    ? All 6 new tables visible in Table Editor: bookings, disputes, provider_templates, provider_wallets, wallet_transactions, fixed_price_services
+    ? provider_wallets has 2 rows (one per provider)
+
+
+
+4	PostGIS & Geo Matching Setup
+Enable location-based provider matching	TOOL
+Supabase SQL Editor	TIME
+20 min
+
+4.1	Enable PostGIS and create the match_providers() function	Supabase SQL Editor
+
+PostGIS enables geo queries. The match_providers() SQL function will be called by the Lovable job request flow to find nearby Providers.
+
+SQL — Supabase SQL Editor
+-- Enable PostGIS (one-time per project)
+CREATE EXTENSION IF NOT EXISTS postgis;
+
+-- Add geometry column to provider_profiles
+ALTER TABLE provider_profiles
+  ADD COLUMN IF NOT EXISTS geom GEOMETRY(Point, 4326);
+
+-- Spatial index for fast radius queries
+CREATE INDEX IF NOT EXISTS provider_profiles_geom_idx
+  ON provider_profiles USING GIST (geom);
+
+-- Provider matching function
+CREATE OR REPLACE FUNCTION match_providers(
+  job_lat     DOUBLE PRECISION,
+  job_lng     DOUBLE PRECISION,
+  job_cat     TEXT,
+  max_results INTEGER DEFAULT 8
+)
+RETURNS TABLE (
+  provider_id  UUID,
+  distance_km  DOUBLE PRECISION,
+  score        DOUBLE PRECISION
+) AS $$
+BEGIN
+  RETURN QUERY
+  SELECT
+    pp.user_id AS provider_id,
+    ST_Distance(
+      pp.geom::geography,
+      ST_SetSRID(ST_MakePoint(job_lng, job_lat), 4326)::geography
+    ) / 1000.0 AS distance_km,
+    (
+      COALESCE(pp.avg_rating, 0) * 0.4 +
+      (1.0 / NULLIF(pp.response_time_minutes, 0)) * 0.3 * 100 +
+      (1.0 / NULLIF(
+        ST_Distance(
+          pp.geom::geography,
+          ST_SetSRID(ST_MakePoint(job_lng, job_lat), 4326)::geography
+        ) / 1000.0, 0)) * 0.3
+    ) AS score
+  FROM provider_profiles pp
+  WHERE
+    job_cat = ANY(pp.categories)
+    AND pp.geom IS NOT NULL
+    AND ST_DWithin(
+      pp.geom::geography,
+      ST_SetSRID(ST_MakePoint(job_lng, job_lat), 4326)::geography,
+      pp.service_radius_km * 1000
+    )
+  ORDER BY score DESC
+  LIMIT max_results;
+END;
+$$ LANGUAGE plpgsql;
+
+?  VERIFY BEFORE MOVING ON
+    ? Database ? Extensions shows PostGIS as enabled
+    ? provider_profiles has geom column
+    ? Function match_providers visible in Database ? Functions
+
+4.2	Full schema verification — run final check queries	Supabase SQL Editor
+
+
+SQL — Supabase SQL Editor
+-- Final table list (should be 16 tables)
+SELECT table_name FROM information_schema.tables
+WHERE table_schema = 'public' ORDER BY table_name;
+
+-- Row count check
+SELECT 'profiles'          AS tbl, COUNT(*) FROM profiles
+UNION ALL SELECT 'client_profiles',          COUNT(*) FROM client_profiles
+UNION ALL SELECT 'provider_profiles',        COUNT(*) FROM provider_profiles
+UNION ALL SELECT 'job_requests',             COUNT(*) FROM job_requests
+UNION ALL SELECT 'quotes',                   COUNT(*) FROM quotes
+UNION ALL SELECT 'work_threads',             COUNT(*) FROM work_threads
+UNION ALL SELECT 'messages',                 COUNT(*) FROM messages
+UNION ALL SELECT 'services',                 COUNT(*) FROM services
+UNION ALL SELECT 'provider_wallets',         COUNT(*) FROM provider_wallets;
+
+-- Expected:
+-- profiles=4, client_profiles=2, provider_profiles=2,
+-- job_requests=7, quotes=8, work_threads=2, messages=8,
+-- services=20, provider_wallets=2
+
+-- Confirm no 'rejected' quotes remain
+SELECT COUNT(*) AS rejected_count FROM quotes WHERE status = 'rejected';
+-- Expected: 0
+
+-- Confirm role backfill
+SELECT role, COUNT(*) FROM profiles GROUP BY role;
+-- Expected: client=2, provider=2
+
+-- Confirm Elaine's provider record (elainees.devs)
+SELECT p.full_name, p.role, pp.avg_rating, pp.mpesa_phone, pp.categories
+FROM profiles p
+LEFT JOIN provider_profiles pp ON pp.user_id = p.id
+WHERE p.id = '0a2eb721-c586-435b-99b7-7406c6e83fb2';
+
+?  VERIFY BEFORE MOVING ON
+    ? 16 tables total visible
+    ? All row counts match expected values
+    ? 0 rejected quotes
+    ? Elaine's row shows role='provider' with empty categories/mpesa_phone (to be filled in Phase 7)
+
+
+
+5	Update Lovable App
+Regenerate types and update all components to the new schema	TOOL
+Lovable	TIME
+60 min
+
+The database is now correct. Now tell Lovable what changed so it can update TypeScript types, queries, and components throughout the app.
+
+Before pasting the prompt: open Lovable, make sure your Supabase project is still connected (check the Supabase icon in the Lovable toolbar — it should show your project name).
+
+5.1	Paste the schema update prompt into Lovable	Lovable
+
+
+LOVABLE PROMPT — Paste this into Lovable Composer
+The WorkPin Supabase database schema has been fully migrated.
+Please regenerate all TypeScript types and update all components to match.
+
+TABLES RENAMED (update all references):
+- service_requests  ? job_requests
+- providers         ? provider_profiles
+- direct_messages   ? messages
+
+COLUMNS RENAMED (update all usages):
+- job_requests: customer_id ? client_id, budget ? budget_min_kes
+- provider_profiles: location_long ? location_lng,
+  whatsapp_number ? mpesa_phone, rating ? avg_rating
+- messages: content ? body (now has work_thread_id instead of request_id)
+- quotes: price ? price_kes, status 'rejected' label ? 'declined'
+- payments: user_id ? client_id, amount ? amount_kes,
+  mpesa_ref ? mpesa_receipt_number
+- reviews: request_id ? work_thread_id, customer_id ? client_id,
+  comment ? body
+
+TABLES DROPPED (remove all references):
+- user_roles  (role is now profiles.role)
+- jobs        (lifecycle is work_threads.status)
+- conversation_read_status  (replaced by messages.read_at)
+
+NEW COLUMNS ON EXISTING TABLES:
+- profiles: role TEXT ('client'|'provider'), onboarding_complete BOOLEAN
+- job_requests: budget_max_kes, lat, lng, timeline
+- provider_profiles: categories TEXT[], service_radius_km, rate_kes,
+  rate_type, portfolio_photos TEXT[], availability_json JSONB,
+  response_time_minutes, location_name
+- messages: work_thread_id UUID, type TEXT ('text'|'quote'|'system'),
+  read_at TIMESTAMPTZ
+- quotes: work_thread_id UUID, timeline TEXT
+- payments: work_thread_id UUID, mpesa_checkout_request_id TEXT
+- reviews: tags TEXT[]
+
+NEW TABLES (generate TypeScript types + Supabase hooks):
+- work_threads (id, job_request_id, client_id, provider_id, status, created_at, updated_at)
+- client_profiles (id, user_id, location_name, lat, lng, mpesa_phone, created_at)
+- bookings (id, work_thread_id, scheduled_at, duration_minutes, is_quick_pin)
+- disputes (id, work_thread_id, filed_by_id, reason, description, evidence_urls[], status)
+- provider_templates (id, provider_id, title, body, sort_order)
+- provider_wallets (id, provider_id, available_balance_kes, pending_balance_kes)
+- wallet_transactions (id, provider_id, type, amount_kes, description, mpesa_receipt)
+- fixed_price_services (id, provider_id, service_name, description, price_kes,
+  duration_minutes, availability_json, is_active)
+
+TASKS:
+1. Regenerate supabase/types.ts from the live Supabase schema
+2. Update ALL useQuery/useMutation hooks referencing old names
+3. Update auth flow: check profiles.role to route client vs provider dashboard.
+   If onboarding_complete = false, redirect to /onboarding before dashboard.
+4. Update the messaging screen to query messages with work_thread_id,
+   using Supabase Realtime subscription on the messages table
+5. Update work thread / conversation list to query work_threads
+   (replacing any queries on direct_messages or jobs)
+6. Any label showing 'Rejected' on a quote ? change to 'Declined'
+7. All currency ? KES format with comma separator (e.g. KES 12,500)
+8. Update provider profile display to use avg_rating (was rating),
+   mpesa_phone (was whatsapp_number)
+
+?  VERIFY BEFORE MOVING ON
+    ? Lovable regenerates types without TypeScript errors
+    ? App builds successfully after the prompt
+    ? Messaging screen loads without errors
+    ? Login routes correctly: clients go to client dashboard, providers to provider dashboard
+
+5.2	Fix any broken components Lovable flags	Lovable
+
+After the schema prompt Lovable may flag components it could not auto-update. Work through each one:
+
+?	Any component still referencing 'service_requests' ? update to 'job_requests'
+?	Any component referencing 'providers' table directly ? update to 'provider_profiles'
+?	Any component referencing 'direct_messages' ? update to 'messages' with work_thread_id filter
+?	Any component using customer_id ? update to client_id
+?	Any hardcoded 'whatsapp_number' string ? update to 'mpesa_phone'
+?	Quote status display: 'Rejected' text ? 'Declined'
+?	Any payment amount shown without 'KES' prefix ? add KES formatting
+
+
+
+6	M-Pesa Edge Functions
+Build STK Push, callback, and B2C payout in VS Code	TOOL
+VS Code + Supabase	TIME
+2–3 hrs
+
+This phase is done in VS Code. Pull the GitHub repo, install Supabase CLI, and write the Edge Functions. Do NOT put M-Pesa credentials in Lovable or any frontend file.
+
+6.1	Set up Supabase CLI and link to your project	Terminal
+
+
+TERMINAL — run in VS Code integrated terminal
+# Install Supabase CLI (if not already installed)
+npm install -g supabase
+
+# Login
+supabase login
+
+# Link to your WorkPin project (use your Project Reference ID from Phase 1)
+supabase link --project-ref YOUR_PROJECT_REF_ID
+
+# Confirm link worked
+supabase status
+
+?	supabase status shows your project name and URL
+?	No authentication errors
+
+6.2	Store M-Pesa Daraja credentials as Supabase secrets	VS Code + Supabase
+
+Get these from the Safaricom Daraja developer portal (developer.safaricom.co.ke). Use sandbox values while testing.
+
+TERMINAL — Supabase CLI
+supabase secrets set MPESA_CONSUMER_KEY=your_sandbox_consumer_key
+supabase secrets set MPESA_CONSUMER_SECRET=your_sandbox_consumer_secret
+supabase secrets set MPESA_SHORTCODE=174379
+supabase secrets set MPESA_PASSKEY=your_sandbox_passkey
+supabase secrets set MPESA_CALLBACK_URL=https://YOUR_PROJECT_REF.supabase.co/functions/v1/mpesa-callback
+supabase secrets set MPESA_ENV=sandbox
+
+# Verify secrets are stored (values are hidden)
+supabase secrets list
+
+?	supabase secrets list shows all 6 MPESA_ keys
+?	No values visible in output (they are encrypted)
+
+6.3	Create and deploy the STK Push Edge Function	VS Code
+
+
+TERMINAL — scaffold the function
+# Create the Edge Function scaffold
+supabase functions new mpesa-stk-push
+
+LOVABLE PROMPT — generate the Edge Function code
+Build the Supabase Edge Function for M-Pesa STK Push payments.
+
+Create file: supabase/functions/mpesa-stk-push/index.ts
+
+The function should:
+1. Accept POST with JSON body: { work_thread_id, amount_kes, phone_number }
+2. Format phone: strip leading 0, prepend 254 (e.g. 0712345678 ? 254712345678)
+3. Generate OAuth token:
+   POST https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials
+   Auth: Basic base64(CONSUMER_KEY:CONSUMER_SECRET)
+4. Build STK Push body:
+   - Timestamp: new Date() formatted as YYYYMMDDHHmmss
+   - Password: base64(MPESA_SHORTCODE + MPESA_PASSKEY + Timestamp)
+   - BusinessShortCode: Deno.env.get('MPESA_SHORTCODE')
+   - TransactionType: "CustomerPayBillOnline"
+   - Amount: Math.round(amount_kes) — must be integer
+   - PartyA: formatted phone (2547XXXXXXXX)
+   - PartyB: Deno.env.get('MPESA_SHORTCODE')
+   - PhoneNumber: formatted phone
+   - CallBackURL: Deno.env.get('MPESA_CALLBACK_URL')
+   - AccountReference: "WorkPin"
+   - TransactionDesc: "WorkPin Service Payment"
+5. POST to: https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest
+   (use production URL when MPESA_ENV = 'production')
+6. Save the CheckoutRequestID to the payments table
+7. Return { success: true, checkoutRequestId: string }
+
+Use Deno.env.get() for all credentials. Never hardcode.
+Use the Supabase client from supabase-js to update the database.
+
+TERMINAL — deploy
+# Deploy the function
+supabase functions deploy mpesa-stk-push --no-verify-jwt
+
+?	Function appears in Supabase Dashboard ? Edge Functions
+?	Test with curl using sandbox phone 254708374149 and amount 1
+?	Sandbox STK Push returns CheckoutRequestID (not a real phone prompt in sandbox)
+
+6.4	Create and deploy the M-Pesa Callback Edge Function	VS Code
+
+This is the public endpoint Safaricom calls when a payment completes or fails. It updates the payment record and WorkThread status automatically.
+
+LOVABLE PROMPT — generate callback function
+Build the Supabase Edge Function for M-Pesa payment callbacks.
+
+Create file: supabase/functions/mpesa-callback/index.ts
+
+The function should:
+1. Accept POST requests from Safaricom Daraja (no auth required — it's public)
+2. Parse the Daraja callback body:
+   { Body: { stkCallback: { MerchantRequestID, CheckoutRequestID,
+     ResultCode, ResultDesc, CallbackMetadata } } }
+3. Find the payment record by mpesa_checkout_request_id = CheckoutRequestID
+4. If ResultCode === 0 (success):
+   a. Extract MpesaReceiptNumber from CallbackMetadata.Item array
+   b. Update payments: status='paid', mpesa_receipt_number=receipt
+   c. Update work_threads: status='completed', updated_at=now()
+      WHERE id = payment.work_thread_id
+   d. Insert a SYSTEM message in messages:
+      body = 'Malipo ya KES [amount] yamepokelewa! M-Pesa Receipt: [receipt]'
+      type = 'system', sender_id = client_id of the thread
+5. If ResultCode !== 0 (failure):
+   a. Update payments: status='failed'
+   b. Insert SYSTEM message: 'Malipo yameshindwa. Tafadhali jaribu tena.'
+6. Return HTTP 200 (Daraja requires 200 or it will retry)
+
+TERMINAL — deploy (--no-verify-jwt because Daraja calls this without auth)
+supabase functions deploy mpesa-callback --no-verify-jwt
+
+?	mpesa-callback function deployed and visible in Supabase Dashboard
+?	Function URL matches the MPESA_CALLBACK_URL secret set in Step 6.2
+?	Test with a mock Daraja payload — confirm payment record updates and SYSTEM message is inserted
+
+
+
+7	Seed Elaine's Provider Profile
+Fill in the missing data for the live provider account	TOOL
+Supabase SQL Editor	TIME
+15 min
+
+Elaine Muhombe (elainees.devs@gmail.com, ID: 0a2eb721-c586-435b-99b7-7406c6e83fb2) is your live Provider account. After the migration, her provider_profiles row will have empty categories, no M-Pesa phone, and no service radius. Seed it with test data so she can appear in search results and receive leads.
+
+7.1	Seed Elaine's provider_profiles row with test data	Supabase SQL Editor
+
+
+SQL — Supabase SQL Editor
+-- Confirm her provider_profiles row exists
+SELECT * FROM provider_profiles
+WHERE user_id = '0a2eb721-c586-435b-99b7-7406c6e83fb2';
+
+-- Seed her profile with realistic Nairobi test data
+UPDATE provider_profiles
+SET
+  categories            = ARRAY['Electrical Repair', 'Plumbing'],
+  service_radius_km     = 15,
+  rate_kes              = 2500,
+  rate_type             = 'per_job',
+  mpesa_phone           = '254700000001',  -- sandbox test number
+  location_name         = 'Westlands, Nairobi',
+  location_lat          = -1.2676,
+  location_lng          = 36.8114,
+  geom                  = ST_SetSRID(ST_MakePoint(36.8114, -1.2676), 4326),
+  avg_rating            = 4.7,
+  total_reviews         = 3,
+  response_time_minutes = 20,
+  business_name         = 'Elaine Technical Services',
+  bio                   = 'Experienced electrical and plumbing professional based in
+                           Westlands. Fast, reliable, and fairly priced. Available 7 days.',
+  onboarding_complete   = true    -- note: this column is on profiles not provider_profiles
+WHERE user_id = '0a2eb721-c586-435b-99b7-7406c6e83fb2';
+
+-- Also mark her profile as onboarding complete
+UPDATE profiles
+SET onboarding_complete = true
+WHERE id = '0a2eb721-c586-435b-99b7-7406c6e83fb2';
+
+-- Set up her wallet (already created in Step 3.5, confirm it exists)
+SELECT * FROM provider_wallets
+WHERE provider_id = '0a2eb721-c586-435b-99b7-7406c6e83fb2';
+
+?  VERIFY BEFORE MOVING ON
+    ? Elaine's provider_profiles row shows categories, service_radius_km, mpesa_phone populated
+    ? Her profiles.onboarding_complete = true
+    ? Her provider_wallets row exists with available_balance_kes = 0
+    ? Run match_providers(-1.2833, 36.8167, 'Electrical Repair') ? Elaine should appear in results
+
+7.2	Seed 3 sample Pin Ratings for Elaine (for realistic profile display)	Supabase SQL Editor
+
+
+SQL — Supabase SQL Editor
+-- Get a completed work_thread ID to attach reviews to
+SELECT id FROM work_threads WHERE status = 'completed' LIMIT 1;
+-- Copy the ID and use it below as <thread_id>
+
+-- Insert 3 sample reviews for Elaine
+INSERT INTO reviews (work_thread_id, client_id, provider_id, rating, body, tags)
+VALUES
+  ('<thread_id_1>',
+   '02372b12-16d4-4904-b6fe-121f6ae8a0c3',
+   '0a2eb721-c586-435b-99b7-7406c6e83fb2',
+   5,
+   'Alifanya kazi nzuri sana. Aliwahi kwa wakati na bei ilikuwa sawa.',
+   ARRAY['On time','Fair price','Quality work']),
+
+  ('<thread_id_1>',
+   '20d066e7-f286-4753-ab43-a9cc9614fb03',
+   '0a2eb721-c586-435b-99b7-7406c6e83fb2',
+   4,
+   'Good work. Would hire again.',
+   ARRAY['Quality work','Would hire again']),
+
+  ('<thread_id_1>',
+   '02372b12-16d4-4904-b6fe-121f6ae8a0c3',
+   '0a2eb721-c586-435b-99b7-7406c6e83fb2',
+   5,
+   'Very professional and fast.',
+   ARRAY['Great communication','On time']);
+
+-- Note: use distinct work_thread_ids per review in production.
+-- For seeding, using the same thread_id is fine for display testing.
+
+Replace <thread_id_1> with actual UUIDs from your work_threads table. You can use the same thread_id for all 3 seed reviews — this is just for testing the profile display.
+
+
+
+8	End-to-End Test
+Walk through every scenario to confirm it all works	TOOL
+Browser	TIME
+45 min
+
+Use your 4 existing accounts to walk through the full WorkPin Kenya communication flow. Test each scenario from the Thumbtack model.
+
+8.1	Auth & routing test	Browser
+
+?	Log in as Elaine (elainees.devs@gmail.com) ? should route to Provider dashboard
+?	Log in as Elaine (emuhombe@gmail.com) ? should route to Client dashboard
+?	Log in as Eric (kibisu@gmail.com) ? should route to Client dashboard
+?	Log in as Eric (eric.kibisu@outlook.com) ? should route to Provider dashboard
+?	Any account with onboarding_complete = false ? redirects to /onboarding
+
+8.2	Messaging — existing WorkThreads	Browser
+
+?	Log in as a client ? Inbox shows existing work threads (the 8 migrated messages should appear)
+?	Open a work thread ? messages display in correct order with correct senders
+?	Send a new message ? appears in real-time for both parties (open two browser tabs)
+?	Messages marked as read (read_at updated) when thread is opened
+?	Unread badge count updates correctly in nav
+
+8.3	Post a Job flow	Browser
+
+?	Log in as a client ? navigate to Post a Job
+?	Complete all 4 steps: category ? description/location ? budget ? review
+?	Submit ? confirm job_request row created in Supabase Table Editor
+?	Confirm work_threads rows created for matched providers
+?	Matched providers receive notification (check Realtime is firing)
+
+8.4	Quote & accept flow	Browser
+
+?	Log in as Provider ? Open Pin feed shows unmatched job requests
+?	Send a quote ? quote row created with status 'pending'
+?	Quote message appears in WorkThread as a QUOTE type card
+?	Log in as Client ? Accept the quote ? work_thread status changes to 'active'
+?	Provider sees status change in real-time
+
+8.5	M-Pesa STK Push test (sandbox)	Browser
+
+?	On an active WorkThread as Provider ? tap 'Request Payment'
+?	Enter Safaricom sandbox test number: 254708374149, amount: 1
+?	Confirm Edge Function is called (check Supabase Dashboard ? Edge Functions ? Logs)
+?	Sandbox returns CheckoutRequestID — payment record created with status 'pending'
+?	Simulate callback: POST a success payload to your callback function URL
+?	Confirm payment status changes to 'paid', WorkThread moves to 'completed'
+?	SYSTEM message 'Malipo yamepokelewa' appears in thread
+
+8.6	Provider profile & search	Browser
+
+?	Navigate to Elaine's provider profile page ? shows categories, rating 4.7, 3 reviews
+?	Search for 'Electrical' near Westlands ? Elaine appears in results
+?	Click 'Tuma Ujumbe' on her profile ? creates a new WorkThread and redirects to messaging
+
+
+If any test fails: check Supabase Dashboard ? Logs for Edge Function errors. Check Table Editor to confirm the row was written correctly. Check RLS policies if data is not visible.
+
+WorkPin Kenya  •  Implementation Plan  •  Phases 1–8  •  Confidential

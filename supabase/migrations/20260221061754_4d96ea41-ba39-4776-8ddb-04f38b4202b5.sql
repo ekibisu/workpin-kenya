@@ -1,51 +1,4 @@
 
-
-# Enable RLS on Flagged Tables
-
-## Overview
-Add Row Level Security and ownership-based policies to the 6 flagged tables. Each table gets policies that match existing patterns in the codebase.
-
-## Policy Design
-
-### 1. bookings
-- No direct user_id column; linked via `work_thread_id` to `work_threads` (which has `client_id` and `provider_id`)
-- **SELECT**: Thread participants (client or provider) can view bookings
-- **INSERT**: Thread participants can create bookings
-- **UPDATE**: Thread participants can update bookings
-
-### 2. disputes
-- Has `filed_by_id` and `work_thread_id`
-- **SELECT**: The filer and thread participants can view disputes
-- **INSERT**: Thread participants can file disputes (`filed_by_id = auth.uid()`)
-- **UPDATE**: Admins only (dispute resolution)
-
-### 3. fixed_price_services
-- Has `provider_id` which equals `auth.uid()` directly
-- **SELECT**: Anyone authenticated can view active services (public listing)
-- **INSERT/UPDATE/DELETE**: Only the owning provider (`provider_id = auth.uid()`)
-
-### 4. provider_templates
-- Has `provider_id` which equals `auth.uid()`
-- **ALL**: Only the owning provider (`provider_id = auth.uid()`)
-
-### 5. provider_wallets
-- Has `provider_id` which equals `auth.uid()`
-- **SELECT**: Only the owning provider
-- **INSERT/UPDATE**: Only the owning provider (or system via service role)
-
-### 6. wallet_transactions
-- Has `provider_id` which equals `auth.uid()`
-- **SELECT**: Only the owning provider
-- **INSERT**: Only the owning provider (or system via service role)
-
-## Technical Details
-
-A single database migration will:
-
-1. Enable RLS on all 6 tables
-2. Create policies using patterns consistent with existing codebase (e.g., subqueries against `work_threads` for participant checks, direct `provider_id = auth.uid()` for provider-owned tables)
-
-```sql
 -- Enable RLS
 ALTER TABLE public.bookings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.disputes ENABLE ROW LEVEL SECURITY;
@@ -157,7 +110,3 @@ USING (provider_id = auth.uid());
 CREATE POLICY "Providers create own transactions"
 ON public.wallet_transactions FOR INSERT TO authenticated
 WITH CHECK (provider_id = auth.uid());
-```
-
-No code changes are needed -- the application already queries these tables through the existing hooks which filter by the authenticated user's ID.
-

@@ -10,46 +10,58 @@ export const useUnreadMessageCount = () => {
     if (!user) return;
 
     const fetchCount = async () => {
-      // Get read statuses for the user
+      // Get threads the user participates in
+      const { data: threads } = await supabase
+        .from("work_threads")
+        .select("id")
+        .or(`client_id.eq.${user.id},provider_id.eq.${user.id}`);
+
+      if (!threads || threads.length === 0) {
+        setCount(0);
+        return;
+      }
+
+      const threadIds = threads.map((t) => t.id);
+
+      // Get read status for each thread
       const { data: readStatuses } = await supabase
         .from("conversation_read_status")
         .select("request_id, last_read_at")
         .eq("user_id", user.id);
 
-      const readMap = new Map<string, string>();
-      (readStatuses || []).forEach((rs: any) => {
-        readMap.set(rs.request_id, rs.last_read_at);
-      });
-
-      // Get all direct messages not sent by this user
-      const { data: messages } = await supabase
-        .from("direct_messages")
-        .select("request_id, created_at")
-        .neq("sender_id", user.id);
-
-      if (!messages) {
-        setCount(0);
-        return;
+      const readMap: Record<string, string> = {};
+      for (const rs of readStatuses || []) {
+        readMap[rs.request_id] = rs.last_read_at;
       }
 
-      // Count unread: messages where created_at > last_read_at (or no read status)
-      const unread = messages.filter((msg: any) => {
-        const lastRead = readMap.get(msg.request_id);
-        if (!lastRead) return true;
-        return new Date(msg.created_at) > new Date(lastRead);
-      });
+      // Count messages from others that are newer than last_read_at
+      let totalUnread = 0;
+      for (const threadId of threadIds) {
+        let query = supabase
+          .from("messages")
+          .select("id", { count: "exact", head: true })
+          .eq("work_thread_id", threadId)
+          .neq("sender_id", user.id);
 
-      setCount(unread.length);
+        const lastRead = readMap[threadId];
+        if (lastRead) {
+          query = query.gt("created_at", lastRead);
+        }
+
+        const { count: c } = await query;
+        totalUnread += c || 0;
+      }
+
+      setCount(totalUnread);
     };
 
     fetchCount();
 
-    // Subscribe to new messages for live updates
     const channel = supabase
       .channel("unread-count")
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "direct_messages" },
+        { event: "INSERT", schema: "public", table: "messages" },
         (payload) => {
           const msg = payload.new as any;
           if (msg.sender_id !== user.id) {
@@ -65,37 +77,7 @@ export const useUnreadMessageCount = () => {
   }, [user]);
 
   const resetCount = () => {
-    // Re-fetch after marking as read
-    if (!user) return;
-    setTimeout(async () => {
-      const { data: readStatuses } = await supabase
-        .from("conversation_read_status")
-        .select("request_id, last_read_at")
-        .eq("user_id", user.id);
-
-      const readMap = new Map<string, string>();
-      (readStatuses || []).forEach((rs: any) => {
-        readMap.set(rs.request_id, rs.last_read_at);
-      });
-
-      const { data: messages } = await supabase
-        .from("direct_messages")
-        .select("request_id, created_at")
-        .neq("sender_id", user.id);
-
-      if (!messages) {
-        setCount(0);
-        return;
-      }
-
-      const unread = messages.filter((msg: any) => {
-        const lastRead = readMap.get(msg.request_id);
-        if (!lastRead) return true;
-        return new Date(msg.created_at) > new Date(lastRead);
-      });
-
-      setCount(unread.length);
-    }, 500);
+    setCount(0);
   };
 
   return { unreadCount: count, resetCount };
