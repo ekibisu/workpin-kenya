@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import IntakeAssistant from "@/components/ai/IntakeAssistant";
 import { Progress } from "@/components/ui/progress";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronLeft, ChevronRight, MapPin, Banknote, FileText, CheckCircle, Loader2, ImagePlus, X } from "lucide-react";
@@ -18,15 +19,27 @@ const MAX_IMAGES = 5;
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
+const SERVICE_PLACEHOLDERS: Record<string, string> = {
+  "Catering": "E.g., I need catering for a wedding of 50 people. We prefer local Kenyan dishes and need setup by 1:00 PM...",
+  "House Cleaning": "E.g., I need a deep clean for a 3-bedroom house in Westlands. Please include window cleaning and carpet vacuuming...",
+  "Electrical": "E.g., My kitchen lights are flickering and the circuit breaker keeps tripping when I use the microwave...",
+  "Plumbing": "E.g., I have a leaking pipe under the kitchen sink that started this morning. It's causing a small puddle...",
+  "Default": "Describe what you need in detail — this helps pros send you better quotes."
+};
+
 interface ServiceOption {
   id: string;
   name: string;
 }
 
 const RequestService = () => {
+  // All hooks at the very top of the function
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const descriptionRef = useRef<HTMLTextAreaElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const preselected = searchParams.get("service") || "";
   const [step, setStep] = useState(0);
   const [services, setServices] = useState<ServiceOption[]>([]);
@@ -34,7 +47,9 @@ const RequestService = () => {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isAiGenerated, setIsAiGenerated] = useState(false);
+  const [descriptionDisabled, setDescriptionDisabled] = useState(false);
+
   const [form, setForm] = useState({
     service: preselected,
     serviceId: "",
@@ -43,6 +58,16 @@ const RequestService = () => {
     location: "",
   });
 
+  // Reset form and images when service changes
+  useEffect(() => {
+    setForm(prev => ({ ...prev, description: "" }));
+    setSelectedFiles([]);
+    setPreviews([]);
+    setIsAiGenerated(false);
+    console.log("Service changed to:", form.service, " - Form cleared.");
+  }, [form.service]);
+
+  // Fetch services from Supabase
   useEffect(() => {
     supabase.from("services").select("id, name").then(({ data }) => {
       if (data) {
@@ -65,8 +90,22 @@ const RequestService = () => {
   const updateForm = (key: string, value: string) =>
     setForm((prev) => ({ ...prev, [key]: value }));
 
-  const selectService = (s: ServiceOption) =>
+  const handleAiComplete = (text: string) => {
+    updateForm("description", text);
+    setIsAiGenerated(true);
+    setTimeout(() => descriptionRef.current?.focus(), 100);
+  };
+
+  const handleClear = () => {
+    setForm(prev => ({ ...prev, description: "" }));
+    setIsAiGenerated(false);
+    setTimeout(() => descriptionRef.current?.focus(), 10);
+  };
+
+  const selectService = (s: ServiceOption) => {
     setForm((prev) => ({ ...prev, service: s.name, serviceId: s.id }));
+    setStep(1);
+  };
 
   const handleFileSelect = (files: FileList | null) => {
     if (!files) return;
@@ -117,7 +156,6 @@ const RequestService = () => {
     setSubmitting(true);
     setUploadProgress(0);
 
-    // 1. Insert the job request
     const { data: inserted, error } = await supabase.from("job_requests").insert({
       client_id: user.id,
       service_id: form.serviceId,
@@ -134,7 +172,6 @@ const RequestService = () => {
 
     const requestId = inserted.id;
 
-    // 2. Upload images if any
     if (selectedFiles.length > 0) {
       const imageUrls: string[] = [];
       for (let i = 0; i < selectedFiles.length; i++) {
@@ -157,7 +194,6 @@ const RequestService = () => {
         setUploadProgress(Math.round(((i + 1) / selectedFiles.length) * 100));
       }
 
-      // 3. Update the row with image URLs
       if (imageUrls.length > 0) {
         await supabase.from("job_requests").update({ image_urls: imageUrls }).eq("id", requestId);
       }
@@ -176,7 +212,6 @@ const RequestService = () => {
           <h1 className="mb-2 text-2xl font-extrabold">Request a Service</h1>
           <p className="mb-8 text-sm text-muted-foreground">Tell us what you need — it only takes a minute.</p>
 
-          {/* Progress */}
           <div className="mb-8 flex items-center gap-1">
             {steps.map((s, i) => (
               <div key={s} className="flex flex-1 flex-col items-center gap-1">
@@ -212,13 +247,37 @@ const RequestService = () => {
                     <FileText className="h-5 w-5 text-primary" />
                     <span className="text-sm font-medium text-foreground">Service: <span className="text-primary">{form.service}</span></span>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="description" className="text-base font-semibold">Describe what you need</Label>
-                    <Textarea id="description" value={form.description} onChange={(e) => updateForm("description", e.target.value)} placeholder="E.g., I need my kitchen pipes fixed. There's a leak under the sink that started 2 days ago..." rows={5} />
+                  <div className="space-y-2 relative">
+                    <div className="flex justify-between items-end">
+                      <Label htmlFor="description" className="text-base font-semibold">Describe what you need</Label>
+                      {form.description && isAiGenerated && (
+                        <button 
+                          onClick={handleClear}
+                          className="text-xs font-medium text-red-500 hover:text-red-600 bg-red-50 px-2 py-1 rounded-md transition-all animate-in fade-in slide-in-from-top-1"
+                        >
+                          Clear AI Summary
+                        </button>
+                      )}
+                    </div>
+                    <IntakeAssistant
+                      serviceName={form.service}
+                      onComplete={handleAiComplete}
+                    />
+                    <Textarea
+                      id="description"
+                      value={form.description}
+                      onChange={(e) => {
+                        updateForm("description", e.target.value);
+                        if (isAiGenerated) setIsAiGenerated(false);
+                      }}
+                      placeholder={SERVICE_PLACEHOLDERS[form.service] || SERVICE_PLACEHOLDERS["Default"]}
+                      rows={5}
+                      disabled={descriptionDisabled}
+                      ref={descriptionRef}
+                    />
                     <p className="text-xs text-muted-foreground">Be specific — this helps pros send you better quotes.</p>
                   </div>
 
-                  {/* Image Upload Area */}
                   <div className="space-y-2">
                     <Label className="text-base font-semibold">Photos (optional)</Label>
                     <div
@@ -243,7 +302,6 @@ const RequestService = () => {
                       }}
                     />
 
-                    {/* Thumbnails */}
                     {previews.length > 0 && (
                       <div className="flex flex-wrap gap-2 pt-2">
                         {previews.map((src, i) => (
@@ -298,7 +356,6 @@ const RequestService = () => {
                       <div className="flex justify-between border-t border-border pt-3"><dt className="text-muted-foreground">Location</dt><dd className="font-medium text-foreground">{form.location}</dd></div>
                     </dl>
 
-                    {/* Review thumbnails */}
                     {previews.length > 0 && (
                       <div className="mt-4 border-t border-border pt-3">
                         <p className="mb-2 text-sm text-muted-foreground">Photos ({previews.length})</p>
@@ -317,7 +374,6 @@ const RequestService = () => {
             </motion.div>
           </AnimatePresence>
 
-          {/* Upload progress */}
           {submitting && selectedFiles.length > 0 && (
             <div className="mt-4 space-y-1">
               <p className="text-xs text-muted-foreground">Uploading photos… {uploadProgress}%</p>
@@ -325,7 +381,6 @@ const RequestService = () => {
             </div>
           )}
 
-          {/* Navigation */}
           <div className="mt-8 flex items-center justify-between">
             <Button variant="ghost" onClick={() => setStep(Math.max(0, step - 1))} disabled={step === 0}>
               <ChevronLeft className="h-4 w-4" /> Back
