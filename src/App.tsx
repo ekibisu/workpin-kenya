@@ -18,6 +18,7 @@ import ClientProfile from "./pages/ClientProfile";
 import Onboarding from "./pages/Onboarding";
 import NotFound from "./pages/NotFound";
 import Register from "./pages/Register";
+import SettingsRedirect from "./components/dashboard/SettingsRedirect";
 
 const queryClient = new QueryClient();
 
@@ -36,13 +37,80 @@ const App = () => (
             <Route path="/providers" element={<Providers />} />
             <Route path="/how-it-works" element={<HowItWorks />} />
             <Route path="/request" element={<RequestService />} />
-            <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-            <Route path="/dashboard/*" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-            <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-            <Route path="/client-profile" element={<ProtectedRoute><ClientProfile /></ProtectedRoute>} />
-            <Route path="/provider-dashboard" element={<ProtectedRoute><ProviderDashboard /></ProtectedRoute>} />
-            <Route path="/provider-dashboard/*" element={<ProtectedRoute><ProviderDashboard /></ProtectedRoute>} />
-            <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
+            <Route
+              path="/dashboard"
+              element={
+                <ProtectedRoute>
+                  <Dashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard"
+              element={
+                <ProtectedRoute>
+                  <Dashboard />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/dashboard/*"
+              element={
+                <ProtectedRoute>
+                  <Dashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/settings"
+              element={
+                <ProtectedRoute>
+                  <SettingsRedirect />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/profile"
+              element={
+                <ProtectedRoute>
+                  <Profile />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/client-profile"
+              element={
+                <ProtectedRoute>
+                  <ClientProfile />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/provider-dashboard"
+              element={
+                <ProtectedRoute>
+                  <ProviderDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/provider-dashboard/*"
+              element={
+                <ProtectedRoute>
+                  <ProviderDashboard />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/onboarding"
+              element={
+                <ProtectedRoute>
+                  <Onboarding />
+                </ProtectedRoute>
+              }
+            />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
