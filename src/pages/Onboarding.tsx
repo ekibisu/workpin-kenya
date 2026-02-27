@@ -105,7 +105,7 @@ const PhoneField = ({ value, onChange, hint }: PhoneFieldProps) => (
         className="rounded-l-none"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        placeholder="07XX XXX XXX"
+        placeholder="7XX XXX XXX"
         inputMode="numeric"
         maxLength={12}
         required
