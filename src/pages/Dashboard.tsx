@@ -22,6 +22,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import ClientAccountSettings from "./ClientAccountSettings";
+import ProviderAccountSettings from "./ProviderAccountSettings";
 
 interface JobRequest {
   id: string;
@@ -59,6 +61,7 @@ const Dashboard = () => {
   const { toast } = useToast();
   const location = useLocation();
   const isMessagesTab = location.pathname.includes("/dashboard/messages");
+  const isSettingsTab = location.pathname.includes("/dashboard/settings");
   const { unreadCount, resetCount } = useUnreadMessageCount();
   const [requests, setRequests] = useState<JobRequest[]>([]);
   const [quotes, setQuotes] = useState<Quote[]>([]);
@@ -253,15 +256,39 @@ const Dashboard = () => {
         <main className="flex-1 bg-background p-6 lg:p-8">
           <div className="mb-8 flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-extrabold text-foreground">{isMessagesTab ? "Messages" : "Dashboard"}</h1>
-              <p className="text-sm text-muted-foreground">{isMessagesTab ? "Chat directly with your service pros." : "Welcome back! Here's your activity overview."}</p>
+              <h1 className="text-2xl font-extrabold text-foreground">
+                {isMessagesTab ? "Messages" : isSettingsTab ? "Account Settings" : "Dashboard"}
+              </h1>
+              <p className="text-sm text-muted-foreground">
+                {isMessagesTab 
+                  ? "Chat directly with your service pros." 
+                  : isSettingsTab 
+                    ? "Manage your account and payment settings." 
+                    : "Welcome back! Here's your activity overview."}
+              </p>
             </div>
-            {!isMessagesTab && <Button asChild><Link to="/request"><Plus className="h-4 w-4" />New Request</Link></Button>}
+            {!isMessagesTab && !isSettingsTab && (
+              <Button asChild>
+                <Link to="/request">
+                  <Plus className="h-4 w-4" />New Request
+                </Link>
+              </Button>
+            )}
           </div>
 
+          {/* MAIN CONTENT AREA */}
           {isMessagesTab ? (
             <div className="overflow-hidden rounded-2xl border border-border bg-card">
               <ConversationList />
+            </div>
+          ) : isSettingsTab ? (
+            /* DYNAMIC SETTINGS COMPONENT BASED ON ROLE */
+            <div className="rounded-2xl border border-border bg-card p-6">
+              {user?.user_metadata?.role === "provider" ? (
+                <ProviderAccountSettings />
+              ) : (
+                <ClientAccountSettings />
+              )}
             </div>
           ) : (
             <>
