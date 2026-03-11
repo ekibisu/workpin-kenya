@@ -14,40 +14,35 @@ export type Database = {
   }
   public: {
     Tables: {
-      bookings: {
+      audit_logs: {
         Row: {
-          created_at: string
-          duration_minutes: number | null
+          action: string
+          created_at: string | null
           id: string
-          is_quick_pin: boolean
-          scheduled_at: string
-          work_thread_id: string
+          new_value: Json | null
+          old_value: Json | null
+          record_id: string
+          table_name: string
         }
         Insert: {
-          created_at?: string
-          duration_minutes?: number | null
+          action: string
+          created_at?: string | null
           id?: string
-          is_quick_pin?: boolean
-          scheduled_at: string
-          work_thread_id: string
+          new_value?: Json | null
+          old_value?: Json | null
+          record_id: string
+          table_name: string
         }
         Update: {
-          created_at?: string
-          duration_minutes?: number | null
+          action?: string
+          created_at?: string | null
           id?: string
-          is_quick_pin?: boolean
-          scheduled_at?: string
-          work_thread_id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          record_id?: string
+          table_name?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "bookings_work_thread_id_fkey"
-            columns: ["work_thread_id"]
-            isOneToOne: false
-            referencedRelation: "work_threads"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       client_profiles: {
         Row: {
@@ -108,7 +103,7 @@ export type Database = {
             foreignKeyName: "conversation_read_status_request_id_fkey"
             columns: ["request_id"]
             isOneToOne: false
-            referencedRelation: "job_requests"
+            referencedRelation: "service_requests"
             referencedColumns: ["id"]
           },
         ]
@@ -140,7 +135,7 @@ export type Database = {
             foreignKeyName: "direct_messages_request_id_fkey"
             columns: ["request_id"]
             isOneToOne: false
-            referencedRelation: "job_requests"
+            referencedRelation: "service_requests"
             referencedColumns: ["id"]
           },
         ]
@@ -303,27 +298,71 @@ export type Database = {
           },
         ]
       }
-      messages: {
+      jobs: {
         Row: {
-          content: string
           created_at: string
           id: string
-          sender_id: string
-          work_thread_id: string
+          payment_status: string
+          quote_id: string
+          status: string
+          updated_at: string
         }
         Insert: {
-          content: string
           created_at?: string
           id?: string
-          sender_id: string
-          work_thread_id: string
+          payment_status?: string
+          quote_id: string
+          status?: string
+          updated_at?: string
         }
         Update: {
-          content?: string
           created_at?: string
           id?: string
+          payment_status?: string
+          quote_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jobs_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "quotes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      messages: {
+        Row: {
+          body: string
+          created_at: string
+          id: string
+          job_id: string
+          read_at: string | null
+          sender_id: string
+          type: string
+          work_thread_id: string | null
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          id?: string
+          job_id: string
+          read_at?: string | null
+          sender_id: string
+          type?: string
+          work_thread_id?: string | null
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          id?: string
+          job_id?: string
+          read_at?: string | null
           sender_id?: string
-          work_thread_id?: string
+          type?: string
+          work_thread_id?: string | null
         }
         Relationships: [
           {
@@ -334,7 +373,7 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "messages_work_thread_fkey"
+            foreignKeyName: "messages_work_thread_id_fkey"
             columns: ["work_thread_id"]
             isOneToOne: false
             referencedRelation: "work_threads"
@@ -397,8 +436,10 @@ export type Database = {
           email: string | null
           full_name: string | null
           id: string
+          neighborhood: string | null
           onboarding_complete: boolean
           phone: string | null
+          property_type: string | null
           role: string
           updated_at: string
         }
@@ -408,8 +449,10 @@ export type Database = {
           email?: string | null
           full_name?: string | null
           id: string
+          neighborhood?: string | null
           onboarding_complete?: boolean
           phone?: string | null
+          property_type?: string | null
           role?: string
           updated_at?: string
         }
@@ -419,8 +462,10 @@ export type Database = {
           email?: string | null
           full_name?: string | null
           id?: string
+          neighborhood?: string | null
           onboarding_complete?: boolean
           phone?: string | null
+          property_type?: string | null
           role?: string
           updated_at?: string
         }
@@ -576,6 +621,62 @@ export type Database = {
           },
         ]
       }
+      providers: {
+        Row: {
+          bio: string | null
+          business_name: string
+          created_at: string
+          id: string
+          is_verified: boolean | null
+          location_lat: number | null
+          location_long: number | null
+          rating: number | null
+          subscription_status: string | null
+          total_reviews: number | null
+          updated_at: string
+          user_id: string
+          whatsapp_number: string | null
+        }
+        Insert: {
+          bio?: string | null
+          business_name: string
+          created_at?: string
+          id?: string
+          is_verified?: boolean | null
+          location_lat?: number | null
+          location_long?: number | null
+          rating?: number | null
+          subscription_status?: string | null
+          total_reviews?: number | null
+          updated_at?: string
+          user_id: string
+          whatsapp_number?: string | null
+        }
+        Update: {
+          bio?: string | null
+          business_name?: string
+          created_at?: string
+          id?: string
+          is_verified?: boolean | null
+          location_lat?: number | null
+          location_long?: number | null
+          rating?: number | null
+          subscription_status?: string | null
+          total_reviews?: number | null
+          updated_at?: string
+          user_id?: string
+          whatsapp_number?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "providers_user_id_fkey1"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       quotes: {
         Row: {
           created_at: string
@@ -696,27 +797,93 @@ export type Database = {
           },
         ]
       }
-      services: {
+      service_requests: {
         Row: {
-          category: string
+          budget: number | null
           created_at: string
-          icon: string | null
+          customer_id: string
+          description: string
           id: string
-          name: string
+          image_urls: string[] | null
+          location_name: string | null
+          service_id: string
+          status: string
+          updated_at: string
         }
         Insert: {
-          category: string
+          budget?: number | null
           created_at?: string
-          icon?: string | null
+          customer_id: string
+          description: string
           id?: string
-          name: string
+          image_urls?: string[] | null
+          location_name?: string | null
+          service_id: string
+          status?: string
+          updated_at?: string
         }
         Update: {
-          category?: string
+          budget?: number | null
           created_at?: string
+          customer_id?: string
+          description?: string
+          id?: string
+          image_urls?: string[] | null
+          location_name?: string | null
+          service_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_requests_customer_id_fkey1"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_requests_service_id_fkey1"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "services"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      services: {
+        Row: {
+          archetype: string | null
+          category: string
+          created_at: string
+          description: string | null
+          icon: string | null
+          id: string
+          is_active: boolean
+          name: string
+          sort_order: number
+        }
+        Insert: {
+          archetype?: string | null
+          category: string
+          created_at?: string
+          description?: string | null
           icon?: string | null
           id?: string
+          is_active?: boolean
+          name: string
+          sort_order?: number
+        }
+        Update: {
+          archetype?: string | null
+          category?: string
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean
           name?: string
+          sort_order?: number
         }
         Relationships: []
       }
@@ -741,6 +908,48 @@ export type Database = {
           proj4text?: string | null
           srid?: number
           srtext?: string | null
+        }
+        Relationships: []
+      }
+      user_profiles: {
+        Row: {
+          auth_uid: string | null
+          created_at: string | null
+          email: string | null
+          id: string
+        }
+        Insert: {
+          auth_uid?: string | null
+          created_at?: string | null
+          email?: string | null
+          id: string
+        }
+        Update: {
+          auth_uid?: string | null
+          created_at?: string | null
+          email?: string | null
+          id?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
         }
         Relationships: []
       }
@@ -1794,7 +2003,7 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "customer" | "provider" | "admin"
+      app_role: "client" | "provider" | "admin"
     }
     CompositeTypes: {
       geometry_dump: {
@@ -1930,7 +2139,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["customer", "provider", "admin"],
+      app_role: ["client", "provider", "admin"],
     },
   },
 } as const
