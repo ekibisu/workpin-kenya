@@ -146,7 +146,7 @@ const RequestService = () => {
         location_name: location.trim() || null,
         budget_min_kes: budgetMin ? parseInt(budgetMin.replace(/\D/g, ""), 10) : null,
         budget_max_kes: budgetMax ? parseInt(budgetMax.replace(/\D/g, ""), 10) : null,
-        timeline: tedAnswers["deadline"] ?? null,
+        timeline: null,
         status: "open",
       })
       .select("id")
@@ -178,7 +178,7 @@ const RequestService = () => {
 
     setSubmitting(false);
     toast({ title: "Kazi imewekwa! Providers watajulishwa." });
-    navigate("/client/dashboard");
+    navigate("/dashboard");
   };
 
   // ── Step content ─────────────────────────────────────────────────────────────

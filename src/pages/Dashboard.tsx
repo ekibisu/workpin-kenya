@@ -3,10 +3,11 @@ import Navbar from "@/components/layout/Navbar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { Link, useLocation } from "react-router-dom";
 import {
   LayoutDashboard, FileText, MessageCircle, Settings, Plus,
-  TrendingUp, Clock, CheckCircle, DollarSign, MapPin, Loader2, User, Star,
+  TrendingUp, Clock, CheckCircle, DollarSign, MapPin, Loader2, User, Star, Pencil, Banknote,
 } from "lucide-react";
 import MessageDrawer from "@/components/messaging/MessageDrawer";
 import ConversationList from "@/components/messaging/ConversationList";
@@ -21,9 +22,11 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import ClientAccountSettings from "./ClientAccountSettings";
 import ProviderAccountSettings from "./ProviderAccountSettings";
+import questionsData from "@/data/questions.json";
 
 interface JobRequest {
   id: string;
@@ -33,8 +36,28 @@ interface JobRequest {
   location_name: string | null;
   status: string;
   created_at: string;
-  services: { name: string } | null;
+  services: { name: string; archetype: string | null } | null;
   image_urls: string[] | null;
+}
+
+const VALID_ARCHETYPES = new Set([
+  'home_maintenance', 'lifestyle_wellness', 'events_celebrations',
+  'professional_business', 'outdoor_heavy_duty',
+]);
+
+function deriveArchetype(archetype: string | null | undefined): string {
+  if (archetype && VALID_ARCHETYPES.has(archetype)) return archetype;
+  return 'home_maintenance';
+}
+
+// Parse stored JSON description; returns the task_description string for display
+function parseDescriptionSummary(raw: string): string {
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed.task_description || raw;
+  } catch {
+    return raw;
+  }
 }
 
 interface Quote {
@@ -76,6 +99,12 @@ const Dashboard = () => {
   const [submittingFeedback, setSubmittingFeedback] = useState(false);
   const [chatWorkThreadId, setChatWorkThreadId] = useState<string | null>(null);
   const [chatRecipientName, setChatRecipientName] = useState("");
+  const [editingRequest, setEditingRequest] = useState<JobRequest | null>(null);
+  const [editAnswers, setEditAnswers] = useState<Record<string, string>>({});
+  const [editLocation, setEditLocation] = useState("");
+  const [editBudgetMin, setEditBudgetMin] = useState("");
+  const [editBudgetMax, setEditBudgetMax] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
 
   const handleStartJob = async (jobRequestId: string, selectedQuoteId: string) => {
     setStartingJobId(jobRequestId);
@@ -151,6 +180,53 @@ const Dashboard = () => {
     setFeedbackComment("");
   };
 
+  const openEditDialog = (req: JobRequest) => {
+    setEditingRequest(req);
+    try {
+      setEditAnswers(JSON.parse(req.description));
+    } catch {
+      setEditAnswers({ task_description: req.description });
+    }
+    setEditLocation(req.location_name ?? "");
+    setEditBudgetMin(req.budget_min_kes != null ? String(req.budget_min_kes) : "");
+    setEditBudgetMax(req.budget_max_kes != null ? String(req.budget_max_kes) : "");
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingRequest) return;
+    setSavingEdit(true);
+    const updatedDescription = JSON.stringify(editAnswers);
+    const { error } = await supabase
+      .from("job_requests")
+      .update({
+        description: updatedDescription,
+        location_name: editLocation.trim() || null,
+        budget_min_kes: editBudgetMin ? parseInt(editBudgetMin.replace(/\D/g, ""), 10) : null,
+        budget_max_kes: editBudgetMax ? parseInt(editBudgetMax.replace(/\D/g, ""), 10) : null,
+      })
+      .eq("id", editingRequest.id);
+    setSavingEdit(false);
+    if (error) {
+      toast({ title: "Error", description: "Could not save changes.", variant: "destructive" });
+      return;
+    }
+    setRequests((prev) =>
+      prev.map((r) =>
+        r.id === editingRequest.id
+          ? {
+              ...r,
+              description: updatedDescription,
+              location_name: editLocation.trim() || null,
+              budget_min_kes: editBudgetMin ? parseInt(editBudgetMin.replace(/\D/g, ""), 10) : null,
+              budget_max_kes: editBudgetMax ? parseInt(editBudgetMax.replace(/\D/g, ""), 10) : null,
+            }
+          : r
+      )
+    );
+    setEditingRequest(null);
+    toast({ title: "Request updated" });
+  };
+
   const handleDeclineCompletion = async (jobRequestId: string) => {
     setConfirmingJobId(jobRequestId);
     const { error } = await supabase
@@ -189,7 +265,7 @@ const Dashboard = () => {
     if (!user) return;
     supabase
       .from("job_requests")
-      .select("id, description, budget_min_kes, budget_max_kes, location_name, status, created_at, image_urls, services(name)")
+      .select("id, description, budget_min_kes, budget_max_kes, location_name, status, created_at, image_urls, services(name, archetype)")
       .eq("client_id", user.id)
       .order("created_at", { ascending: false })
       .then(({ data }) => {
@@ -328,7 +404,7 @@ const Dashboard = () => {
                               {req.status === "completion_pending" ? "awaiting confirmation" : req.status}
                             </span>
                           </div>
-                          <p className="mt-1 line-clamp-1 text-sm text-muted-foreground">{req.description}</p>
+                          <p className="mt-1 line-clamp-1 text-sm text-muted-foreground">{parseDescriptionSummary(req.description)}</p>
                           <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
                             {req.location_name && <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{req.location_name}</span>}
                             {req.budget_min_kes && <span>KES {Number(req.budget_min_kes).toLocaleString()}</span>}
@@ -371,6 +447,16 @@ const Dashboard = () => {
                                 </div>
                               )}
                             </div>
+                          )}
+                          {req.status === "open" && (
+                            <button
+                              type="button"
+                              onClick={() => openEditDialog(req)}
+                              className="mt-2 flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                            >
+                              <Pencil className="h-3 w-3" />
+                              Edit request
+                            </button>
                           )}
                           {req.status === "completion_pending" && (
                             <div className="mt-3 rounded-lg border border-yellow-200 bg-yellow-50 p-3 dark:border-yellow-800 dark:bg-yellow-900/20">
@@ -433,7 +519,7 @@ const Dashboard = () => {
                             </span>
                           </div>
                           <p className="mt-1 line-clamp-1 text-sm text-muted-foreground">
-                            {quote.job_requests?.description}
+                            {quote.job_requests?.description ? parseDescriptionSummary(quote.job_requests.description) : ""}
                           </p>
                           <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
                             <span className="flex items-center gap-1">
@@ -498,6 +584,115 @@ const Dashboard = () => {
           )}
         </main>
       </div>
+
+      {/* Edit Request Dialog */}
+      <Dialog open={!!editingRequest} onOpenChange={(open) => { if (!open) setEditingRequest(null); }}>
+        <DialogContent className="flex max-h-[90vh] max-w-md flex-col gap-0 p-0">
+          {/* Fixed header */}
+          <DialogHeader className="border-b border-border px-6 py-4">
+            <DialogTitle className="text-base">
+              Edit Request
+              {editingRequest?.services?.name && (
+                <span className="ml-1 font-normal text-muted-foreground">— {editingRequest.services.name}</span>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+
+          {/* Scrollable body */}
+          <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+            {/* Dynamic archetype questions */}
+            {(() => {
+              const archetype = deriveArchetype(editingRequest?.services?.archetype);
+              const questions: any[] = (questionsData as any).archetypes?.[archetype]?.questions ?? [];
+              return questions
+                .filter((q) => q.type !== "image_upload")
+                .map((q) => (
+                  <div key={q.id} className="space-y-1.5">
+                    <Label className="text-sm font-medium">{q.label}</Label>
+                    {q.type === "textarea" ? (
+                      <Textarea
+                        value={editAnswers[q.id] ?? ""}
+                        onChange={(e) => setEditAnswers((prev) => ({ ...prev, [q.id]: e.target.value }))}
+                        rows={3}
+                        className="resize-none text-sm"
+                        placeholder={q.placeholder}
+                      />
+                    ) : q.type === "date" ? (
+                      <Input
+                        type="date"
+                        value={editAnswers[q.id] ?? ""}
+                        onChange={(e) => setEditAnswers((prev) => ({ ...prev, [q.id]: e.target.value }))}
+                        className="text-sm"
+                      />
+                    ) : (
+                      <select
+                        value={editAnswers[q.id] ?? ""}
+                        onChange={(e) => setEditAnswers((prev) => ({ ...prev, [q.id]: e.target.value }))}
+                        className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                      >
+                        <option value="">Select…</option>
+                        {q.options?.map((opt: string) => (
+                          <option key={opt} value={opt}>{opt}</option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+                ));
+            })()}
+
+            {/* Divider */}
+            <div className="border-t border-border" />
+
+            {/* Location */}
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">Location</Label>
+              <div className="relative">
+                <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={editLocation}
+                  onChange={(e) => setEditLocation(e.target.value)}
+                  placeholder="e.g. Kilimani, Nairobi"
+                  className="pl-9 text-sm"
+                />
+              </div>
+            </div>
+
+            {/* Budget */}
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">Budget range (KES) <span className="font-normal text-muted-foreground">— optional</span></Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  value={editBudgetMin}
+                  onChange={(e) => setEditBudgetMin(e.target.value.replace(/\D/g, ""))}
+                  placeholder="Min"
+                  className="text-sm"
+                  inputMode="numeric"
+                />
+                <span className="shrink-0 text-muted-foreground">–</span>
+                <Input
+                  value={editBudgetMax}
+                  onChange={(e) => setEditBudgetMax(e.target.value.replace(/\D/g, ""))}
+                  placeholder="Max"
+                  className="text-sm"
+                  inputMode="numeric"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Fixed footer */}
+          <div className="flex justify-end gap-2 border-t border-border px-6 py-4">
+            <Button variant="outline" onClick={() => setEditingRequest(null)}>Cancel</Button>
+            <Button
+              disabled={savingEdit || !editAnswers.task_description?.trim()}
+              onClick={handleSaveEdit}
+            >
+              {savingEdit && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Save Changes
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Feedback Dialog */}
       <Dialog open={!!feedbackRequestId} onOpenChange={(open) => { if (!open) setFeedbackRequestId(null); }}>
