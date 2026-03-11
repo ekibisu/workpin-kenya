@@ -1,27 +1,12 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { aiStudioChat } from "@/lib/aiStudio";
-import { Sparkles, Loader2 } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-// Raw imports for prompts (keeps logic clean and manageable)
-import optionsGeneratorPrompt from "@/lib/optionsGeneratorPrompt.md?raw";
-import summaryGeneratorPrompt from "@/lib/summaryGeneratorPrompt.md?raw";
-
-// Skeleton loader for AI assistant
-const AssistantSkeleton = () => (
-  <div className="space-y-4 animate-pulse p-1">
-    <div className="h-4 bg-slate-200 rounded-full w-3/4"></div>
-    <div className="grid grid-cols-1 gap-2">
-      {[1, 2, 3].map((i) => (
-        <div key={i} className="h-10 bg-slate-100 rounded-xl w-full border border-slate-50"></div>
-      ))}
-    </div>
-  </div>
-);
 
 interface IntakeAssistantProps {
   readonly serviceName: string;
-  readonly onComplete: (description: string, isAi: boolean) => void;
+  readonly onComplete: (description: string) => void;
 }
 
 type StepData = {
@@ -37,141 +22,151 @@ export default function IntakeAssistant({ serviceName, onComplete }: IntakeAssis
   const [stepData, setStepData] = useState<StepData | null>(null);
   const [answers, setAnswers] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  const [showSkeleton, setShowSkeleton] = useState(false);
   const [completed, setCompleted] = useState(false);
+  const [timeoutMsg, setTimeoutMsg] = useState("");
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Reset assistant state whenever the service selection changes
+
+  // Prefetch first question when serviceName changes
   useEffect(() => {
+    setOpen(false);
     setStep(1);
     setAnswers([]);
     setCompleted(false);
-    setStepData(null);
-    setOpen(false);
+    setTimeoutMsg("");
+    // Only prefetch if serviceName is set
+    if (serviceName) {
+      setLoading(true);
+      fetchNextStep(1, []).then(() => setLoading(false));
+    } else {
+      setStepData(null);
+      setLoading(false);
+    }
   }, [serviceName]);
+
+  const SYSTEM_PROMPT = `You are the Workpin Intake Architect. Your job is to generate diagnostic questions for the service: {{selected_service}}.
+
+RULES:
+1. RESPONSE FORMAT: You must respond ONLY with a valid JSON object. No prose, no 'Here is your question.'
+2. STRUCTURE: The JSON must contain:
+   {
+     "step": {{current_step}},
+     "question": "A concise question for the user",
+     "options": ["Option A", "Option B", "Option C", "Option D"],
+     "type": "single-choice"
+   }
+3. SERVICE SPECIFICITY: 
+   - If Plumbing: Ask about fixtures (sink, toilet), then issue type (leak, block), then parts.
+   - If Cleaning: Ask about house type, then depth (deep vs standard), then supplies.
+4. LOCALIZATION: Use Kenyan context (e.g., 'Bedsitter', 'Estate', 'Fundi').
+5. MEMORY: Ignore all previous service categories. Focus ONLY on {{selected_service}}.`;
 
   const fetchNextStep = async (stepNumber: number, currentAnswers: string[] = []) => {
     setLoading(true);
-
-    // Process the template from optionsGeneratorPrompt.md
-    const prompt = optionsGeneratorPrompt
-      .replace("{{selected_service}}", serviceName)
-      .replace("{{current_step}}", stepNumber.toString())
-      + `\n\n**User Context so far:** ${currentAnswers.join(", ") || "Starting fresh"}`;
-
+    setShowSkeleton(true);
+    setTimeoutMsg("");
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    timeoutRef.current = setTimeout(() => {
+      setTimeoutMsg("This is taking longer than usual. Please wait or try again in a moment.");
+    }, 8000); // 8 seconds
+    const prompt = SYSTEM_PROMPT.replace("{{selected_service}}", serviceName).replace("{{current_step}}", String(stepNumber));
+    const userInput = JSON.stringify({ service: serviceName, step: stepNumber, previousAnswers: currentAnswers });
+    const response = await aiStudioChat([
+      { role: "system", content: prompt },
+      { role: "user", content: userInput }
+    ], prompt);
+    let data;
     try {
-      const rawResponse = await aiStudioChat(prompt);
-      
-      // Clean up markdown block markers and parse JSON
-      const cleanJson = rawResponse.replace(/```json|```/g, "").trim();
-      const data = JSON.parse(cleanJson);
-      setStepData(data);
-    } catch (error) {
-      console.error("AI Step Generation Error:", error);
-      setOpen(false); // Graceful close on error
-    } finally {
-      setLoading(false);
+      data = typeof response.content === "string" ? JSON.parse(response.content) : response.content;
+    } catch (e) {
+      console.error('Failed to parse AI response:', e, response.content);
+      data = { question: "Sorry, there was an error. Please try again.", options: [], type: "single-choice" };
     }
+    setStepData(data);
+    setLoading(false);
+    setTimeoutMsg("");
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    // Always show skeleton for at least 0.5s
+    setTimeout(() => setShowSkeleton(false), 500);
   };
 
   const handleStart = () => {
-    // Fetch first step only if we don't have it yet
-    if (!open && !stepData && !loading) {
-      fetchNextStep(1, []);
-    }
-    setOpen(!open);
+    setOpen((prev) => !prev);
+    // No need to fetch again, question is already prefetched
   };
 
-  const handleOptionClick = async (option: string) => {
+  const handleOptionClick = (option: string) => {
     const newAnswers = [...answers, option];
-    setAnswers(newAnswers);
-    
     if (step < 3) {
-      const nextStep = step + 1;
-      setStep(nextStep);
-      await fetchNextStep(nextStep, newAnswers);
+      setStep(step + 1);
+      setAnswers(newAnswers);
+      fetchNextStep(step + 1, newAnswers);
     } else {
-      await fetchSummary(newAnswers);
+      fetchSummary(newAnswers);
     }
   };
 
   const fetchSummary = async (allAnswers: string[]) => {
     setLoading(true);
-
-    // Process the template from summaryGeneratorPrompt.md
-    const prompt = summaryGeneratorPrompt
-      .replace("{{selected_service}}", serviceName)
-      .replace("{{user_answers}}", allAnswers.join(", "));
-
-    try {
-      const response = await aiStudioChat(prompt);
-      
-      // Robust cleaning of any AI prefixes (e.g., "Summary:")
-      const cleanSummary = response
-        .replace(/^(Description:|Summary:|Job Request:|Project Description:|Assistant:)/i, "")
-        .trim();
-
-      setCompleted(true);
-      setOpen(false);
-      onComplete(cleanSummary, true);
-    } catch (error) {
-      console.error("AI Summary Generation Error:", error);
-      setOpen(false);
-    } finally {
-      setLoading(false);
+    setShowSkeleton(true);
+    setTimeoutMsg("");
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    // Always show skeleton for at least 1s for summary
+    const minSkeleton = new Promise((resolve) => setTimeout(resolve, 1000));
+    const summaryPrompt = `You are the Workpin Intake Architect. Write a 3-sentence professional summary for a ${serviceName} request using these details: ${allAnswers.join(", ")}. Format: Project Description: [summary]`;
+    const aiPromise = aiStudioChat([
+      { role: "system", content: summaryPrompt }
+    ], summaryPrompt);
+    const [response] = await Promise.all([aiPromise, minSkeleton]);
+    let summary = response.content;
+    if (typeof summary === "string" && summary.startsWith("Project Description:")) {
+      summary = summary.replace("Project Description:", "").trim();
     }
+    setLoading(false);
+    setShowSkeleton(false);
+    setCompleted(true);
+    setOpen(false);
+    setTimeoutMsg("");
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    onComplete(summary);
   };
 
   return (
     <div className="mt-2">
-      {/* Toggle Button */}
-      <Button 
-        type="button" 
-        variant="ghost" 
-        size="sm" 
-        onClick={handleStart} 
-        className="flex items-center gap-2 text-primary hover:bg-primary/5 h-8" 
-        disabled={loading}
-      >
-        {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-        <span className="text-sm font-medium">
-          {loading ? "Thinking..." : "Help me write this"}
-        </span>
+      <Button type="button" variant="ghost" size="sm" onClick={handleStart} className="flex items-center gap-1" title="Help me write this">
+        <Sparkles className="h-4 w-4 text-primary" />
+        <span className="text-sm font-medium">Help me write this</span>
       </Button>
-
-      {/* Interactive Step UI */}
       {open && !completed && (
-        <div className="mt-3 rounded-xl bg-slate-50 border border-slate-200 p-4 shadow-sm animate-in fade-in slide-in-from-top-2">
-          {loading ? (
-            <AssistantSkeleton />
-          ) : stepData ? (
-            <div className="space-y-3">
-              <div className="flex justify-between items-center">
-                <span className="text-[10px] uppercase tracking-widest font-bold text-slate-400">Step {step} of 3</span>
-              </div>
-              <p className="text-sm font-semibold text-slate-800 leading-tight">
-                {stepData.question}
-              </p>
-              <div className="grid grid-cols-1 gap-2">
-                {stepData.options.map((option) => (
+        <div className="mt-2 rounded-xl bg-accent/60 border border-border p-4 shadow-sm animate-in fade-in flex flex-col gap-3">
+          {showSkeleton || loading || !stepData ? (
+            <div className="space-y-3 animate-pulse">
+              <div className="h-4 bg-slate-200 rounded w-3/4 mb-4"></div>
+              <div className="h-12 bg-slate-100 rounded-lg w-full"></div>
+              <div className="h-12 bg-slate-100 rounded-lg w-full"></div>
+            </div>
+          ) : (
+            <>
+              <div className="text-primary font-semibold mb-1">{stepData.question}</div>
+              <div className="grid grid-cols-1 gap-2 mt-2">
+                {stepData.options.map((option: string) => (
                   <button
                     key={option}
-                    type="button"
                     onClick={() => handleOptionClick(option)}
-                    className="w-full p-3 text-left text-sm border bg-white rounded-xl hover:border-primary hover:bg-primary/5 transition-all flex justify-between items-center group shadow-sm active:scale-[0.98]"
+                    className="p-3 text-left bg-white border border-slate-200 rounded-lg hover:border-[#00a884] hover:bg-emerald-50 transition-all"
                   >
-                    <span className="text-slate-700 font-medium">{option}</span>
-                    <span className="text-slate-300 group-hover:text-primary transition-colors">→</span>
+                    {option}
                   </button>
                 ))}
               </div>
-            </div>
-          ) : (
-            <div className="text-center py-4">
-              <p className="text-xs text-slate-500 mb-2">Something went wrong.</p>
-              <Button variant="outline" size="sm" onClick={() => fetchNextStep(step, answers)}>
-                Retry
-              </Button>
-            </div>
+            </>
           )}
+        </div>
+      )}
+      {completed && (
+        <div className="mt-2 rounded-xl bg-green-50 border border-green-200 p-3 text-green-900 text-sm animate-in fade-in">
+          <span>Done! Your description has been filled in above.</span>
         </div>
       )}
     </div>

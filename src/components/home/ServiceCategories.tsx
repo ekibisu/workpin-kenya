@@ -3,6 +3,8 @@ import { motion } from "framer-motion";
 import {
   Home, Wrench, Zap, Paintbrush, Truck, Trees, Camera, UtensilsCrossed,
   Music, Calendar, BookOpen, Dumbbell, Car, Settings, Code, Palette,
+  Droplet, Scissors, Hammer, Leaf, Heart, Briefcase, PartyPopper,
+  Laptop, Sparkles, ShowerHead, Plug, Wind,
 } from "lucide-react";
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -10,15 +12,20 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   truck: Truck, trees: Trees, camera: Camera, utensils: UtensilsCrossed,
   music: Music, calendar: Calendar, "book-open": BookOpen, dumbbell: Dumbbell,
   car: Car, settings: Settings, code: Code, palette: Palette,
+  // Icons used in services table
+  droplet: Droplet, scissors: Scissors, hammer: Hammer, leaf: Leaf,
+  heart: Heart, briefcase: Briefcase, party: PartyPopper,
+  laptop: Laptop, sparkles: Sparkles, shower: ShowerHead,
+  plug: Plug, wind: Wind,
 };
 
 const categories = [
-  { name: "Home Services", icon: "home", services: ["Cleaning", "Plumbing", "Electrical", "Painting"], color: "bg-primary-light text-primary-dark" },
-  { name: "Events", icon: "camera", services: ["Photography", "Catering", "DJ", "Planning"], color: "bg-accent text-accent-foreground" },
-  { name: "Moving", icon: "truck", services: ["Packing", "Transport", "Setup"], color: "bg-surface-warm text-foreground" },
-  { name: "Education", icon: "book-open", services: ["Tutoring", "Coaching"], color: "bg-primary-light text-primary-dark" },
-  { name: "Auto", icon: "car", services: ["Car Wash", "Mechanic"], color: "bg-accent text-accent-foreground" },
-  { name: "Tech", icon: "code", services: ["Web Dev", "Design"], color: "bg-surface-warm text-foreground" },
+  { name: "Home Maintenance", icon: "wrench", services: ["Plumbing", "Electrical", "Cleaning", "Painting"], color: "bg-primary-light text-primary-dark" },
+  { name: "Events & Celebrations", icon: "party", services: ["Photography", "Catering", "DJ", "Planning"], color: "bg-accent text-accent-foreground" },
+  { name: "Lifestyle & Wellness", icon: "heart", services: ["Massage", "Hair & Beauty", "Fitness"], color: "bg-surface-warm text-foreground" },
+  { name: "Professional & Business", icon: "briefcase", services: ["Accounting", "Legal", "IT Support"], color: "bg-primary-light text-primary-dark" },
+  { name: "Outdoor & Heavy Duty", icon: "hammer", services: ["Landscaping", "Construction", "Moving"], color: "bg-accent text-accent-foreground" },
+  { name: "Tech", icon: "laptop", services: ["Web Dev", "Design", "Repair"], color: "bg-surface-warm text-foreground" },
 ];
 
 const ServiceCategories = () => {
