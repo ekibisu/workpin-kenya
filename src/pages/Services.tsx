@@ -150,7 +150,7 @@ function ArchetypeSection({
               transition={{ delay: (startIndex + i) * 0.03 }}
             >
               <Link
-                to={`/request?service=${encodeURIComponent(s.name)}`}
+                to={`/providers?service=${encodeURIComponent(s.name)}`}
                 className="group flex items-center gap-3 rounded-xl border border-border bg-card p-4 transition-all hover:border-primary/30 hover:shadow-brand"
               >
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary-light text-primary-dark">
@@ -231,7 +231,13 @@ const Services = () => {
             />
           </div>
 
-          {isLoading ? (
+          {!query ? (
+            <div className="flex flex-col items-center justify-center py-24 text-center">
+              <Search className="mb-4 h-10 w-10 text-slate-300" />
+              <p className="text-base font-medium text-slate-600">Search for a service to get started</p>
+              <p className="mt-1 text-sm text-slate-400">e.g. "plumbing", "photography", "tutoring"</p>
+            </div>
+          ) : isLoading ? (
             <LoadingSkeleton />
           ) : hasNoResults ? (
             <p className="py-16 text-center text-sm text-slate-500">
@@ -241,9 +247,7 @@ const Services = () => {
             <div className="space-y-10">
               {ARCHETYPE_ORDER.map((archetype) => {
                 const services = grouped?.[archetype] ?? [];
-                const filtered = query
-                  ? services.filter((s) => s.name.toLowerCase().includes(query))
-                  : services;
+                const filtered = services.filter((s) => s.name.toLowerCase().includes(query));
                 const section = (
                   <ArchetypeSection
                     key={archetype}
