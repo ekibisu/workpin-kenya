@@ -1,396 +1,373 @@
-import React, { useState, useEffect, useRef } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import IntakeAssistant from "@/components/ai/IntakeAssistant";
 import { Progress } from "@/components/ui/progress";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronLeft, ChevronRight, MapPin, Banknote, FileText, CheckCircle, Loader2, ImagePlus, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, MapPin, Banknote, CheckCircle, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
+import { ServicePicker } from "@/components/ServicePicker";
+import { TedQuestionForm, validateTedAnswers } from "@/components/TedQuestionForm";
+import { useService, useServices } from "@/hooks/useServices";
+import questionsData from "@/data/questions.json";
 
-const steps = ["Service", "Details", "Budget & Location", "Review"];
-const MAX_IMAGES = 5;
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
-const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const STEP_LABELS = ["Pick a Service", "About the Job", "Location & Budget", "Review & Post"];
 
-const SERVICE_PLACEHOLDERS: Record<string, string> = {
-  "Catering": "E.g., I need catering for a wedding of 50 people. We prefer local Kenyan dishes and need setup by 1:00 PM...",
-  "House Cleaning": "E.g., I need a deep clean for a 3-bedroom house in Westlands. Please include window cleaning and carpet vacuuming...",
-  "Electrical": "E.g., My kitchen lights are flickering and the circuit breaker keeps tripping when I use the microwave...",
-  "Plumbing": "E.g., I have a leaking pipe under the kitchen sink that started this morning. It's causing a small puddle...",
-  "Default": "Describe what you need in detail — this helps pros send you better quotes."
+// Fallback map: service name → archetype when the DB archetype field is null.
+// Keeps questions relevant for every service regardless of DB state.
+const SERVICE_ARCHETYPE_MAP: Record<string, string> = {
+  // Home maintenance
+  'House Cleaning': 'home_maintenance', 'Plumbing': 'home_maintenance',
+  'Electrical Repair': 'home_maintenance', 'Painting': 'home_maintenance',
+  'Moving & Packing': 'home_maintenance',
+  'HVAC Repair & Installation': 'home_maintenance', 'Fan Installation': 'home_maintenance',
+  'Appliance Repair': 'home_maintenance', 'Locksmith Services': 'home_maintenance',
+  'Roofing & Gutter Repair': 'home_maintenance', 'CCTV Installation': 'home_maintenance',
+  'Gate Automation & Repair': 'home_maintenance', 'Window Repair': 'home_maintenance',
+  'Masonry & Tiling': 'home_maintenance', 'Waterproofing': 'home_maintenance',
+  'Security / Usalama': 'home_maintenance', 'Carpentry / Useremala': 'home_maintenance',
+  // Lifestyle & wellness
+  'Beauty / Uzuri': 'lifestyle_wellness',
+  'Mobile Massage Therapy': 'lifestyle_wellness', 'Hair Braiding & Styling': 'lifestyle_wellness',
+  'Makeup Artistry': 'lifestyle_wellness', 'Dog Walking': 'lifestyle_wellness',
+  'Pet Grooming': 'lifestyle_wellness', 'Veterinary Home Visits': 'lifestyle_wellness',
+  'Nutrition Coaching': 'lifestyle_wellness', 'Home Care for Elderly': 'lifestyle_wellness',
+  // DB archetype "session" — resolved by name
+  'Personal Training': 'lifestyle_wellness', 'Yoga & Pilates Instruction': 'lifestyle_wellness',
+  'Tutoring': 'professional_business',
+  // Events & celebrations (DB archetype: events_celebrations or "event")
+  'Photography': 'events_celebrations', 'Catering': 'events_celebrations',
+  'DJ & Music': 'events_celebrations', 'Event Planning': 'events_celebrations',
+  'MC / Event Host': 'events_celebrations', 'Video Editing': 'events_celebrations',
+  'Florist / Floral Arrangements': 'events_celebrations',
+  'Balloon Decoration': 'events_celebrations', 'Tent & Furniture Rental': 'events_celebrations',
+  'Kids Party Entertainment': 'events_celebrations', 'Wedding Officiant': 'events_celebrations',
+  'Invitation Design': 'events_celebrations', 'Sound System Rental': 'events_celebrations',
+  // Professional & business
+  'IT Support / Teknolojia': 'professional_business',
+  'Graphic Design': 'professional_business', 'Web Development': 'professional_business',
+  'Notary Public': 'professional_business', 'Bookkeeping & Accounting': 'professional_business',
+  'Tax Consultation': 'professional_business', 'Copywriting & Proofreading': 'professional_business',
+  'Voiceover Artist': 'professional_business', 'Social Media Management': 'professional_business',
+  'Interior Design': 'professional_business', 'Business Registration': 'professional_business',
+  'Translation Services': 'professional_business',
+  // Outdoor & heavy duty
+  'Landscaping': 'outdoor_heavy_duty', 'Car Wash': 'outdoor_heavy_duty',
+  'Mechanic': 'outdoor_heavy_duty', 'Tree Trimming': 'outdoor_heavy_duty',
+  'Irrigation System Repair': 'outdoor_heavy_duty',
+  'Pest Control / Fumigation': 'outdoor_heavy_duty', 'Pest Control & Fumigation': 'outdoor_heavy_duty',
+  'Borehole Drilling': 'outdoor_heavy_duty', 'Solar Panel Installation': 'outdoor_heavy_duty',
+  'Perimeter Wall Construction': 'outdoor_heavy_duty', 'Auto Detailing': 'outdoor_heavy_duty',
+  'Towing Services': 'outdoor_heavy_duty', 'Window Tinting': 'outdoor_heavy_duty',
 };
 
-interface ServiceOption {
-  id: string;
-  name: string;
+// Format KES with commas
+function fmtKes(v: string) {
+  const n = parseInt(v.replace(/\D/g, ""), 10);
+  return isNaN(n) ? v : n.toLocaleString("en-KE");
+}
+
+// Derive a human-readable summary of TED answers for a given archetype
+function summariseAnswers(archetypeId: string, answers: Record<string, string>) {
+  const questions = (questionsData as any).archetypes?.[archetypeId]?.questions ?? [];
+  return questions
+    .filter((q: any) => q.type !== "image_upload" && answers[q.id])
+    .map((q: any) => ({ label: q.label, value: answers[q.id] }));
 }
 
 const RequestService = () => {
-  // All hooks at the very top of the function
-  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user } = useAuth();
-  const descriptionRef = useRef<HTMLTextAreaElement | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const preselected = searchParams.get("service") || "";
   const [step, setStep] = useState(0);
-  const [services, setServices] = useState<ServiceOption[]>([]);
-  const [submitting, setSubmitting] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const [previews, setPreviews] = useState<string[]>([]);
-  const [isAiGenerated, setIsAiGenerated] = useState(false);
-  const [descriptionDisabled, setDescriptionDisabled] = useState(false);
+  const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
 
-  const [form, setForm] = useState({
-    service: preselected,
-    serviceId: "",
-    description: "",
-    budget_min_kes: "",
-    location: "",
-  });
-
-  // Reset form and images when service changes
+  // Pre-select service from ?service= query param (deep-link from /services page)
+  const { data: allServices } = useServices();
   useEffect(() => {
-    setForm(prev => ({ ...prev, description: "" }));
-    setSelectedFiles([]);
-    setPreviews([]);
-    setIsAiGenerated(false);
-    console.log("Service changed to:", form.service, " - Form cleared.");
-  }, [form.service]);
-
-  // Fetch services from Supabase
-  useEffect(() => {
-    supabase.from("services").select("id, name").then(({ data }) => {
-      if (data) {
-        setServices(data);
-        if (preselected) {
-          const match = data.find((s) => s.name === preselected);
-          if (match) setForm((f) => ({ ...f, serviceId: match.id }));
-        }
-      }
-    });
-  }, [preselected]);
-
-  // Generate previews when files change
-  useEffect(() => {
-    const urls = selectedFiles.map((f) => URL.createObjectURL(f));
-    setPreviews(urls);
-    return () => urls.forEach((u) => URL.revokeObjectURL(u));
-  }, [selectedFiles]);
-
-  const updateForm = (key: string, value: string) =>
-    setForm((prev) => ({ ...prev, [key]: value }));
-
-  const handleAiComplete = (text: string) => {
-    updateForm("description", text);
-    setIsAiGenerated(true);
-    setTimeout(() => descriptionRef.current?.focus(), 100);
-  };
-
-  const handleClear = () => {
-    setForm(prev => ({ ...prev, description: "" }));
-    setIsAiGenerated(false);
-    setTimeout(() => descriptionRef.current?.focus(), 10);
-  };
-
-  const selectService = (s: ServiceOption) => {
-    setForm((prev) => ({ ...prev, service: s.name, serviceId: s.id }));
-    setStep(1);
-  };
-
-  const handleFileSelect = (files: FileList | null) => {
-    if (!files) return;
-    const newFiles: File[] = [];
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      if (!ACCEPTED_TYPES.includes(file.type)) {
-        toast({ title: "Invalid file type", description: `${file.name} is not a supported image format.`, variant: "destructive" });
-        continue;
-      }
-      if (file.size > MAX_FILE_SIZE) {
-        toast({ title: "File too large", description: `${file.name} exceeds 5MB limit.`, variant: "destructive" });
-        continue;
-      }
-      newFiles.push(file);
+    const nameParam = searchParams.get("service");
+    if (!nameParam || !allServices) return;
+    const match = allServices.find(
+      (s) => s.name.toLowerCase() === nameParam.toLowerCase()
+    );
+    if (match) {
+      setSelectedServiceId(match.id);
+      setStep(1);
     }
-    setSelectedFiles((prev) => {
-      const combined = [...prev, ...newFiles].slice(0, MAX_IMAGES);
-      if (prev.length + newFiles.length > MAX_IMAGES) {
-        toast({ title: "Limit reached", description: `You can upload up to ${MAX_IMAGES} images.` });
-      }
-      return combined;
-    });
-  };
+  }, [allServices, searchParams]);
+  const [tedAnswers, setTedAnswers] = useState<Record<string, string>>({});
+  const [uploadedImages, setUploadedImages] = useState<File[]>([]);
+  const [location, setLocation] = useState("");
+  const [budgetMin, setBudgetMin] = useState("");
+  const [budgetMax, setBudgetMax] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
-  const removeFile = (index: number) => {
-    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
-  };
+  // Fetch selected service details (name + archetype)
+  const { data: selectedService } = useService(selectedServiceId ?? "");
 
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    handleFileSelect(e.dataTransfer.files);
-  };
+  const archetypeId =
+    selectedService?.archetype ||
+    (selectedService?.name ? SERVICE_ARCHETYPE_MAP[selectedService.name] : null) ||
+    "home_maintenance";
+
+  // ── Validation ──────────────────────────────────────────────────────────────
 
   const canNext = () => {
-    if (step === 0) return !!form.serviceId;
-    if (step === 1) return form.description.length >= 10;
-    if (step === 2) return !!form.location;
-    return true;
+    if (step === 0) return !!selectedServiceId;
+    if (step === 1) return validateTedAnswers(archetypeId, tedAnswers).length === 0;
+    return true; // step 2 is optional
   };
+
+  // ── Submit ──────────────────────────────────────────────────────────────────
 
   const handleSubmit = async () => {
     if (!user) {
-      toast({ title: "Please log in first", description: "You need an account to submit a request.", variant: "destructive" });
+      toast({ title: "Please log in first", variant: "destructive" });
       navigate("/auth");
       return;
     }
-    setSubmitting(true);
-    setUploadProgress(0);
+    if (!selectedServiceId) return;
 
-    const { data: inserted, error } = await supabase.from("job_requests").insert({
-      client_id: user.id,
-      service_id: form.serviceId,
-      description: form.description.trim(),
-      budget_min_kes: form.budget_min_kes ? Number(form.budget_min_kes) : null,
-      location_name: form.location.trim(),
-    }).select("id").single();
+    setSubmitting(true);
+
+    const { data: inserted, error } = await supabase
+      .from("job_requests")
+      .insert({
+        client_id: user.id,
+        service_id: selectedServiceId,
+        description: JSON.stringify(tedAnswers),
+        location_name: location.trim() || null,
+        budget_min_kes: budgetMin ? parseInt(budgetMin.replace(/\D/g, ""), 10) : null,
+        budget_max_kes: budgetMax ? parseInt(budgetMax.replace(/\D/g, ""), 10) : null,
+        timeline: null,
+        status: "open",
+      })
+      .select("id")
+      .single();
 
     if (error || !inserted) {
-      toast({ title: "Error", description: error?.message || "Failed to create request.", variant: "destructive" });
+      toast({ title: "Error", description: error?.message ?? "Failed to post job.", variant: "destructive" });
       setSubmitting(false);
       return;
     }
 
-    const requestId = inserted.id;
-
-    if (selectedFiles.length > 0) {
+    // Upload images if any (best-effort — job is already created)
+    if (uploadedImages.length > 0) {
       const imageUrls: string[] = [];
-      for (let i = 0; i < selectedFiles.length; i++) {
-        const file = selectedFiles[i];
-        const filePath = `${user.id}/${requestId}/${Date.now()}_${file.name}`;
-        const { error: uploadError } = await supabase.storage
+      for (const file of uploadedImages) {
+        const path = `${user.id}/${inserted.id}/${Date.now()}_${file.name}`;
+        const { error: upErr } = await supabase.storage
           .from("request-images")
-          .upload(filePath, file);
-
-        if (uploadError) {
-          console.error("Upload error:", uploadError);
-          continue;
+          .upload(path, file);
+        if (!upErr) {
+          const { data: urlData } = supabase.storage.from("request-images").getPublicUrl(path);
+          imageUrls.push(urlData.publicUrl);
         }
-
-        const { data: urlData } = supabase.storage
-          .from("request-images")
-          .getPublicUrl(filePath);
-
-        imageUrls.push(urlData.publicUrl);
-        setUploadProgress(Math.round(((i + 1) / selectedFiles.length) * 100));
       }
-
       if (imageUrls.length > 0) {
-        await supabase.from("job_requests").update({ image_urls: imageUrls }).eq("id", requestId);
+        await supabase.from("job_requests").update({ image_urls: imageUrls }).eq("id", inserted.id);
       }
     }
 
     setSubmitting(false);
-    toast({ title: "Request submitted!", description: "Providers will send you quotes soon." });
+    toast({ title: "Kazi imewekwa! Providers watajulishwa." });
     navigate("/dashboard");
   };
+
+  // ── Step content ─────────────────────────────────────────────────────────────
+
+  const progressPct = ((step + 1) / STEP_LABELS.length) * 100;
 
   return (
     <div className="flex min-h-screen flex-col">
       <Navbar />
       <main className="flex-1 bg-background">
-        <div className="container max-w-xl py-10">
-          <h1 className="mb-2 text-2xl font-extrabold">Request a Service</h1>
-          <p className="mb-8 text-sm text-muted-foreground">Tell us what you need — it only takes a minute.</p>
+        <div className="container max-w-2xl py-10">
+          <h1 className="mb-1 text-2xl font-extrabold">Post a Job</h1>
+          <p className="mb-6 text-sm text-muted-foreground">
+            Step {step + 1} of {STEP_LABELS.length} — {STEP_LABELS[step]}
+          </p>
 
-          <div className="mb-8 flex items-center gap-1">
-            {steps.map((s, i) => (
-              <div key={s} className="flex flex-1 flex-col items-center gap-1">
-                <div className={`h-1.5 w-full rounded-full transition-colors ${i <= step ? "bg-primary" : "bg-border"}`} />
-                <span className={`text-xs font-medium ${i <= step ? "text-primary" : "text-muted-foreground"}`}>{s}</span>
-              </div>
-            ))}
+          {/* Progress bar */}
+          <div className="mb-8 space-y-1">
+            <Progress value={progressPct} className="h-2" />
+            <div className="flex justify-between">
+              {STEP_LABELS.map((label, i) => (
+                <span
+                  key={label}
+                  className={`text-[11px] font-medium ${i <= step ? "text-primary" : "text-muted-foreground"}`}
+                >
+                  {label}
+                </span>
+              ))}
+            </div>
           </div>
 
           <AnimatePresence mode="wait">
-            <motion.div key={step} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.2 }}>
+            <motion.div
+              key={step}
+              initial={{ opacity: 0, x: 24 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -24 }}
+              transition={{ duration: 0.18 }}
+            >
+              {/* ── STEP 1: Pick a Service ──────────────────────────────────── */}
               {step === 0 && (
-                <div className="space-y-3">
-                  <Label className="text-base font-semibold">What service do you need?</Label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {services.map((s) => (
-                      <button
-                        key={s.id}
-                        onClick={() => selectService(s)}
-                        className={`rounded-xl border p-3 text-left text-sm font-medium transition-all ${form.serviceId === s.id ? "border-primary bg-primary/5 text-primary" : "border-border text-foreground hover:border-primary/30"
-                          }`}
-                      >
-                        {s.name}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                <ServicePicker
+                  value={selectedServiceId}
+                  onChange={(id) => setSelectedServiceId(id)}
+                />
               )}
 
+              {/* ── STEP 2: TED Questions ───────────────────────────────────── */}
               {step === 1 && (
                 <div className="space-y-4">
-                  <div className="flex items-center gap-3 rounded-xl bg-accent p-4">
-                    <FileText className="h-5 w-5 text-primary" />
-                    <span className="text-sm font-medium text-foreground">Service: <span className="text-primary">{form.service}</span></span>
-                  </div>
-                  <div className="space-y-2 relative">
-                    <div className="flex justify-between items-end">
-                      <Label htmlFor="description" className="text-base font-semibold">Describe what you need</Label>
-                      {form.description && isAiGenerated && (
-                        <button 
-                          onClick={handleClear}
-                          className="text-xs font-medium text-red-500 hover:text-red-600 bg-red-50 px-2 py-1 rounded-md transition-all animate-in fade-in slide-in-from-top-1"
-                        >
-                          Clear AI Summary
-                        </button>
-                      )}
+                  {selectedService && (
+                    <div className="flex items-center gap-2 rounded-lg bg-accent px-4 py-2.5 text-sm">
+                      <span className="text-muted-foreground">Service:</span>
+                      <span className="font-semibold text-foreground">{selectedService.name}</span>
                     </div>
-                    <IntakeAssistant
-                      serviceName={form.service}
-                      onComplete={handleAiComplete}
-                    />
-                    <Textarea
-                      id="description"
-                      value={form.description}
-                      onChange={(e) => {
-                        updateForm("description", e.target.value);
-                        if (isAiGenerated) setIsAiGenerated(false);
-                      }}
-                      placeholder={SERVICE_PLACEHOLDERS[form.service] || SERVICE_PLACEHOLDERS["Default"]}
-                      rows={5}
-                      disabled={descriptionDisabled}
-                      ref={descriptionRef}
-                    />
-                    <p className="text-xs text-muted-foreground">Be specific — this helps pros send you better quotes.</p>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-base font-semibold">Photos (optional)</Label>
-                    <div
-                      onDragOver={(e) => e.preventDefault()}
-                      onDrop={handleDrop}
-                      onClick={() => fileInputRef.current?.click()}
-                      className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-border p-6 transition-colors hover:border-primary/40 hover:bg-accent/30"
-                    >
-                      <ImagePlus className="mb-2 h-8 w-8 text-muted-foreground" />
-                      <p className="text-sm font-medium text-foreground">Drag & drop or click to upload</p>
-                      <p className="text-xs text-muted-foreground">Up to {MAX_IMAGES} images · JPG, PNG, WebP · Max 5MB each</p>
-                    </div>
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept={ACCEPTED_TYPES.join(",")}
-                      multiple
-                      className="hidden"
-                      onChange={(e) => {
-                        handleFileSelect(e.target.files);
-                        e.target.value = "";
-                      }}
-                    />
-
-                    {previews.length > 0 && (
-                      <div className="flex flex-wrap gap-2 pt-2">
-                        {previews.map((src, i) => (
-                          <div key={i} className="group relative h-20 w-20 overflow-hidden rounded-lg border border-border">
-                            <img src={src} alt={`Upload ${i + 1}`} className="h-full w-full object-cover" />
-                            <button
-                              type="button"
-                              onClick={(e) => { e.stopPropagation(); removeFile(i); }}
-                              className="absolute right-0.5 top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-destructive-foreground opacity-0 transition-opacity group-hover:opacity-100"
-                            >
-                              <X className="h-3 w-3" />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                  )}
+                  <TedQuestionForm
+                    archetypeId={archetypeId}
+                    serviceName={selectedService?.name}
+                    value={tedAnswers}
+                    onChange={setTedAnswers}
+                    onImagesChange={setUploadedImages}
+                  />
                 </div>
               )}
 
+              {/* ── STEP 3: Location & Budget ───────────────────────────────── */}
               {step === 2 && (
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="budget" className="text-base font-semibold">Budget (KES)</Label>
-                    <div className="relative">
-                      <Banknote className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                      <Input id="budget" type="number" value={form.budget_min_kes} onChange={(e) => updateForm("budget_min_kes", e.target.value)} placeholder="e.g., 5000" className="pl-9" />
+                <Card>
+                  <CardContent className="space-y-5 pt-6">
+                    {/* Location */}
+                    <div className="space-y-2">
+                      <Label className="text-sm font-semibold">Location</Label>
+                      <div className="relative">
+                        <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                          value={location}
+                          onChange={(e) => setLocation(e.target.value)}
+                          placeholder="e.g. Kilimani, Nairobi"
+                          className="pl-9"
+                        />
+                      </div>
+                      <p className="text-xs text-muted-foreground">Helps providers quote accurately</p>
                     </div>
-                    <p className="text-xs text-muted-foreground">Optional — helps pros give accurate quotes.</p>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="location" className="text-base font-semibold">Location</Label>
-                    <div className="relative">
-                      <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                      <Input id="location" value={form.location} onChange={(e) => updateForm("location", e.target.value)} placeholder="e.g., Westlands, Nairobi" className="pl-9" />
-                    </div>
-                  </div>
-                </div>
-              )}
 
-              {step === 3 && (
-                <div className="space-y-4">
-                  <div className="rounded-2xl border border-border bg-card p-6">
-                    <div className="mb-4 flex items-center gap-3">
-                      <CheckCircle className="h-6 w-6 text-primary" />
-                      <h3 className="font-heading text-lg font-bold text-foreground">Review Your Request</h3>
-                    </div>
-                    <dl className="space-y-3 text-sm">
-                      <div className="flex justify-between"><dt className="text-muted-foreground">Service</dt><dd className="font-medium text-foreground">{form.service}</dd></div>
-                      <div className="border-t border-border pt-3"><dt className="mb-1 text-muted-foreground">Description</dt><dd className="text-foreground">{form.description}</dd></div>
-                      {form.budget_min_kes && (<div className="flex justify-between border-t border-border pt-3"><dt className="text-muted-foreground">Budget</dt><dd className="font-medium text-foreground">KES {Number(form.budget_min_kes).toLocaleString()}</dd></div>)}
-                      <div className="flex justify-between border-t border-border pt-3"><dt className="text-muted-foreground">Location</dt><dd className="font-medium text-foreground">{form.location}</dd></div>
-                    </dl>
-
-                    {previews.length > 0 && (
-                      <div className="mt-4 border-t border-border pt-3">
-                        <p className="mb-2 text-sm text-muted-foreground">Photos ({previews.length})</p>
-                        <div className="flex flex-wrap gap-2">
-                          {previews.map((src, i) => (
-                            <div key={i} className="h-16 w-16 overflow-hidden rounded-lg border border-border">
-                              <img src={src} alt={`Photo ${i + 1}`} className="h-full w-full object-cover" />
-                            </div>
-                          ))}
+                    {/* Budget range */}
+                    <div className="space-y-2">
+                      <Label className="text-sm font-semibold">Budget range (KES) — optional</Label>
+                      <div className="flex items-center gap-3">
+                        <div className="relative flex-1">
+                          <Banknote className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                          <Input
+                            value={budgetMin}
+                            onChange={(e) => setBudgetMin(e.target.value.replace(/\D/g, ""))}
+                            placeholder="Min"
+                            className="pl-9"
+                            inputMode="numeric"
+                          />
+                        </div>
+                        <span className="text-muted-foreground">–</span>
+                        <div className="relative flex-1">
+                          <Banknote className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                          <Input
+                            value={budgetMax}
+                            onChange={(e) => setBudgetMax(e.target.value.replace(/\D/g, ""))}
+                            placeholder="Max"
+                            className="pl-9"
+                            inputMode="numeric"
+                          />
                         </div>
                       </div>
-                    )}
-                  </div>
-                </div>
+                      <p className="text-xs text-muted-foreground">Helps providers quote accurately</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* ── STEP 4: Review ──────────────────────────────────────────── */}
+              {step === 3 && (
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="mb-4 flex items-center gap-3">
+                      <CheckCircle className="h-6 w-6 text-primary" />
+                      <h3 className="text-lg font-bold">Review Your Request</h3>
+                    </div>
+
+                    <dl className="space-y-3 text-sm">
+                      {/* Service */}
+                      <div className="flex justify-between">
+                        <dt className="text-muted-foreground">Service</dt>
+                        <dd className="font-medium">{selectedService?.name ?? "—"}</dd>
+                      </div>
+
+                      {/* TED answers */}
+                      {summariseAnswers(archetypeId, tedAnswers).map(
+                        ({ label, value }: { label: string; value: string }) => (
+                          <div key={label} className="border-t border-border pt-3">
+                            <dt className="mb-0.5 text-muted-foreground">{label}</dt>
+                            <dd className="font-medium">{value}</dd>
+                          </div>
+                        )
+                      )}
+
+                      {/* Location */}
+                      {location && (
+                        <div className="flex justify-between border-t border-border pt-3">
+                          <dt className="text-muted-foreground">Location</dt>
+                          <dd className="font-medium">{location}</dd>
+                        </div>
+                      )}
+
+                      {/* Budget */}
+                      {(budgetMin || budgetMax) && (
+                        <div className="flex justify-between border-t border-border pt-3">
+                          <dt className="text-muted-foreground">Budget</dt>
+                          <dd className="font-medium">
+                            {budgetMin ? `KES ${fmtKes(budgetMin)}` : "—"}
+                            {" – "}
+                            {budgetMax ? `KES ${fmtKes(budgetMax)}` : "—"}
+                          </dd>
+                        </div>
+                      )}
+                    </dl>
+                  </CardContent>
+                </Card>
               )}
             </motion.div>
           </AnimatePresence>
 
-          {submitting && selectedFiles.length > 0 && (
-            <div className="mt-4 space-y-1">
-              <p className="text-xs text-muted-foreground">Uploading photos… {uploadProgress}%</p>
-              <Progress value={uploadProgress} className="h-2" />
-            </div>
-          )}
-
+          {/* Navigation */}
           <div className="mt-8 flex items-center justify-between">
-            <Button variant="ghost" onClick={() => setStep(Math.max(0, step - 1))} disabled={step === 0}>
-              <ChevronLeft className="h-4 w-4" /> Back
+            <Button
+              variant="ghost"
+              onClick={() => setStep((s) => Math.max(0, s - 1))}
+              disabled={step === 0}
+            >
+              <ChevronLeft className="h-4 w-4" />
+              Back
             </Button>
-            {step < 3 ? (
-              <Button onClick={() => setStep(step + 1)} disabled={!canNext()}>Next <ChevronRight className="h-4 w-4" /></Button>
+
+            {step < STEP_LABELS.length - 1 ? (
+              <Button onClick={() => setStep((s) => s + 1)} disabled={!canNext()}>
+                Next
+                <ChevronRight className="h-4 w-4" />
+              </Button>
             ) : (
-              <Button variant="hero" size="lg" onClick={handleSubmit} disabled={submitting}>
+              <Button size="lg" onClick={handleSubmit} disabled={submitting}>
                 {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Submit Request
+                Post Job
               </Button>
             )}
           </div>

@@ -853,37 +853,28 @@ export type Database = {
       }
       services: {
         Row: {
-          archetype: string | null
           category: string
           created_at: string
-          description: string | null
           icon: string | null
           id: string
           is_active: boolean
           name: string
-          sort_order: number
         }
         Insert: {
-          archetype?: string | null
           category: string
           created_at?: string
-          description?: string | null
           icon?: string | null
           id?: string
           is_active?: boolean
           name: string
-          sort_order?: number
         }
         Update: {
-          archetype?: string | null
           category?: string
           created_at?: string
-          description?: string | null
           icon?: string | null
           id?: string
           is_active?: boolean
           name?: string
-          sort_order?: number
         }
         Relationships: []
       }
@@ -2135,6 +2126,31 @@ export type CompositeTypes<
   : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
     ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
     : never
+
+export type Service = Tables<'services'>
+
+export type ServiceArchetype =
+  | 'home_maintenance'
+  | 'lifestyle_wellness'
+  | 'events_celebrations'
+  | 'professional_business'
+  | 'outdoor_heavy_duty'
+
+export const ARCHETYPE_LABELS: Record<ServiceArchetype, string> = {
+  home_maintenance:      'Home Maintenance',
+  lifestyle_wellness:    'Lifestyle & Wellness',
+  events_celebrations:   'Events & Celebrations',
+  professional_business: 'Professional & Business',
+  outdoor_heavy_duty:    'Outdoor & Heavy Duty',
+}
+
+export const ARCHETYPE_COLORS: Record<ServiceArchetype, string> = {
+  home_maintenance:      '#1565C0',
+  lifestyle_wellness:    '#AD1457',
+  events_celebrations:   '#E65100',
+  professional_business: '#1A3A5C',
+  outdoor_heavy_duty:    '#2E7D32',
+}
 
 export const Constants = {
   public: {

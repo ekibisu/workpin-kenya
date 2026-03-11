@@ -1,0 +1,267 @@
+{
+  "archetypes": {
+    "home_maintenance": {
+      "label": "Home Maintenance",
+      "icon": "home",
+      "color": "#1565C0",
+      "questions": [
+        {
+          "id": "task_description",
+          "pillar": "Task",
+          "type": "textarea",
+          "label": "Describe the problem",
+          "placeholder": "e.g. My kitchen tap is leaking and the water pressure is low",
+          "required": true
+        },
+        {
+          "id": "property_type",
+          "pillar": "Task",
+          "type": "select",
+          "label": "Property type",
+          "options": ["Apartment", "House", "Office", "Shop / Commercial", "Other"],
+          "required": true
+        },
+        {
+          "id": "extent_rooms",
+          "pillar": "Extent",
+          "type": "select",
+          "label": "How many rooms / units are affected?",
+          "options": ["Just one", "2–3 rooms", "4–5 rooms", "Whole house / building"],
+          "required": true
+        },
+        {
+          "id": "extent_severity",
+          "pillar": "Extent",
+          "type": "select",
+          "label": "How urgent is this?",
+          "options": ["It's an emergency", "Needs fixing soon", "Not urgent, just planning"],
+          "required": true
+        },
+        {
+          "id": "deadline",
+          "pillar": "Deadline",
+          "type": "select",
+          "label": "When do you need this done?",
+          "options": ["Today", "Within 2 days", "This week", "This month", "I'm flexible"],
+          "required": true
+        },
+        {
+          "id": "images",
+          "pillar": "Extent",
+          "type": "image_upload",
+          "label": "Add photos (optional)",
+          "placeholder": "Photos help providers give accurate quotes",
+          "required": false,
+          "max_files": 3
+        }
+      ]
+    },
+
+    "lifestyle_wellness": {
+      "label": "Lifestyle & Wellness",
+      "icon": "heart",
+      "color": "#AD1457",
+      "questions": [
+        {
+          "id": "task_description",
+          "pillar": "Task",
+          "type": "textarea",
+          "label": "What service do you need?",
+          "placeholder": "e.g. I need a 60-minute deep tissue massage at home",
+          "required": true
+        },
+        {
+          "id": "extent_people",
+          "pillar": "Extent",
+          "type": "select",
+          "label": "How many people is this for?",
+          "options": ["Just me", "2 people", "3–5 people", "A group (6+)"],
+          "required": true
+        },
+        {
+          "id": "extent_frequency",
+          "pillar": "Extent",
+          "type": "select",
+          "label": "Is this a one-time or recurring need?",
+          "options": ["One time", "Weekly", "Bi-weekly", "Monthly"],
+          "required": true
+        },
+        {
+          "id": "deadline",
+          "pillar": "Deadline",
+          "type": "select",
+          "label": "When do you want this?",
+          "options": ["Today", "Tomorrow", "This week", "This month", "I'm flexible"],
+          "required": true
+        },
+        {
+          "id": "location_preference",
+          "pillar": "Task",
+          "type": "select",
+          "label": "Where should the service happen?",
+          "options": ["At my home", "At a salon / studio", "At my office", "Provider decides"],
+          "required": true
+        }
+      ]
+    },
+
+    "events_celebrations": {
+      "label": "Events & Celebrations",
+      "icon": "party-popper",
+      "color": "#E65100",
+      "questions": [
+        {
+          "id": "task_description",
+          "pillar": "Task",
+          "type": "textarea",
+          "label": "Tell us about your event",
+          "placeholder": "e.g. Birthday party for 50 guests, outdoor garden setting in Karen",
+          "required": true
+        },
+        {
+          "id": "event_type",
+          "pillar": "Task",
+          "type": "select",
+          "label": "Type of event",
+          "options": ["Birthday party", "Wedding", "Corporate event", "Baby shower", "Graduation", "Other"],
+          "required": true
+        },
+        {
+          "id": "extent_guests",
+          "pillar": "Extent",
+          "type": "select",
+          "label": "How many guests?",
+          "options": ["Under 20", "20–50", "50–100", "100–200", "200+"],
+          "required": true
+        },
+        {
+          "id": "extent_duration",
+          "pillar": "Extent",
+          "type": "select",
+          "label": "How long is the event?",
+          "options": ["Under 2 hours", "Half day (2–5 hrs)", "Full day", "Multi-day"],
+          "required": true
+        },
+        {
+          "id": "deadline",
+          "pillar": "Deadline",
+          "type": "date",
+          "label": "Event date",
+          "required": true
+        },
+        {
+          "id": "images",
+          "pillar": "Task",
+          "type": "image_upload",
+          "label": "Inspiration photos (optional)",
+          "required": false,
+          "max_files": 4
+        }
+      ]
+    },
+
+    "professional_business": {
+      "label": "Professional & Business",
+      "icon": "briefcase",
+      "color": "#1A3A5C",
+      "questions": [
+        {
+          "id": "task_description",
+          "pillar": "Task",
+          "type": "textarea",
+          "label": "Describe what you need",
+          "placeholder": "e.g. I need my business accounts reconciled for Q1 2025",
+          "required": true
+        },
+        {
+          "id": "business_type",
+          "pillar": "Task",
+          "type": "select",
+          "label": "Is this for a business or personal use?",
+          "options": ["Personal", "Small business (under 10 staff)", "Medium business", "Large company"],
+          "required": true
+        },
+        {
+          "id": "extent_scope",
+          "pillar": "Extent",
+          "type": "select",
+          "label": "How large is the scope of work?",
+          "options": ["Small task (under 2 hours)", "Half-day project", "Full-day project", "Ongoing / retainer"],
+          "required": true
+        },
+        {
+          "id": "deadline",
+          "pillar": "Deadline",
+          "type": "select",
+          "label": "When do you need this completed?",
+          "options": ["ASAP", "Within 3 days", "This week", "This month", "I'm flexible"],
+          "required": true
+        },
+        {
+          "id": "remote_or_onsite",
+          "pillar": "Task",
+          "type": "select",
+          "label": "Can this be done remotely?",
+          "options": ["Yes, fully remote", "Needs to be on-site", "Either works"],
+          "required": true
+        }
+      ]
+    },
+
+    "outdoor_heavy_duty": {
+      "label": "Outdoor & Heavy Duty",
+      "icon": "hammer",
+      "color": "#2E7D32",
+      "questions": [
+        {
+          "id": "task_description",
+          "pillar": "Task",
+          "type": "textarea",
+          "label": "Describe the job",
+          "placeholder": "e.g. I need a perimeter wall built, approximately 40 metres, 2 metres high",
+          "required": true
+        },
+        {
+          "id": "property_size",
+          "pillar": "Extent",
+          "type": "select",
+          "label": "Approximate size of the area",
+          "options": ["Small (under 50 sqm)", "Medium (50–200 sqm)", "Large (200–500 sqm)", "Very large (500sqm+)"],
+          "required": true
+        },
+        {
+          "id": "extent_complexity",
+          "pillar": "Extent",
+          "type": "select",
+          "label": "How complex is the job?",
+          "options": ["Straightforward", "Some complexity", "Highly complex / specialist required"],
+          "required": true
+        },
+        {
+          "id": "materials",
+          "pillar": "Extent",
+          "type": "select",
+          "label": "Who supplies materials?",
+          "options": ["Provider supplies everything", "I supply materials", "We can discuss"],
+          "required": true
+        },
+        {
+          "id": "deadline",
+          "pillar": "Deadline",
+          "type": "select",
+          "label": "When should this start?",
+          "options": ["Immediately", "Within a week", "Within a month", "I'm still planning"],
+          "required": true
+        },
+        {
+          "id": "images",
+          "pillar": "Task",
+          "type": "image_upload",
+          "label": "Photos of the site (optional but recommended)",
+          "required": false,
+          "max_files": 4
+        }
+      ]
+    }
+  }
+}
