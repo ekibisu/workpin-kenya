@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Star, MapPin, CheckCircle2, Loader2, XCircle, Check } from "lucide-react";
+import { Star, MapPin, CheckCircle2, Loader2, XCircle, Check, ChevronLeft, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -28,9 +28,20 @@ interface ProfileData {
   provider_profiles: ProviderProfile;
 }
 
+interface Review {
+  id: string;
+  rating: number;
+  comment: string;
+  created_at: string;
+  profiles: {
+    full_name: string;
+  } | null;
+}
+
 const ProviderProfileCard = ({ userId }: ProviderProfileCardProps) => {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<ProfileData | null>(null);
+  const [reviews, setReviews] = useState<Review[]>([]);
 
   useEffect(() => {
     const fetchFullProfile = async () => {
@@ -185,6 +196,75 @@ const ProviderProfileCard = ({ userId }: ProviderProfileCardProps) => {
           <p className="text-white text-xs opacity-90">Free quote with no obligation</p>
         </div>
       </div>
+      {/* --- REVIEWS SECTION --- */}
+      <section className="px-4 py-12 border-t border-slate-100">
+        <div className="mb-8">
+          <h2 className="text-xl font-bold mb-4">Reviews</h2>
+          <div className="flex flex-col gap-1">
+            <span className="text-green-600 font-bold">Great {prov?.avg_rating}</span>
+            <div className="flex text-yellow-400">
+              {[...Array(5)].map((_, i) => (
+                <Star key={i} size={20} fill={i < Math.floor(prov?.avg_rating || 0) ? "currentColor" : "none"} />
+              ))}
+            </div>
+            <p className="text-slate-500 text-xs mt-1">{prov?.total_reviews} reviews</p>
+          </div>
+        </div>
+
+        <div className="relative group">
+          <div className="flex gap-4 overflow-x-auto pb-6 scrollbar-hide">
+            {reviews.map((rev) => (
+              <div key={rev.id} className="min-w-[300px] flex-1 bg-white border border-slate-100 rounded-lg p-6 shadow-sm">
+                <p className="font-bold text-sm mb-2">{rev.profiles?.full_name || "Anonymous"}</p>
+                <div className="flex text-yellow-400 mb-4">
+                  {[...Array(5)].map((_, i) => (
+                    <Star key={i} size={16} fill={i < rev.rating ? "currentColor" : "none"} />
+                  ))}
+                </div>
+                <p className="text-slate-600 text-sm leading-relaxed line-clamp-4 h-20">
+                  {rev.comment}
+                </p>
+                <p className="text-slate-400 text-[10px] mt-6 uppercase font-bold tracking-wider">
+                  {new Date(rev.created_at).toLocaleDateString()}
+                </p>
+              </div>
+            ))}
+          </div>
+          
+          {/* Carousel Nav */}
+          <div className="flex justify-center gap-2 mt-4">
+            <button className="p-1 border rounded hover:bg-slate-50"><ChevronLeft size={18} /></button>
+            <button className="p-1 border rounded hover:bg-slate-50"><ChevronRight size={18} /></button>
+          </div>
+        </div>
+      </section>
+
+      {/* --- PHOTOS SECTION --- */}
+      <section className="px-4 py-12 border-t border-slate-100">
+        <h2 className="text-xl font-bold mb-8">Photos</h2>
+        <div className="relative flex items-center group">
+          <button className="absolute -left-4 z-10 p-2 bg-white shadow-lg rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+            <ChevronLeft />
+          </button>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full">
+            {prov?.portfolio_photos?.slice(0, 3).map((url: string, index: number) => (
+              <div key={index} className="relative aspect-[4/3] rounded-lg overflow-hidden border">
+                <img src={url} alt="Work portfolio" className="w-full h-full object-cover" />
+                {index === 2 && prov.portfolio_photos.length > 3 && (
+                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white font-bold">
+                    See all ({prov.portfolio_photos.length})
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          <button className="absolute -right-4 z-10 p-2 bg-white shadow-lg rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+            <ChevronRight />
+          </button>
+        </div>
+      </section>
     </div>
   );
 };
