@@ -46,6 +46,7 @@ const ClientProfileCard = ({ userId }: ClientProfileCardProps) => {
     longitude?: number | null;
     latitude?: number | null;
     location_name?: string | null;
+    location_verified?: boolean | null;
   };
   type ClientProfileType = {
     neighborhood?: string | null;
@@ -67,53 +68,69 @@ const ClientProfileCard = ({ userId }: ClientProfileCardProps) => {
   const { toast } = useToast();
 
   // Fetch profile and job count
- const fetchProfile = async () => {
-  setLoading(true);
+  const fetchProfile = async () => {
+    setLoading(true);
 
-  const { data: profileData } = await supabase
-    .from("profiles")
-    .select(
-      "full_name, email, phone, avatar_url, created_at, is_verified, linkedin_url, instagram_url, facebook_url, job_count, longitude, latitude, location_name, location_verified"
-    )
-    .eq("id", userId)
-    .maybeSingle();
-
-  setProfile(profileData);
-
-  const { data: clientProfileData } = await supabase
-    .from("client_profiles")
-    .select("neighborhood, property_type")
-    .eq("user_id", userId)
-    .maybeSingle();
-
-  setClientProfile(clientProfileData);
-
-  const { count, error } = await supabase
-    .from("job_requests")
-    .select("id", { count: "exact", head: true })
-    .eq("client_id", userId);
-
-  if (!error && typeof count === "number") {
-    setJobCount(count);
-
-    const verified =
-      !!profileData?.phone &&
-      profileData?.location_verified === true &&
-      count >= 3;
-
-    await supabase
+    const { data: profileData } = await supabase
       .from("profiles")
-      .update({
-        job_count: count,
-        is_verified: verified,
-      })
-      .eq("id", userId);
-  } else {
-    setJobCount(0);
-  }
+      .select(
+        "full_name, email, phone, avatar_url, created_at, is_verified, linkedin_url, instagram_url, facebook_url, job_count, longitude, latitude, location_name, location_verified",
+      )
+      .eq("id", userId)
+      .maybeSingle();
 
-  setLoading(false); // ✅ THIS WAS MISSING
-};
+    // Check if location data exists but isn't marked as verified in DB
+    const hasLocationData =
+      profileData?.latitude !== null &&
+      profileData?.longitude !== null &&
+      !!profileData?.location_name?.trim();
+
+    if (hasLocationData && profileData?.location_verified !== true) {
+      await supabase
+        .from("profiles")
+        .update({ location_verified: true })
+        .eq("id", userId);
+
+      // Update the local object so the UI reflects it immediately
+      if (profileData) profileData.location_verified = true;
+    }
+
+    setProfile(profileData);
+
+    const { data: clientProfileData } = await supabase
+      .from("client_profiles")
+      .select("neighborhood, property_type")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    setClientProfile(clientProfileData);
+
+    const { count, error } = await supabase
+      .from("job_requests")
+      .select("id", { count: "exact", head: true })
+      .eq("client_id", userId);
+
+    if (!error && typeof count === "number") {
+      setJobCount(count);
+
+      const verified =
+        !!profileData?.phone &&
+        profileData?.location_verified === true &&
+        count >= 3;
+
+      await supabase
+        .from("profiles")
+        .update({
+          job_count: count,
+          is_verified: verified,
+        })
+        .eq("id", userId);
+    } else {
+      setJobCount(0);
+    }
+
+    setLoading(false);
+  };
 
   useEffect(() => {
     fetchProfile();
@@ -128,7 +145,6 @@ const ClientProfileCard = ({ userId }: ClientProfileCardProps) => {
   }, [clientProfile]);
   useEffect(() => {
     if (profile) {
-     
       verifyLocation({
         lat: profile.latitude,
         lng: profile.longitude,
@@ -214,10 +230,24 @@ const ClientProfileCard = ({ userId }: ClientProfileCardProps) => {
   };
 
   const handleSave = async () => {
+    if (!editProfile) return;
     setSaving(true);
     try {
-      if (!editProfile) return;
-      // Update main profile
+      // 1. Refined Location Validation Logic
+      const hasLat =
+        editProfile.latitude !== null && editProfile.latitude !== undefined;
+      const hasLng =
+        editProfile.longitude !== null && editProfile.longitude !== undefined;
+      const hasName = !!editProfile.location_name?.trim();
+
+      const isLocationVerified = hasLat && hasLng && hasName;
+
+      // 2. Compute overall profile verification
+      // (Requires phone, verified location, and 3+ jobs)
+      const verified =
+        !!editProfile.phone && isLocationVerified && jobCount >= 3;
+
+      // 3. Update profiles table
       const { error: profileError } = await supabase
         .from("profiles")
         .update({
@@ -230,10 +260,14 @@ const ClientProfileCard = ({ userId }: ClientProfileCardProps) => {
           longitude: editProfile.longitude,
           latitude: editProfile.latitude,
           location_name: editProfile.location_name,
+          location_verified: isLocationVerified, // Updates based on the check above
+          is_verified: verified,
         })
         .eq("id", userId);
+
       if (profileError) throw profileError;
-      // Update client profile
+
+      // 4. Update client_profiles table
       if (editClientProfile) {
         const { error: clientError } = await supabase
           .from("client_profiles")
@@ -244,10 +278,14 @@ const ClientProfileCard = ({ userId }: ClientProfileCardProps) => {
           .eq("user_id", userId);
         if (clientError) throw clientError;
       }
+
       toast({
         title: "Profile updated!",
-        description: "Your profile was updated successfully.",
+        description: isLocationVerified
+          ? "Your profile and location have been verified."
+          : "Profile updated, but provide full location details for verification.",
       });
+
       setEditMode(false);
       await fetchProfile();
     } catch (err) {
@@ -262,7 +300,6 @@ const ClientProfileCard = ({ userId }: ClientProfileCardProps) => {
       setSaving(false);
     }
   };
-
   const handleCancel = () => {
     setEditProfile(profile);
     setEditMode(false);
