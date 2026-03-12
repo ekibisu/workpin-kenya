@@ -125,33 +125,40 @@ const ProviderProfileCard = ({ userId }: ProviderProfileCardProps) => {
         <span className="pb-3 text-slate-400 cursor-pointer">Photos</span>
       </div>
 
-      {/* --- ABOUT & HOURS --- */}
-      <div className="grid md:grid-cols-2 gap-12 p-8 text-sm">
-        <div>
-          <h3 className="font-bold mb-3">About</h3>
-          <p className="text-slate-600 leading-relaxed whitespace-pre-line">
-            {prov?.bio}
-          </p>
-        </div>
+     {/* --- ABOUT & HOURS --- */}
+<div className="p-8 text-sm space-y-8">
+  {/* About */}
+  <div>
+    <h3 className="font-bold mb-3">About</h3>
+    <p className="text-slate-600 leading-relaxed whitespace-pre-line">
+      {prov?.bio || "No description provided."}
+    </p>
+  </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <h3 className="font-bold mb-3">Business Hours</h3>
-            <div className="space-y-1 text-slate-600">
-              {days.map(day => (
-                <div key={day} className="flex justify-between max-w-[180px]">
-                  <span>{day}</span>
-                  <span>{availability[day] || "n/a"}</span>
-                </div>
-              ))}
-            </div>
+  {/* Business Hours + Payment Methods */}
+  <div className="grid md:grid-cols-2 gap-8">
+    {/* Business Hours */}
+    <div>
+      <h3 className="font-bold mb-3">Business Hours</h3>
+      <div className="space-y-1 text-slate-600 max-w-xs">
+        {days.map((day) => (
+          <div key={day} className="flex justify-between">
+            <span>{day}</span>
+            <span>{availability[day] || "n/a"}</span>
           </div>
-          <div>
-            <h3 className="font-bold mb-3">Payment methods</h3>
-            <p className="text-slate-600">This pro accepts Cash, Check, Credit Card, and M-Pesa.</p>
-          </div>
-        </div>
+        ))}
       </div>
+    </div>
+
+    {/* Payment Methods */}
+    <div>
+      <h3 className="font-bold mb-3">Payment Methods</h3>
+      <p className="text-slate-600">
+        This pro accepts Cash, Check, Credit Card, and M-Pesa.
+      </p>
+    </div>
+  </div>
+</div>
 
       {/* --- SERVICES SECTION (The Green Box) --- */}
       <div className="mx-4 my-8 bg-[#16a34a] rounded-lg p-10 text-center">
