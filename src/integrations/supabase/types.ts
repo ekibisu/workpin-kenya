@@ -443,9 +443,18 @@ export type Database = {
           facebook_url: string | null
           full_name: string | null
           id: string
+          instagram_url: string | null
+          is_verified: boolean | null
+          job_count: number | null
+          latitude: number | null
+          linkedin_url: string | null
+          location_name: string | null
+          location_verified: boolean | null
+          longitude: number | null
           onboarding_complete: boolean
           payment_verified: boolean | null
           phone: string | null
+          phone_verified: boolean | null
           role: string
           trust_score: number | null
           updated_at: string
@@ -457,9 +466,18 @@ export type Database = {
           facebook_url?: string | null
           full_name?: string | null
           id: string
+          instagram_url?: string | null
+          is_verified?: boolean | null
+          job_count?: number | null
+          latitude?: number | null
+          linkedin_url?: string | null
+          location_name?: string | null
+          location_verified?: boolean | null
+          longitude?: number | null
           onboarding_complete?: boolean
           payment_verified?: boolean | null
           phone?: string | null
+          phone_verified?: boolean | null
           role?: string
           trust_score?: number | null
           updated_at?: string
@@ -471,9 +489,18 @@ export type Database = {
           facebook_url?: string | null
           full_name?: string | null
           id?: string
+          instagram_url?: string | null
+          is_verified?: boolean | null
+          job_count?: number | null
+          latitude?: number | null
+          linkedin_url?: string | null
+          location_name?: string | null
+          location_verified?: boolean | null
+          longitude?: number | null
           onboarding_complete?: boolean
           payment_verified?: boolean | null
           phone?: string | null
+          phone_verified?: boolean | null
           role?: string
           trust_score?: number | null
           updated_at?: string
@@ -813,36 +840,86 @@ export type Database = {
           customer_id: string
           description: string
           id: string
-          name: string
-          category: string
-          archetype: string | null
-          icon: string | null
-          description: string | null
-          is_active: boolean
-          sort_order: number
-          created_at: string
+          image_urls: string[] | null
+          location_name: string | null
+          service_id: string
+          status: string
+          updated_at: string
         }
         Insert: {
-          id?: string
-          name: string
-          category: string
-          archetype?: string | null
-          icon?: string | null
-          description?: string | null
-          is_active?: boolean
-          sort_order?: number
+          budget?: number | null
           created_at?: string
+          customer_id: string
+          description: string
+          id?: string
+          image_urls?: string[] | null
+          location_name?: string | null
+          service_id: string
+          status?: string
+          updated_at?: string
         }
         Update: {
-          id?: string
-          name?: string
-          category?: string
-          archetype?: string | null
-          icon?: string | null
-          description?: string | null
-          is_active?: boolean
-          sort_order?: number
+          budget?: number | null
           created_at?: string
+          customer_id?: string
+          description?: string
+          id?: string
+          image_urls?: string[] | null
+          location_name?: string | null
+          service_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_requests_customer_id_fkey1"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_requests_service_id_fkey1"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "services"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      services: {
+        Row: {
+          archetype: string | null
+          category: string
+          created_at: string
+          description: string | null
+          icon: string | null
+          id: string
+          is_active: boolean
+          name: string
+          sort_order: number
+        }
+        Insert: {
+          archetype?: string | null
+          category: string
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          sort_order?: number
+        }
+        Update: {
+          archetype?: string | null
+          category?: string
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          sort_order?: number
         }
         Relationships: []
       }
@@ -2094,31 +2171,6 @@ export type CompositeTypes<
   : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
     ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
     : never
-
-  export type Service = Tables<'services'>
-
-export type ServiceArchetype =
-  | 'home_maintenance'
-  | 'lifestyle_wellness'
-  | 'events_celebrations'
-  | 'professional_business'
-  | 'outdoor_heavy_duty'
-
-export const ARCHETYPE_LABELS: Record<ServiceArchetype, string> = {
-  home_maintenance:      'Home Maintenance',
-  lifestyle_wellness:    'Lifestyle & Wellness',
-  events_celebrations:   'Events & Celebrations',
-  professional_business: 'Professional & Business',
-  outdoor_heavy_duty:    'Outdoor & Heavy Duty',
-}
-
-export const ARCHETYPE_COLORS: Record<ServiceArchetype, string> = {
-  home_maintenance:      '#1565C0',
-  lifestyle_wellness:    '#AD1457',
-  events_celebrations:   '#E65100',
-  professional_business: '#1A3A5C',
-  outdoor_heavy_duty:    '#2E7D32',
-}
 
 export const Constants = {
   public: {
