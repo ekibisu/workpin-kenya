@@ -67,43 +67,53 @@ const ClientProfileCard = ({ userId }: ClientProfileCardProps) => {
   const { toast } = useToast();
 
   // Fetch profile and job count
-  const fetchProfile = async () => {
-    setLoading(true);
-    // Fetch profile (with job_count)
-    const { data: profileData } = await supabase
+ const fetchProfile = async () => {
+  setLoading(true);
+
+  const { data: profileData } = await supabase
+    .from("profiles")
+    .select(
+      "full_name, email, phone, avatar_url, created_at, is_verified, linkedin_url, instagram_url, facebook_url, job_count, longitude, latitude, location_name, location_verified"
+    )
+    .eq("id", userId)
+    .maybeSingle();
+
+  setProfile(profileData);
+
+  const { data: clientProfileData } = await supabase
+    .from("client_profiles")
+    .select("neighborhood, property_type")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  setClientProfile(clientProfileData);
+
+  const { count, error } = await supabase
+    .from("job_requests")
+    .select("id", { count: "exact", head: true })
+    .eq("client_id", userId);
+
+  if (!error && typeof count === "number") {
+    setJobCount(count);
+
+    const verified =
+      !!profileData?.phone &&
+      profileData?.location_verified === true &&
+      count >= 3;
+
+    await supabase
       .from("profiles")
-      .select(
-        "full_name, email, phone, avatar_url, created_at, is_verified, linkedin_url, instagram_url, facebook_url,job_count, longitude, latitude, location_name, location_verified",
-      )
-      .eq("id", userId)
-      .maybeSingle();
-    setProfile(profileData);
+      .update({
+        job_count: count,
+        is_verified: verified,
+      })
+      .eq("id", userId);
+  } else {
+    setJobCount(0);
+  }
 
-    // Fetch client profile (neighborhood, property_type)
-    const { data: clientProfileData } = await supabase
-      .from("client_profiles")
-      .select("neighborhood, property_type")
-      .eq("user_id", userId)
-      .maybeSingle();
-    setClientProfile(clientProfileData);
-
-    // Fetch job count from job_requests
-    const { count, error } = await supabase
-      .from("job_requests")
-      .select("id", { count: "exact", head: true })
-      .eq("client_id", userId);
-    if (!error && typeof count === "number") {
-      setJobCount(count);
-      // Always persist job_count in profiles table
-      await supabase
-        .from("profiles")
-        .update({ job_count: count })
-        .eq("id", userId);
-    } else {
-      setJobCount(0);
-    }
-    setLoading(false);
-  };
+  setLoading(false); // ✅ THIS WAS MISSING
+};
 
   useEffect(() => {
     fetchProfile();
@@ -214,7 +224,6 @@ const ClientProfileCard = ({ userId }: ClientProfileCardProps) => {
           full_name: editProfile.full_name,
           email: editProfile.email,
           phone: editProfile.phone,
-          is_verified: editProfile.is_verified,
           linkedin_url: editProfile.linkedin_url,
           instagram_url: editProfile.instagram_url,
           facebook_url: editProfile.facebook_url,
