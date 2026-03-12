@@ -52,6 +52,8 @@ export type Database = {
           lng: number | null
           location_name: string | null
           mpesa_phone: string | null
+          neighborhood: string | null
+          property_type: string | null
           user_id: string
         }
         Insert: {
@@ -61,6 +63,8 @@ export type Database = {
           lng?: number | null
           location_name?: string | null
           mpesa_phone?: string | null
+          neighborhood?: string | null
+          property_type?: string | null
           user_id: string
         }
         Update: {
@@ -70,6 +74,8 @@ export type Database = {
           lng?: number | null
           location_name?: string | null
           mpesa_phone?: string | null
+          neighborhood?: string | null
+          property_type?: string | null
           user_id?: string
         }
         Relationships: [
@@ -434,39 +440,69 @@ export type Database = {
           avatar_url: string | null
           created_at: string
           email: string | null
+          facebook_url: string | null
           full_name: string | null
           id: string
-          neighborhood: string | null
+          instagram_url: string | null
+          is_verified: boolean | null
+          job_count: number | null
+          latitude: number | null
+          linkedin_url: string | null
+          location_name: string | null
+          location_verified: boolean | null
+          longitude: number | null
           onboarding_complete: boolean
+          payment_verified: boolean | null
           phone: string | null
-          property_type: string | null
+          phone_verified: boolean | null
           role: string
+          trust_score: number | null
           updated_at: string
         }
         Insert: {
           avatar_url?: string | null
           created_at?: string
           email?: string | null
+          facebook_url?: string | null
           full_name?: string | null
           id: string
-          neighborhood?: string | null
+          instagram_url?: string | null
+          is_verified?: boolean | null
+          job_count?: number | null
+          latitude?: number | null
+          linkedin_url?: string | null
+          location_name?: string | null
+          location_verified?: boolean | null
+          longitude?: number | null
           onboarding_complete?: boolean
+          payment_verified?: boolean | null
           phone?: string | null
-          property_type?: string | null
+          phone_verified?: boolean | null
           role?: string
+          trust_score?: number | null
           updated_at?: string
         }
         Update: {
           avatar_url?: string | null
           created_at?: string
           email?: string | null
+          facebook_url?: string | null
           full_name?: string | null
           id?: string
-          neighborhood?: string | null
+          instagram_url?: string | null
+          is_verified?: boolean | null
+          job_count?: number | null
+          latitude?: number | null
+          linkedin_url?: string | null
+          location_name?: string | null
+          location_verified?: boolean | null
+          longitude?: number | null
           onboarding_complete?: boolean
+          payment_verified?: boolean | null
           phone?: string | null
-          property_type?: string | null
+          phone_verified?: boolean | null
           role?: string
+          trust_score?: number | null
           updated_at?: string
         }
         Relationships: []
@@ -853,28 +889,37 @@ export type Database = {
       }
       services: {
         Row: {
+          archetype: string | null
           category: string
           created_at: string
+          description: string | null
           icon: string | null
           id: string
           is_active: boolean
           name: string
+          sort_order: number
         }
         Insert: {
+          archetype?: string | null
           category: string
           created_at?: string
+          description?: string | null
           icon?: string | null
           id?: string
           is_active?: boolean
           name: string
+          sort_order?: number
         }
         Update: {
+          archetype?: string | null
           category?: string
           created_at?: string
+          description?: string | null
           icon?: string | null
           id?: string
           is_active?: boolean
           name?: string
+          sort_order?: number
         }
         Relationships: []
       }
@@ -2127,7 +2172,7 @@ export type CompositeTypes<
     ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
     : never
 
-export type Service = Tables<'services'>
+  export type Service = Tables<'services'>
 
 export type ServiceArchetype =
   | 'home_maintenance'
