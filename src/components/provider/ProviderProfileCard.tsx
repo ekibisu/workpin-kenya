@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from "react";
+import MapPicker from "@/components/MapPicker";
 import { Star, MapPin, CheckCircle2, Loader2, XCircle, Check, ChevronLeft, ChevronRight, Camera, Upload } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -43,6 +44,35 @@ interface Review {
 }
 
 const ProviderProfileCard = ({ userId }: ProviderProfileCardProps) => {
+      // Location edit state
+  const [editLocationMode, setEditLocationMode] = useState(false);
+  const [locationInput, setLocationInput] = useState("");
+  const [locationLat, setLocationLat] = useState<number | null>(null);
+  const [locationLng, setLocationLng] = useState<number | null>(null);
+  const [mapDialogOpen, setMapDialogOpen] = useState(false);
+
+      // Save location to backend
+      const handleSaveLocation = async () => {
+        try {
+          const { error } = await supabase
+            .from("profiles")
+            .update({ location_name: locationInput })
+            .eq("id", userId);
+          if (error) throw error;
+          toast({
+            title: "Location updated",
+            description: "Your location has been saved.",
+          });
+          setEditLocationMode(false);
+          fetchFullProfile();
+        } catch (error) {
+          toast({
+            variant: "destructive",
+            title: "Update failed",
+            description: error.message || "An error occurred while saving location.",
+          });
+        }
+      };
     // Save updated business hours to backend
     const handleSaveHours = async () => {
       try {
@@ -106,6 +136,10 @@ const ProviderProfileCard = ({ userId }: ProviderProfileCardProps) => {
 
       if (profileData) {
         setData(profileData as ProfileData);
+        // If location is a string with lat/lng, parse it here if you store it that way
+        // For now, just clear map state
+        setLocationLat(null);
+        setLocationLng(null);
       }
 
       // Check if logged in user is the owner to show upload buttons
@@ -226,7 +260,59 @@ const ProviderProfileCard = ({ userId }: ProviderProfileCardProps) => {
             </div>
             <div className="flex items-center gap-1 text-slate-500 text-sm">
               <MapPin size={16} />
-              <span>{data.location_name || "Location not set"}</span>
+              {isOwner && editLocationMode ? (
+                <>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      className="border rounded px-2 py-1 text-sm w-40"
+                      value={locationInput}
+                      onChange={e => setLocationInput(e.target.value)}
+                      placeholder="Enter location"
+                      autoFocus
+                    />
+                    <Button size="xs" variant="outline" onClick={() => setMapDialogOpen(true)}>
+                      Pick from Map
+                    </Button>
+                    <Button size="xs" className="ml-2" onClick={handleSaveLocation}>Save</Button>
+                    <Button size="xs" variant="outline" onClick={() => { setEditLocationMode(false); setLocationInput(data.location_name || ""); }}>Cancel</Button>
+                  </div>
+                  <Dialog open={mapDialogOpen} onOpenChange={setMapDialogOpen}>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Pick Location from Map</DialogTitle>
+                      </DialogHeader>
+                      <div className="my-2">
+                        <MapPicker
+                          lat={locationLat}
+                          lng={locationLng}
+                          onChange={(lat, lng, name) => {
+                            setLocationLat(lat);
+                            setLocationLng(lng);
+                            if (name) setLocationInput(name);
+                          }}
+                        />
+                      </div>
+                      <DialogFooter>
+                        <Button onClick={() => setMapDialogOpen(false)}>Done</Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                </>
+              ) : (
+                <>
+                  <span>{data.location_name || "Location not set"}</span>
+                  {isOwner && (
+                    <Button size="xs" variant="ghost" className="ml-1 px-1 py-0.5" onClick={() => {
+                      setEditLocationMode(true);
+                      setLocationInput(data.location_name || "");
+                      setLocationLat(null);
+                      setLocationLng(null);
+                    }}>
+                      Edit
+                    </Button>
+                  )}
+                </>
+              )}
             </div>
           </div>
 
