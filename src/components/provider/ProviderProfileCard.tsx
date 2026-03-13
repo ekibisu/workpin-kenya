@@ -1,5 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { Star, MapPin, CheckCircle2, Loader2, XCircle, Check, ChevronLeft, ChevronRight, Camera, Upload } from "lucide-react";
+import MapPicker from "@/components/MapPicker";
+import { verifyLocation } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -28,7 +30,10 @@ interface ProfileData {
   full_name: string;
   phone: string;
   email: string;
-  location_name: string;
+  location_name: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  location_verified?: boolean | null;
   provider_profiles: ProviderProfile;
 }
 
@@ -53,6 +58,11 @@ const ProviderProfileCard = ({ userId }: ProviderProfileCardProps) => {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [selectedTime, setSelectedTime] = useState("");
   const { toast } = useToast();
+  // Location edit state
+  const [editMode, setEditMode] = useState(false);
+  const [editProfile, setEditProfile] = useState<ProfileData | null>(null);
+  const [locationValid, setLocationValid] = useState<boolean | null>(null);
+
 
   const fetchFullProfile = async () => {
     setLoading(true);
@@ -72,6 +82,7 @@ const ProviderProfileCard = ({ userId }: ProviderProfileCardProps) => {
 
       if (profileData) {
         setData(profileData as ProfileData);
+        setEditProfile(profileData as ProfileData);
       }
 
       // Check if logged in user is the owner to show upload buttons
@@ -85,8 +96,76 @@ const ProviderProfileCard = ({ userId }: ProviderProfileCardProps) => {
     }
   };
 
+  // Keep editProfile in sync with data
+  useEffect(() => {
+    if (data) setEditProfile(data);
+  }, [data]);
+
+  // Location verification effect
+  useEffect(() => {
+    if (data) {
+      verifyLocation({
+        lat: data.latitude,
+        lng: data.longitude,
+        location_name: data.location_name,
+      }).then((isValid) => setLocationValid(isValid));
+    } else {
+      setLocationValid(null);
+    }
+  }, [data]);
+
+  // Handle edit changes
+  const handleEditChange = (field: keyof ProfileData, value: string | number | null) => {
+    setEditProfile((prev) => (prev ? { ...prev, [field]: value } : prev));
+  };
+
+  // Save location changes
+  const handleSaveLocation = async () => {
+    if (!editProfile) return;
+    try {
+      // Validate location
+      const hasLat = editProfile.latitude !== null && editProfile.latitude !== undefined;
+      const hasLng = editProfile.longitude !== null && editProfile.longitude !== undefined;
+      const hasName = !!editProfile.location_name?.trim();
+      const isLocationVerified = hasLat && hasLng && hasName;
+      // Update profile
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .update({
+          latitude: editProfile.latitude,
+          longitude: editProfile.longitude,
+          location_name: editProfile.location_name,
+          location_verified: isLocationVerified,
+        })
+        .eq("id", userId);
+      if (profileError) throw profileError;
+      toast({
+        title: "Location updated!",
+        description: isLocationVerified
+          ? "Your location has been verified."
+          : "Location updated, but provide full details for verification.",
+      });
+      setEditMode(false);
+      await fetchFullProfile();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Could not update location.";
+      toast({
+        title: "Update failed",
+        description: message,
+        variant: "destructive",
+      });
+    }
+  };
+
+
+  const handleCancelLocation = () => {
+    setEditProfile(data);
+    setEditMode(false);
+  };
+
   useEffect(() => {
     fetchFullProfile();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
   const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -161,6 +240,15 @@ const ProviderProfileCard = ({ userId }: ProviderProfileCardProps) => {
 
   return (
     <div className="max-w-5xl mx-auto bg-white font-sans text-slate-800">
+      {/* Location warning */}
+      {locationValid === false && (
+        <div className="mb-3 rounded-lg bg-amber-50 border border-amber-200 p-3 text-amber-700 text-sm flex items-center gap-2">
+          <MapPin className="h-4 w-4 text-amber-500" />
+          <span>
+            Location could not be verified. Please enable location services or update your profile location.
+          </span>
+        </div>
+      )}
       {/* --- HEADER SECTION --- */}
       <section className="flex flex-col md:flex-row justify-between pt-8 pb-4 px-4 gap-8">
         <div className="flex-1 space-y-3">
@@ -171,7 +259,6 @@ const ProviderProfileCard = ({ userId }: ProviderProfileCardProps) => {
             {prov?.is_verified && <CheckCircle2 className="h-6 w-6 text-green-500 fill-white" />}
           </div>
           
-          <p className="text-xl text-slate-600 font-medium">{data.full_name}</p>
 
           <div className="flex flex-col gap-1">
             <div className="flex items-center gap-1">
@@ -183,9 +270,70 @@ const ProviderProfileCard = ({ userId }: ProviderProfileCardProps) => {
               <span className="font-bold ml-1">{prov?.avg_rating || "0.0"}</span>
               <span className="text-slate-500 text-sm">({prov?.total_reviews || 0} Reviews)</span>
             </div>
-            <div className="flex items-center gap-1 text-slate-500 text-sm">
-              <MapPin size={16} />
-              <span>{data.location_name || "Location not set"}</span>
+          </div>
+
+          {/* Location field with map picker - moved above description */}
+          <div className="flex flex-col gap-2 mb-4">
+            <div className="flex items-start gap-3 rounded-lg border border-border bg-background p-3">
+              <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+              <div className="flex-1">
+                <p className="text-[11px] text-muted-foreground mb-1">Location</p>
+                {isOwner && !editMode ? (
+                  <Button size="sm" variant="outline" onClick={() => setEditMode(true)}>
+                    Edit Location
+                  </Button>
+                ) : null}
+                {editMode ? (
+                  <>
+                    <Input
+                      className="text-sm font-medium text-foreground mb-2"
+                      value={editProfile?.location_name || ""}
+                      onChange={(e) => handleEditChange("location_name", e.target.value)}
+                      placeholder="Location Name"
+                    />
+                    <MapPicker
+                      lat={editProfile?.latitude ?? null}
+                      lng={editProfile?.longitude ?? null}
+                      onChange={(lat, lng, locationName) => {
+                        handleEditChange("latitude", lat);
+                        handleEditChange("longitude", lng);
+                        if (locationName !== undefined) {
+                          handleEditChange("location_name", locationName);
+                        }
+                      }}
+                    />
+                    {typeof editProfile?.latitude === "number" &&
+                      typeof editProfile?.longitude === "number" && (
+                        <div className="text-xs text-muted-foreground mt-1">
+                          Lat: {editProfile.latitude}, Lng: {editProfile.longitude}
+                        </div>
+                      )}
+                    {/* Only show location_name once in edit mode, below the MapPicker */}
+                    {/* (already shown in the input above) */}
+                    <div className="flex gap-2 mt-2">
+                      <Button size="sm" variant="default" onClick={handleSaveLocation}>
+                        Save
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={handleCancelLocation}>
+                        Cancel
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm font-medium text-foreground">
+                      {data?.location_name ?? "Nairobi, Kenya"}
+                    </p>
+                    {typeof data?.latitude === "number" &&
+                      typeof data?.longitude === "number" && (
+                        <div className="text-xs text-muted-foreground mt-1">
+                          Lat: {data.latitude}, Lng: {data.longitude}
+                        </div>
+                      )}
+                    {/* Only show location_name once in view mode */}
+                  </>
+                )}
+              </div>
             </div>
           </div>
 
@@ -425,3 +573,11 @@ const ProviderProfileCard = ({ userId }: ProviderProfileCardProps) => {
 };
 
 export default ProviderProfileCard;
+
+function setLoading(arg0: boolean) {
+  throw new Error("Function not implemented.");
+}
+function fetchFullProfile() {
+  throw new Error("Function not implemented.");
+}
+
