@@ -4,6 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import { Calendar } from "@/components/ui/calendar";
+import { Input } from "@/components/ui/input";
 
 interface ProviderProfileCardProps {
   userId: string;
@@ -46,6 +49,9 @@ const ProviderProfileCard = ({ userId }: ProviderProfileCardProps) => {
   const [uploading, setUploading] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [calendarOpen, setCalendarOpen] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+  const [selectedTime, setSelectedTime] = useState("");
   const { toast } = useToast();
 
   const fetchFullProfile = async () => {
@@ -191,9 +197,64 @@ const ProviderProfileCard = ({ userId }: ProviderProfileCardProps) => {
             <Button className="bg-[#16a34a] hover:bg-[#15803d] text-white px-10 py-6 font-bold uppercase text-xs tracking-widest rounded-sm">
               Request a Quote
             </Button>
-            <Button variant="outline" className="border-[#16a34a] text-[#16a34a] px-10 py-6 font-bold uppercase text-xs tracking-widest rounded-sm">
-              Book Now
-            </Button>
+            <Dialog open={calendarOpen} onOpenChange={setCalendarOpen}>
+              <DialogTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="border-[#16a34a] text-[#16a34a] px-10 py-6 font-bold uppercase text-xs tracking-widest rounded-sm"
+                >
+                  Book Now
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Select Date & Time</DialogTitle>
+                </DialogHeader>
+                <div className="flex flex-col gap-6">
+                  <Calendar
+                    mode="single"
+                    selected={selectedDate}
+                    onSelect={setSelectedDate}
+                    fromDate={new Date()}
+                  />
+                  <div>
+                    <label className="block mb-1 font-medium">Time</label>
+                    <Input
+                      type="time"
+                      value={selectedTime}
+                      onChange={e => setSelectedTime(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <DialogClose asChild>
+                    <Button
+                      onClick={() => {
+                        // Here you would handle the booking logic
+                        if (!selectedDate || !selectedTime) {
+                          toast({
+                            variant: "destructive",
+                            title: "Select date and time",
+                            description: "Please select both a date and time to book.",
+                          });
+                          setCalendarOpen(true);
+                          return;
+                        }
+                        toast({
+                          title: "Booking requested",
+                          description: `You selected ${selectedDate.toLocaleDateString()} at ${selectedTime}`,
+                        });
+                        setSelectedDate(undefined);
+                        setSelectedTime("");
+                      }}
+                      className="bg-[#16a34a] text-white"
+                    >
+                      Confirm Booking
+                    </Button>
+                  </DialogClose>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </div>
         </div>
 
