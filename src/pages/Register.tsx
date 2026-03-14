@@ -39,9 +39,6 @@ export default function Register() {
         setLoading(false);
         return;
       }
-      if (role === "provider" && signUpData?.user?.id) {
-        await supabase.from("user_roles").insert([{ user_id: signUpData.user.id, role: "provider" }]);
-      }
       setError("");
       // If email confirmation is disabled, redirect immediately
       navigate("/dashboard");

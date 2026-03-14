@@ -112,14 +112,6 @@ const Auth = () => {
 
       if (error) throw error;
 
-      // Insert provider role in user_roles if registering as provider
-      if (role === "provider" && data?.user?.id) {
-        const { error: roleError } = await supabase
-          .from("user_roles")
-          .insert([{ user_id: data.user.id, role: "provider" }]);
-        if (roleError) throw roleError;
-      }
-
       toast({ 
         title: "Check your email", 
         description: "We sent you a confirmation link to verify your account." 
