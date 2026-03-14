@@ -74,27 +74,61 @@ const ProviderProfileCard = ({ userId }: ProviderProfileCardProps) => {
         }
       };
     // Save updated business hours to backend
-    const handleSaveHours = async () => {
-      try {
-        // Update provider_profiles.availability_json in Supabase
-        const { error } = await supabase
+  const handleSaveHours = async () => {
+    try {
+      console.log('Saving business hours:', hours);
+      // 1. Get the provider_profiles row for this user (userId is profiles.id)
+      const { data: providerProfile, error: selectError } = await supabase
+        .from('provider_profiles')
+        .select('id, user_id')
+        .eq('user_id', userId)
+        .maybeSingle();
+      if (selectError) throw selectError;
+      const profileId = userId;
+      // 2. If no provider profile, create one
+      if (!providerProfile) {
+        const { data: insertData, error: insertError } = await supabase
           .from('provider_profiles')
-          .update({ availability_json: hours })
-          .eq('user_id', userId);
-        if (error) throw error;
+          .insert([
+            {
+              user_id: profileId,
+              availability_json: hours,
+              business_name: 'New Provider', // Default, update as needed
+            }
+          ])
+          .select()
+          .maybeSingle();
+        if (insertError) throw insertError;
         toast({
-          title: 'Business hours updated',
-          description: 'Your business hours have been saved.',
+          title: 'Provider profile created',
+          description: 'A new provider profile was created and business hours saved.',
         });
         setEditHoursMode(false);
-      } catch (error) {
-        toast({
-          variant: 'destructive',
-          title: 'Update failed',
-          description: error.message || 'An error occurred while saving hours.',
-        });
+        await fetchFullProfile();
+        return;
       }
-    };
+      // 3. Update provider_profiles.availability_json in Supabase
+      const { error } = await supabase
+        .from('provider_profiles')
+        .update({ availability_json: hours })
+        .eq('user_id', providerProfile.user_id);
+      console.log('Supabase update error:', error);
+      if (error) throw error;
+      toast({
+        title: 'Business hours updated',
+        description: 'Your business hours have been saved.',
+      });
+      setEditHoursMode(false);
+      await fetchFullProfile(); // Refresh profile to reflect changes
+    } catch (error) {
+      console.log('Error in handleSaveHours:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Update failed',
+        description: error.message || 'An error occurred while saving hours.',
+      });
+    }
+  };
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<ProfileData | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -186,16 +220,16 @@ const ProviderProfileCard = ({ userId }: ProviderProfileCardProps) => {
       const fileExt = file.name.split('.').pop();
       const filePath = `profile-photos/${userId}-${Math.random()}.${fileExt}`;
 
-      // 2. Upload to Supabase Storage (Bucket name: 'provider_assets')
+      // 2. Upload to Supabase Storage (Bucket name: 'avatars_pro')
       const { error: uploadError } = await supabase.storage
-        .from('provider_assets')
+        .from('avatars_pro')
         .upload(filePath, file, { upsert: true });
 
       if (uploadError) throw uploadError;
 
       // 3. Get the public URL
       const { data: { publicUrl } } = supabase.storage
-        .from('provider_assets')
+        .from('avatars_pro')
         .getPublicUrl(filePath);
 
       // 4. Update the database 
@@ -233,6 +267,8 @@ const ProviderProfileCard = ({ userId }: ProviderProfileCardProps) => {
   const prov = data.provider_profiles;
   const days = ["Sun", "Mon", "Tue", "Wed", "Thurs", "Fri", "Sat"];
   const availability = prov && prov.availability_json ? prov.availability_json : {};
+  // Always show the latest hours (from backend or local state)
+  const displayHours = Object.keys(hours).length > 0 ? hours : availability;
 
   return (
     <div className="max-w-5xl mx-auto bg-white font-sans text-slate-800">
@@ -270,11 +306,11 @@ const ProviderProfileCard = ({ userId }: ProviderProfileCardProps) => {
                       placeholder="Enter location"
                       autoFocus
                     />
-                    <Button size="xs" variant="outline" onClick={() => setMapDialogOpen(true)}>
+                    <Button size="sm" variant="outline" onClick={() => setMapDialogOpen(true)}>
                       Pick from Map
                     </Button>
-                    <Button size="xs" className="ml-2" onClick={handleSaveLocation}>Save</Button>
-                    <Button size="xs" variant="outline" onClick={() => { setEditLocationMode(false); setLocationInput(data.location_name || ""); }}>Cancel</Button>
+                    <Button size="sm" className="ml-2" onClick={handleSaveLocation}>Save</Button>
+                    <Button size="sm" variant="outline" onClick={() => { setEditLocationMode(false); setLocationInput(data.location_name || ""); }}>Cancel</Button>
                   </div>
                   <Dialog open={mapDialogOpen} onOpenChange={setMapDialogOpen}>
                     <DialogContent>
@@ -302,7 +338,7 @@ const ProviderProfileCard = ({ userId }: ProviderProfileCardProps) => {
                 <>
                   <span>{data.location_name || "Location not set"}</span>
                   {isOwner && (
-                    <Button size="xs" variant="ghost" className="ml-1 px-1 py-0.5" onClick={() => {
+                    <Button size="sm" variant="ghost" className="ml-1 px-1 py-0.5" onClick={() => {
                       setEditLocationMode(true);
                       setLocationInput(data.location_name || "");
                       setLocationLat(null);
@@ -481,8 +517,8 @@ const ProviderProfileCard = ({ userId }: ProviderProfileCardProps) => {
         {days.map((day) => (
           <div key={day} className="flex justify-between">
             <span>{day}</span>
-            {/* Added placeholder for display mode if no hours set */}
-            <span>{availability[day] || "Closed"}</span>
+            {/* Show the latest hours, fallback to "Closed" */}
+            <span>{displayHours[day] || "Closed"}</span>
           </div>
         ))}
       </div>
