@@ -709,7 +709,7 @@ const ProviderProfileCard = ({ userId }: ProviderProfileCardProps) => {
           <div>
             <h3 className="font-bold mb-3">Payment Methods</h3>
             <p className="text-slate-600">
-              This pro accepts Cash, Check, Credit Card, and M-Pesa.
+              This pro accepts Cash, Cheque, Credit Card, and M-Pesa.
             </p>
           </div>
         </div>
