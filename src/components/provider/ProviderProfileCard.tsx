@@ -8,6 +8,13 @@ import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { Calendar } from "@/components/ui/calendar";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem
+} from "@/components/ui/select";
 
 interface ProviderProfileCardProps {
   userId: string;
@@ -527,13 +534,21 @@ const ProviderProfileCard = ({ userId }: ProviderProfileCardProps) => {
         {days.map((day) => (
           <div key={day} className="flex justify-between items-center gap-2">
             <span className="w-12">{day}</span>
-            <Input
-              className="w-44 text-xs"
+            <Select
               value={hours[day] || ""}
-              onChange={e => handleHoursChange(day, e.target.value)}
-              // Added requested placeholder
-              placeholder="e.g. 8:00 AM - 5:00 PM"
-            />
+              onValueChange={value => handleHoursChange(day, value)}
+            >
+              <SelectTrigger className="w-44 text-xs">
+                <SelectValue placeholder="Select hours" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Closed">Closed</SelectItem>
+                <SelectItem value="8:00 AM - 5:00 PM">8:00 AM - 5:00 PM</SelectItem>
+                <SelectItem value="9:00 AM - 6:00 PM">9:00 AM - 6:00 PM</SelectItem>
+                <SelectItem value="10:00 AM - 7:00 PM">10:00 AM - 7:00 PM</SelectItem>
+                <SelectItem value="7:00 AM - 3:00 PM">7:00 AM - 3:00 PM</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         ))}
         <div className="flex gap-2 mt-4">
