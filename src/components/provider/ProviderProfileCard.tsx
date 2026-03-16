@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from "react";
+import { useCallback } from "react";
 import MapPicker from "@/components/MapPicker";
 import { Star, MapPin, CheckCircle2, Loader2, XCircle, Check, ChevronLeft, ChevronRight, Camera, Upload } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -51,6 +52,33 @@ interface Review {
 }
 
 const ProviderProfileCard = ({ userId }: ProviderProfileCardProps) => {
+        // Ref for services section
+        const servicesRef = useRef<HTMLDivElement | null>(null);
+        // Ref for reviews section
+        const reviewsRef = useRef<HTMLDivElement | null>(null);
+        // Ref for portfolio photos section
+        const portfolioRef = useRef<HTMLDivElement | null>(null);
+
+        // Scroll to services section
+        const scrollToServices = useCallback(() => {
+          if (servicesRef.current) {
+            servicesRef.current.scrollIntoView({ behavior: "smooth" });
+          }
+        }, []);
+
+        // Scroll to reviews section
+        const scrollToReviews = useCallback(() => {
+          if (reviewsRef.current) {
+            reviewsRef.current.scrollIntoView({ behavior: "smooth" });
+          }
+        }, []);
+
+        // Scroll to portfolio photos section
+        const scrollToPortfolio = useCallback(() => {
+          if (portfolioRef.current) {
+            portfolioRef.current.scrollIntoView({ behavior: "smooth" });
+          }
+        }, []);
       // Location edit state
   const [editLocationMode, setEditLocationMode] = useState(false);
   const [locationInput, setLocationInput] = useState("");
@@ -605,9 +633,9 @@ const ProviderProfileCard = ({ userId }: ProviderProfileCardProps) => {
       {/* --- TABS --- */}
       <div className="flex gap-10 border-b border-slate-100 px-4 mt-8 text-[11px] font-bold uppercase tracking-[0.2em]">
         <span className="pb-3 border-b-2 border-green-600 text-green-600 cursor-pointer">About</span>
-        <span className="pb-3 text-slate-400 cursor-pointer">Services</span>
-        <span className="pb-3 text-slate-400 cursor-pointer">Reviews</span>
-        <span className="pb-3 text-slate-400 cursor-pointer">Photos</span>
+        <span className="pb-3 text-slate-400 cursor-pointer" onClick={scrollToServices}>Services</span>
+        <span className="pb-3 text-slate-400 cursor-pointer" onClick={scrollToReviews}>Reviews</span>
+        <span className="pb-3 text-slate-400 cursor-pointer" onClick={scrollToPortfolio}>Portfolio Photos</span>
       </div>
 
       {/* --- ABOUT & HOURS --- */}
@@ -688,7 +716,7 @@ const ProviderProfileCard = ({ userId }: ProviderProfileCardProps) => {
       </div>
 
       {/* --- SERVICES SECTION --- */}
-      <div className="mx-4 my-8 bg-[#16a34a] rounded-lg p-10 text-center">
+      <div ref={servicesRef} className="mx-4 my-8 bg-[#16a34a] rounded-lg p-10 text-center">
         <h2 className="text-white text-xl font-bold mb-6">Services</h2>
         <div className="bg-white rounded-lg p-8 max-w-3xl mx-auto shadow-sm">
           <div className="flex flex-wrap justify-center gap-3 mb-6">
@@ -714,7 +742,7 @@ const ProviderProfileCard = ({ userId }: ProviderProfileCardProps) => {
       </div>
 
       {/* --- REVIEWS SECTION --- */}
-      <section className="px-4 py-12 border-t border-slate-100">
+      <section ref={reviewsRef} className="px-4 py-12 border-t border-slate-100">
         <h2 className="text-xl font-bold mb-4">Reviews</h2>
         {/* Placeholder review layout logic remains same as original */}
         <div className="flex flex-col gap-1 mb-8">
@@ -729,7 +757,7 @@ const ProviderProfileCard = ({ userId }: ProviderProfileCardProps) => {
       </section>
 
       {/* --- PHOTOS SECTION --- */}
-      <section className="px-4 py-12 border-t border-slate-100">
+      <section ref={portfolioRef} className="px-4 py-12 border-t border-slate-100">
         <h2 className="text-xl font-bold mb-8">Portfolio Photos</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full">
           {prov?.portfolio_photos?.slice(1, 4).map((url: string, index: number) => (
