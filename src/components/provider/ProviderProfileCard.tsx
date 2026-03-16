@@ -525,6 +525,11 @@ const ProviderProfileCard = ({ userId }: ProviderProfileCardProps) => {
                     selected={selectedDate}
                     onSelect={setSelectedDate}
                     fromDate={new Date()}
+                    disabled={date => {
+                      // Use hours state (business hours menu) for disabling days
+                      const dayName = ["Sun", "Mon", "Tue", "Wed", "Thurs", "Fri", "Sat"][date.getDay()];
+                      return hours[dayName] === "Closed";
+                    }}
                   />
                   <div>
                     <label className="block mb-1 font-medium">Time</label>
