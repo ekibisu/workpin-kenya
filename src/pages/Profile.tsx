@@ -7,6 +7,7 @@ import { Loader2, Shield, Eye, EyeOff, Settings } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import ProviderAccountSettings from "./ProviderAccountSettings";
 
 const Profile = () => {
   const { user, loading } = useAuth();
@@ -39,7 +40,7 @@ const Profile = () => {
               <TabsContent value="settings">
                 <Card>
                   <CardContent className="py-10 text-center text-muted-foreground">
-                    Account settings coming soon.
+                   <ProviderAccountSettings />
                   </CardContent>
                 </Card>
               </TabsContent>
