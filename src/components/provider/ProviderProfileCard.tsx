@@ -151,6 +151,33 @@ const ProviderProfileCard = ({ userId }: ProviderProfileCardProps) => {
   // Controls whether business hours are in edit mode
   const [editHoursMode, setEditHoursMode] = useState(false);
 
+  // Bio edit state
+  const [editBioMode, setEditBioMode] = useState(false);
+  const [bioInput, setBioInput] = useState("");
+
+  // Save bio to backend
+  const handleSaveBio = async () => {
+    try {
+      const { error } = await supabase
+        .from("provider_profiles")
+        .update({ bio: bioInput })
+        .eq("user_id", userId);
+      if (error) throw error;
+      toast({
+        title: "Description updated",
+        description: "Your description has been saved.",
+      });
+      setEditBioMode(false);
+      await fetchFullProfile();
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Update failed",
+        description: error.message || "An error occurred while saving description.",
+      });
+    }
+  };
+
   // Handles changes to business hours input fields
   const handleHoursChange = (day: string, value: string) => {
     setHours((prev) => ({
@@ -409,10 +436,43 @@ const ProviderProfileCard = ({ userId }: ProviderProfileCardProps) => {
               )}
             </div>
           </div>
-
-          <p className="text-slate-500 italic max-w-lg text-sm leading-relaxed">
-            {prov?.bio || "No description provided."}
-          </p>
+          
+            {/* --- BIO & ACTION BUTTONS --- */}
+          {/* Editable bio for owner */}
+          {isOwner && editBioMode ? (
+            <div className="flex flex-col gap-2 max-w-lg">
+              <textarea
+                className="border rounded px-2 py-1 text-sm leading-relaxed text-slate-800"
+                value={bioInput}
+                onChange={e => {
+                  const value = e.target.value;
+                  const words = value.trim().split(/\s+/);
+                  if (words.length <= 15) {
+                    setBioInput(value);
+                  } else {
+                    setBioInput(words.slice(0, 15).join(" "));
+                  }
+                }}
+                placeholder="Enter description (max 15 words)"
+                rows={3}
+                autoFocus
+              />
+              <div className="flex items-center gap-4">
+                <span className="text-xs text-slate-500">{bioInput.trim() ? bioInput.trim().split(/\s+/).length : 0} / 15 words</span>
+                <Button size="sm" variant="default" onClick={handleSaveBio} disabled={bioInput.trim().split(/\s+/).length > 15}>Save</Button>
+                <Button size="sm" variant="outline" onClick={() => { setEditBioMode(false); setBioInput(prov?.bio || ""); }}>Cancel</Button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <p className="text-slate-500 italic max-w-lg text-sm leading-relaxed">
+                {prov?.bio || "No description provided."}
+              </p>
+              {isOwner && (
+                <Button size="sm" variant="ghost" className="px-2 py-0.5" onClick={() => { setEditBioMode(true); setBioInput(prov?.bio || ""); }}>Edit</Button>
+              )}
+            </div>
+          )}
 
           <div className="flex gap-4 pt-4">
             <Button className="bg-[#16a34a] hover:bg-[#15803d] text-white px-10 py-6 font-bold uppercase text-xs tracking-widest rounded-sm">
