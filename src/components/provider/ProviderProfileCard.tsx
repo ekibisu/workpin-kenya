@@ -268,6 +268,33 @@ const ProviderProfileCard = ({ userId }: ProviderProfileCardProps) => {
     }
   };
 
+  // Business name edit state
+  const [editBusinessNameMode, setEditBusinessNameMode] = useState(false);
+  const [businessNameInput, setBusinessNameInput] = useState("");
+
+  // Save business name to backend
+  const handleSaveBusinessName = async () => {
+    try {
+      const { error } = await supabase
+        .from("provider_profiles")
+        .update({ business_name: businessNameInput })
+        .eq("user_id", userId);
+      if (error) throw error;
+      toast({
+        title: "Business name updated",
+        description: "Your business name has been saved.",
+      });
+      setEditBusinessNameMode(false);
+      await fetchFullProfile();
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Update failed",
+        description: error.message || "An error occurred while saving business name.",
+      });
+    }
+  };
+
   if (loading) return <div className="flex justify-center py-20"><Loader2 className="animate-spin" /></div>;
   if (!data) return <div className="p-8 text-center">Provider not found.</div>;
 
@@ -283,10 +310,34 @@ const ProviderProfileCard = ({ userId }: ProviderProfileCardProps) => {
       <section className="flex flex-col md:flex-row justify-between pt-8 pb-4 px-4 gap-8">
         <div className="flex-1 space-y-3">
           <div className="flex items-center gap-2">
-            <h1 className="text-3xl font-bold uppercase tracking-tight text-slate-900">
-              {prov?.business_name || "BUSINESS NAME"}
-            </h1>
-            {prov?.is_verified && <CheckCircle2 className="h-6 w-6 text-green-500 fill-white" />}
+            {isOwner && editBusinessNameMode ? (
+              <div className="flex items-center gap-2">
+                <Input
+                  className="border rounded px-2 py-1 text-2xl font-bold uppercase tracking-tight text-slate-900 w-60"
+                  value={businessNameInput}
+                  onChange={e => setBusinessNameInput(e.target.value)}
+                  placeholder="Enter business name"
+                  autoFocus
+                />
+                <Button size="sm" className="ml-2" onClick={handleSaveBusinessName}>Save</Button>
+                <Button size="sm" variant="outline" onClick={() => { setEditBusinessNameMode(false); setBusinessNameInput(prov?.business_name || ""); }}>Cancel</Button>
+              </div>
+            ) : (
+              <>
+                <h1 className="text-3xl font-bold uppercase tracking-tight text-slate-900">
+                  {prov?.business_name || "BUSINESS NAME"}
+                </h1>
+                {prov?.is_verified && <CheckCircle2 className="h-6 w-6 text-green-500 fill-white" />}
+                {isOwner && (
+                  <Button size="sm" variant="ghost" className="ml-1 px-1 py-0.5" onClick={() => {
+                    setEditBusinessNameMode(true);
+                    setBusinessNameInput(prov?.business_name || "");
+                  }}>
+                    Edit
+                  </Button>
+                )}
+              </>
+            )}
           </div>
           
           <p className="text-xl text-slate-600 font-medium">{data.full_name}</p>
