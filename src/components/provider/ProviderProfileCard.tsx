@@ -210,13 +210,13 @@ const ProviderProfileCard = ({ userId }: ProviderProfileCardProps) => {
       const file = event.target.files?.[0];
       if (!file) return;
 
-      // Limit to 3 photos
+      // Limit to 4 photos (1 profile + 3 portfolio)
       const currentPhotos = data?.provider_profiles?.portfolio_photos || [];
-      if (currentPhotos.length >= 3) {
+      if (currentPhotos.length >= 4) {
         toast({
           variant: "destructive",
           title: "Photo limit reached",
-          description: "You can only upload up to 3 photos.",
+          description: "You can only upload up to 4 photos (1 profile + 3 portfolio).",
         });
         return;
       }
@@ -240,8 +240,8 @@ const ProviderProfileCard = ({ userId }: ProviderProfileCardProps) => {
         .getPublicUrl(filePath);
 
       // 4. Update the database 
-      // Add new photo to the end, max 3
-      const updatedPhotos = [...currentPhotos, publicUrl].slice(0, 3);
+      // Add new photo to the end, max 4
+      const updatedPhotos = [...currentPhotos, publicUrl].slice(0, 4);
 
       const { error: updateError } = await supabase
         .from('provider_profiles')
@@ -621,15 +621,27 @@ const ProviderProfileCard = ({ userId }: ProviderProfileCardProps) => {
       <section className="px-4 py-12 border-t border-slate-100">
         <h2 className="text-xl font-bold mb-8">Portfolio Photos</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full">
-          {prov?.portfolio_photos?.slice(0, 3).map((url: string, index: number) => (
+          {prov?.portfolio_photos?.slice(1, 4).map((url: string, index: number) => (
             <div key={index} className="relative aspect-[4/3] rounded-lg overflow-hidden border">
               <img src={url} alt="Work portfolio" className="w-full h-full object-cover" />
             </div>
           ))}
-          {isOwner && (prov?.portfolio_photos?.length ?? 0) < 3 && (
+          {isOwner && (prov?.portfolio_photos?.length ?? 1) < 4 && (
             <button 
-              onClick={() => fileInputRef.current?.click()}
-              className="aspect-[4/3] border-2 border-dashed border-slate-200 rounded-lg flex flex-col items-center justify-center text-slate-400 hover:bg-slate-50 transition-colors"
+              onClick={() => {
+                // Only allow portfolio upload if profile photo exists
+                if (!prov?.portfolio_photos?.[0]) {
+                  toast({
+                    variant: "destructive",
+                    title: "Upload Profile Photo First",
+                    description: "Please upload your profile photo before adding portfolio photos."
+                  });
+                  return;
+                }
+                fileInputRef.current?.click();
+              }}
+              className={`aspect-[4/3] border-2 border-dashed border-slate-200 rounded-lg flex flex-col items-center justify-center text-slate-400 hover:bg-slate-50 transition-colors ${!prov?.portfolio_photos?.[0] ? 'opacity-50 cursor-not-allowed' : ''}`}
+              disabled={!prov?.portfolio_photos?.[0]}
             >
               <Upload size={24} />
               <span className="text-xs font-bold mt-2 uppercase">Add Portfolio</span>
