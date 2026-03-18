@@ -269,9 +269,25 @@ const Dashboard = () => {
 
   const handleSubmitFeedback = async () => {
     if (!user || !feedbackRequestId || !feedbackProviderId) return;
+    // Look up the work_thread_id for this job request
+    let threadId = workThreadMap[feedbackRequestId];
+    if (!threadId) {
+      // Fetch from DB as fallback
+      const { data: wt } = await supabase
+        .from("work_threads")
+        .select("id")
+        .eq("job_request_id", feedbackRequestId)
+        .eq("client_id", user.id)
+        .maybeSingle();
+      threadId = wt?.id;
+    }
+    if (!threadId) {
+      toast({ title: "Error", description: "Could not find work thread for this job.", variant: "destructive" });
+      return;
+    }
     setSubmittingFeedback(true);
     const { error } = await supabase.from("reviews").insert({
-      work_thread_id: feedbackRequestId,
+      work_thread_id: threadId,
       client_id: user.id,
       provider_id: feedbackProviderId,
       rating: feedbackRating,
