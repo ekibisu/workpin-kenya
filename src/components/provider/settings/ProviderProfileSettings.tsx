@@ -46,13 +46,13 @@ interface ProviderProfile {
   availability_json: Record<string, string>;
   portfolio_photos: string[];
   response_time_minutes: number;
+  location_name: string | null;
 }
 
 interface ProfileData {
   full_name: string;
   phone: string;
   email: string;
-  location_name: string;
   provider_profiles: ProviderProfile;
 }
 
