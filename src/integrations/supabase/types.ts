@@ -707,25 +707,37 @@ export type Database = {
       }
       services: {
         Row: {
+          archetype: string | null
           category: string
           created_at: string
+          description: string | null
           icon: string | null
           id: string
+          is_active: boolean
           name: string
+          sort_order: number
         }
         Insert: {
+          archetype?: string | null
           category: string
           created_at?: string
+          description?: string | null
           icon?: string | null
           id?: string
+          is_active?: boolean
           name: string
+          sort_order?: number
         }
         Update: {
+          archetype?: string | null
           category?: string
           created_at?: string
+          description?: string | null
           icon?: string | null
           id?: string
+          is_active?: boolean
           name?: string
+          sort_order?: number
         }
         Relationships: []
       }
