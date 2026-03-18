@@ -1,6 +1,3 @@
-// Local service types — the DB services table has: id, name, category, icon, created_at
-// We treat `category` as the archetype key.
-
 export type ServiceArchetype =
   | 'home_maintenance'
   | 'lifestyle_wellness'
@@ -22,7 +19,8 @@ export interface Service {
   category: string
   icon: string | null
   created_at: string
-  // Virtual fields used by UI — mapped from `category`
-  archetype?: string | null
-  description?: string | null
+  archetype: string | null
+  description: string | null
+  is_active: boolean
+  sort_order: number
 }
