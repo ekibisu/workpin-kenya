@@ -19,7 +19,6 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { generateSlug, isSlugAvailable } from "@/lib/slugify";
-import { cn } from "@/lib/utils";
 
 // ─── Step progress indicator ─────────────────────────────────────────────────
 
