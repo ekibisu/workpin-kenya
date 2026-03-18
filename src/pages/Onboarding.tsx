@@ -247,6 +247,9 @@ const ProviderForm = ({ userId, initialName }: { userId: string; initialName: st
   const [fullName, setFullName] = useState(initialName);
   const [businessName, setBusinessName] = useState("");
   const [bio, setBio] = useState("");
+  const [slug, setSlug] = useState("");
+  const [slugAvailable, setSlugAvailable] = useState<boolean | null>(null);
+  const [checkingSlug, setCheckingSlug] = useState(false);
 
   // Step 2
   const [services, setServices] = useState<Service[]>([]);
@@ -259,6 +262,31 @@ const ProviderForm = ({ userId, initialName }: { userId: string; initialName: st
   const [rateType, setRateType] = useState<"hourly" | "per_job">("hourly");
   const [mpesa, setMpesa] = useState("");
   const [saving, setSaving] = useState(false);
+
+  const checkSlugAvailability = useCallback(async (s: string) => {
+    if (!s) { setSlugAvailable(null); return; }
+    setCheckingSlug(true);
+    const available = await isSlugAvailable(s, userId);
+    setSlugAvailable(available);
+    setCheckingSlug(false);
+  }, [userId]);
+
+  const handleBusinessNameBlur = useCallback(() => {
+    if (!businessName.trim()) return;
+    const newSlug = generateSlug(businessName);
+    setSlug(newSlug);
+    checkSlugAvailability(newSlug);
+  }, [businessName, checkSlugAvailability]);
+
+  const handleSlugChange = useCallback((value: string) => {
+    const cleaned = value.toLowerCase().replace(/[^a-z0-9-]/g, "").replace(/-+/g, "-");
+    setSlug(cleaned);
+    setSlugAvailable(null);
+  }, []);
+
+  const handleSlugBlur = useCallback(() => {
+    checkSlugAvailability(slug);
+  }, [slug, checkSlugAvailability]);
 
   useEffect(() => {
     supabase
