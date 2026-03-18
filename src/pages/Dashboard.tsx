@@ -106,9 +106,13 @@ const Dashboard = () => {
   const [editBudgetMax, setEditBudgetMax] = useState("");
   const [savingEdit, setSavingEdit] = useState(false);
 
+  // Map job_request_id → work_thread_id for messaging & reviews
+  const [workThreadMap, setWorkThreadMap] = useState<Record<string, string>>({});
+
   const handleStartJob = async (jobRequestId: string, selectedQuoteId: string) => {
     setStartingJobId(jobRequestId);
     // Accept selected quote
+    const acceptedQuote = quotes.find(q => q.id === selectedQuoteId);
     const { error: acceptErr } = await supabase
       .from("quotes")
       .update({ status: "accepted" })
@@ -124,6 +128,27 @@ const Dashboard = () => {
       .map(q => q.id);
     if (otherQuoteIds.length > 0) {
       await supabase.from("quotes").update({ status: "declined" }).in("id", otherQuoteIds);
+    }
+    // Create work_thread linking client, provider, and job request
+    const { data: threadData, error: threadErr } = await supabase
+      .from("work_threads")
+      .insert({
+        client_id: user!.id,
+        provider_id: acceptedQuote!.provider_id,
+        job_request_id: jobRequestId,
+        status: "active",
+      })
+      .select("id")
+      .single();
+    if (threadErr) {
+      console.error("Failed to create work thread:", threadErr);
+      // Continue anyway — don't block the hire flow
+    }
+    const threadId = threadData?.id;
+    // Update accepted quote with work_thread_id
+    if (threadId) {
+      await supabase.from("quotes").update({ work_thread_id: threadId }).eq("id", selectedQuoteId);
+      setWorkThreadMap(prev => ({ ...prev, [jobRequestId]: threadId }));
     }
     // Update job request status
     const { error } = await supabase
@@ -244,9 +269,25 @@ const Dashboard = () => {
 
   const handleSubmitFeedback = async () => {
     if (!user || !feedbackRequestId || !feedbackProviderId) return;
+    // Look up the work_thread_id for this job request
+    let threadId = workThreadMap[feedbackRequestId];
+    if (!threadId) {
+      // Fetch from DB as fallback
+      const { data: wt } = await supabase
+        .from("work_threads")
+        .select("id")
+        .eq("job_request_id", feedbackRequestId)
+        .eq("client_id", user.id)
+        .maybeSingle();
+      threadId = wt?.id;
+    }
+    if (!threadId) {
+      toast({ title: "Error", description: "Could not find work thread for this job.", variant: "destructive" });
+      return;
+    }
     setSubmittingFeedback(true);
     const { error } = await supabase.from("reviews").insert({
-      work_thread_id: feedbackRequestId,
+      work_thread_id: threadId,
       client_id: user.id,
       provider_id: feedbackProviderId,
       rating: feedbackRating,
@@ -422,9 +463,20 @@ const Dashboard = () => {
                                   variant="ghost"
                                   size="sm"
                                   className="h-6 px-2 text-xs"
-                                  onClick={() => {
-                                    // Use work_thread_id from the quote if available; fall back to job_request_id
-                                    setChatWorkThreadId(req.id);
+                                  onClick={async () => {
+                                    // Use cached work_thread_id or fetch from DB
+                                    let threadId = workThreadMap[req.id];
+                                    if (!threadId) {
+                                      const { data: wt } = await supabase
+                                        .from("work_threads")
+                                        .select("id")
+                                        .eq("job_request_id", req.id)
+                                        .eq("client_id", user!.id)
+                                        .maybeSingle();
+                                      threadId = wt?.id || req.id;
+                                      if (wt?.id) setWorkThreadMap(prev => ({ ...prev, [req.id]: wt.id }));
+                                    }
+                                    setChatWorkThreadId(threadId);
                                     setChatRecipientName(acceptedQuote.profiles?.full_name || "Provider");
                                   }}
                                 >

@@ -73,22 +73,51 @@ const ProviderDashboard = () => {
 
   useEffect(() => {
     if (!user) return;
-    Promise.all([
-      supabase
+
+    const fetchData = async () => {
+      // 1. Fetch provider's categories to filter open requests
+      const { data: providerProfile } = await supabase
+        .from("provider_profiles")
+        .select("categories")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      const providerCategories: string[] = providerProfile?.categories || [];
+
+      // 2. Fetch matching service IDs for the provider's categories
+      let matchingServiceIds: string[] = [];
+      if (providerCategories.length > 0) {
+        const { data: matchingServices } = await supabase
+          .from("services")
+          .select("id")
+          .in("category", providerCategories);
+        matchingServiceIds = (matchingServices || []).map((s) => s.id);
+      }
+
+      // 3. Fetch open requests filtered by matching services, pending jobs, and provider's quotes
+      const openReqQuery = supabase
         .from("job_requests")
         .select("id, description, budget_min_kes, location_name, status, created_at, image_urls, services(name)")
         .eq("status", "open")
-        .order("created_at", { ascending: false }),
-      supabase
-        .from("job_requests")
-        .select("id, description, budget_min_kes, location_name, status, created_at, image_urls, client_id, services(name)")
-        .in("status", ["pending", "completion_pending"])
-        .order("created_at", { ascending: false }),
-      supabase
-        .from("quotes")
-        .select("request_id, status")
-        .eq("provider_id", user.id),
-    ]).then(([reqRes, pendingRes, quoteRes]) => {
+        .order("created_at", { ascending: false });
+      // Only filter by service if provider has categories set
+      if (matchingServiceIds.length > 0) {
+        openReqQuery.in("service_id", matchingServiceIds);
+      }
+
+      const [reqRes, pendingRes, quoteRes] = await Promise.all([
+        openReqQuery,
+        supabase
+          .from("job_requests")
+          .select("id, description, budget_min_kes, location_name, status, created_at, image_urls, client_id, services(name)")
+          .in("status", ["pending", "completion_pending"])
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("quotes")
+          .select("request_id, status")
+          .eq("provider_id", user.id),
+      ]);
+
       setRequests((reqRes.data as unknown as OpenRequest[]) || []);
       const pending = (pendingRes.data as unknown as OpenRequest[]) || [];
       setPendingRequests(pending);
@@ -114,7 +143,9 @@ const ProviderDashboard = () => {
             setCustomerNames(names);
           });
       }
-    });
+    };
+
+    fetchData();
   }, [user]);
 
   const handleSubmitQuote = async () => {
@@ -418,9 +449,16 @@ const ProviderDashboard = () => {
                             variant="ghost"
                             size="sm"
                             className="flex-1 text-xs"
-                            onClick={() => {
+                            onClick={async () => {
                               const clientId = (req as any).client_id;
-                              setChatWorkThreadId(req.id);
+                              // Look up the work_thread for this job
+                              const { data: wt } = await supabase
+                                .from("work_threads")
+                                .select("id")
+                                .eq("job_request_id", req.id)
+                                .eq("provider_id", user!.id)
+                                .maybeSingle();
+                              setChatWorkThreadId(wt?.id || req.id);
                               setChatRecipientName(customerNames?.[clientId] || "Client");
                             }}
                           >
