@@ -330,6 +330,22 @@ const ProviderForm = ({ userId, initialName }: { userId: string; initialName: st
 
     setSaving(true);
     try {
+      // Ensure slug is unique before saving
+      let finalSlug = slug || generateSlug(businessName);
+      if (finalSlug) {
+        const available = await isSlugAvailable(finalSlug, userId);
+        if (!available) {
+          // Append suffix
+          for (let i = 2; i <= 20; i++) {
+            const candidate = `${finalSlug}-${i}`;
+            if (await isSlugAvailable(candidate, userId)) {
+              finalSlug = candidate;
+              break;
+            }
+          }
+        }
+      }
+
       const { error: ppErr } = await supabase
         .from("provider_profiles")
         .upsert(
@@ -342,6 +358,7 @@ const ProviderForm = ({ userId, initialName }: { userId: string; initialName: st
             rate_kes: rateNum,
             rate_type: rateType,
             mpesa_phone: digits,
+            username: finalSlug || null,
           },
           { onConflict: "user_id" }
         );
