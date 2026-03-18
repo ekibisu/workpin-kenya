@@ -35,7 +35,6 @@ interface ProfileData {
   full_name: string;
   phone: string;
   email: string;
-  location_name: string;
   provider_profiles: ProviderProfile;
 }
 
