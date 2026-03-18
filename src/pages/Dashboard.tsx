@@ -106,9 +106,13 @@ const Dashboard = () => {
   const [editBudgetMax, setEditBudgetMax] = useState("");
   const [savingEdit, setSavingEdit] = useState(false);
 
+  // Map job_request_id → work_thread_id for messaging & reviews
+  const [workThreadMap, setWorkThreadMap] = useState<Record<string, string>>({});
+
   const handleStartJob = async (jobRequestId: string, selectedQuoteId: string) => {
     setStartingJobId(jobRequestId);
     // Accept selected quote
+    const acceptedQuote = quotes.find(q => q.id === selectedQuoteId);
     const { error: acceptErr } = await supabase
       .from("quotes")
       .update({ status: "accepted" })
@@ -124,6 +128,27 @@ const Dashboard = () => {
       .map(q => q.id);
     if (otherQuoteIds.length > 0) {
       await supabase.from("quotes").update({ status: "declined" }).in("id", otherQuoteIds);
+    }
+    // Create work_thread linking client, provider, and job request
+    const { data: threadData, error: threadErr } = await supabase
+      .from("work_threads")
+      .insert({
+        client_id: user!.id,
+        provider_id: acceptedQuote!.provider_id,
+        job_request_id: jobRequestId,
+        status: "active",
+      })
+      .select("id")
+      .single();
+    if (threadErr) {
+      console.error("Failed to create work thread:", threadErr);
+      // Continue anyway — don't block the hire flow
+    }
+    const threadId = threadData?.id;
+    // Update accepted quote with work_thread_id
+    if (threadId) {
+      await supabase.from("quotes").update({ work_thread_id: threadId }).eq("id", selectedQuoteId);
+      setWorkThreadMap(prev => ({ ...prev, [jobRequestId]: threadId }));
     }
     // Update job request status
     const { error } = await supabase
