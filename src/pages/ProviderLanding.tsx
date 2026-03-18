@@ -68,12 +68,12 @@ const ProviderLanding = () => {
           user_id, business_name, bio, categories, avg_rating, total_reviews,
           is_verified, portfolio_photos, location_name, rate_kes, rate_type,
           response_time_minutes, top_skills, username,
-          profiles!provider_profiles_user_id_fkey ( full_name, avatar_url )
+          profiles:profiles!providers_user_id_fkey ( full_name, avatar_url )
         `)
         .eq("username", slug)
         .maybeSingle();
 
-      let { data } = await query;
+      let { data } = await query as { data: ProviderData | null };
 
       // Fallback: try as UUID
       if (!data && /^[0-9a-f-]{36}$/i.test(slug)) {
