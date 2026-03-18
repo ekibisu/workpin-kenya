@@ -101,7 +101,7 @@ const ProviderLanding = () => {
       // Fetch reviews
       const { data: reviewData } = await supabase
         .from("reviews")
-        .select("id, rating, body, created_at, profiles:client_id ( full_name )")
+        .select("id, rating, body, created_at, profiles:profiles!reviews_customer_id_fkey ( full_name )")
         .eq("provider_id", data.user_id)
         .order("created_at", { ascending: false })
         .limit(10);

@@ -44,11 +44,11 @@ const Providers = () => {
       .select(`
         user_id, business_name, bio, avg_rating, total_reviews,
         is_verified, categories, location_name, rate_kes, rate_type, username,
-        profiles!provider_profiles_user_id_fkey ( full_name, avatar_url )
+        profiles:profiles!providers_user_id_fkey ( full_name, avatar_url )
       `)
       .order("avg_rating", { ascending: false })
       .then(({ data }) => {
-        setProviders((data as Provider[]) ?? []);
+        setProviders((data as unknown as Provider[]) ?? []);
         setLoading(false);
       });
   }, []);
