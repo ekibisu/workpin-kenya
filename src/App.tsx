@@ -9,6 +9,7 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Services from "./pages/Services";
 import Providers from "./pages/Providers";
+import ProviderLanding from "./pages/ProviderLanding";
 import HowItWorks from "./pages/HowItWorks";
 import RequestService from "./pages/RequestService";
 import Dashboard from "./pages/Dashboard";
