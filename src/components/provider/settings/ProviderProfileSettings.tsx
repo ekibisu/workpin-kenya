@@ -115,23 +115,24 @@ const ProviderAccountSettings = ({ userId }: ProviderProfileCardProps) => {
         .from("profiles")
         .select(
           `
-          full_name, phone, email, location_name,
+          full_name, phone, email,
           provider_profiles (
             business_name, bio, avg_rating, total_reviews,
             is_verified, categories, availability_json,
-            portfolio_photos, response_time_minutes
+            portfolio_photos, response_time_minutes, location_name
           )
         `,
         )
         .eq("id", userId)
         .maybeSingle();
       if (profileData) {
-        setData(profileData as ProfileData);
-        setBusinessName(profileData.provider_profiles?.business_name || "");
-        setBio(profileData.provider_profiles?.bio || "");
-        setLocation(profileData.location_name || "");
+        const typedData = profileData as unknown as ProfileData;
+        setData(typedData);
+        setBusinessName(typedData.provider_profiles?.business_name || "");
+        setBio(typedData.provider_profiles?.bio || "");
+        setLocation(typedData.provider_profiles?.location_name || "");
         // Fix: Only set hours if availability_json is a record of string:string
-        const avail = profileData.provider_profiles?.availability_json;
+        const avail = typedData.provider_profiles?.availability_json;
         if (
           avail &&
           typeof avail === "object" &&
