@@ -52,8 +52,7 @@ export const useServicesByArchetype = () =>
       const { data, error } = await supabase
         .from('services')
         .select('*')
-        .eq('is_active', true)
-        .order('sort_order', { ascending: true })
+        .order('name', { ascending: true })
 
       if (error) throw error
 
