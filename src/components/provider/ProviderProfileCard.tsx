@@ -80,11 +80,11 @@ const ProviderProfileCard = ({ userId }: ProviderProfileCardProps) => {
     const { data: profileData } = await supabase
       .from("profiles")
       .select(`
-        full_name, phone, email, location_name,
+        full_name, phone, email,
         provider_profiles (
           business_name, bio, avg_rating, total_reviews,
           is_verified, categories, availability_json,
-          portfolio_photos, response_time_minutes
+          portfolio_photos, response_time_minutes, location_name
         )
       `)
       .eq("id", userId)
