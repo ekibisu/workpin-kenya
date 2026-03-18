@@ -1,7 +1,11 @@
+import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { motion } from "framer-motion";
 import {
   Search,
@@ -9,103 +13,67 @@ import {
   MapPin,
   BadgeCheck,
   MessageCircle,
-  SlidersHorizontal,
   X,
 } from "lucide-react";
-import { useMemo, useState } from "react";
 
-const mockProviders = [
-  {
-    id: 1,
-    name: "James Mwangi",
-    business: "Mwangi Plumbing",
-    rating: 4.8,
-    reviews: 47,
-    location: "Westlands, Nairobi",
-    verified: true,
-    services: ["Plumbing", "Pipe Repair"],
-    avatar: "JM",
-  },
-  {
-    id: 2,
-    name: "Grace Wanjiku",
-    business: "Grace Events",
-    rating: 4.9,
-    reviews: 112,
-    location: "Karen, Nairobi",
-    verified: true,
-    services: ["Event Planning", "Catering"],
-    avatar: "GW",
-  },
-  {
-    id: 3,
-    name: "Peter Otieno",
-    business: "Spark Electric",
-    rating: 4.6,
-    reviews: 34,
-    location: "Kilimani, Nairobi",
-    verified: false,
-    services: ["Electrical Repair", "Wiring"],
-    avatar: "PO",
-  },
-  {
-    id: 4,
-    name: "Faith Njeri",
-    business: "Clean Spaces",
-    rating: 4.7,
-    reviews: 89,
-    location: "Lavington, Nairobi",
-    verified: true,
-    services: ["House Cleaning"],
-    avatar: "FN",
-  },
-  {
-    id: 5,
-    name: "David Kipchoge",
-    business: "DK Photography",
-    rating: 5.0,
-    reviews: 63,
-    location: "CBD, Nairobi",
-    verified: true,
-    services: ["Photography", "Videography"],
-    avatar: "DK",
-  },
-  {
-    id: 6,
-    name: "Amina Hassan",
-    business: "TechAmina",
-    rating: 4.5,
-    reviews: 21,
-    location: "Mombasa Road",
-    verified: false,
-    services: ["Web Development", "Graphic Design"],
-    avatar: "AH",
-  },
-];
+interface Provider {
+  user_id: string;
+  business_name: string;
+  bio: string | null;
+  avg_rating: number | null;
+  total_reviews: number | null;
+  is_verified: boolean | null;
+  categories: string[] | null;
+  location_name: string | null;
+  rate_kes: number | null;
+  rate_type: string | null;
+  username: string | null;
+  profiles: { full_name: string | null; avatar_url: string | null } | null;
+}
 
 const Providers = () => {
+  const [providers, setProviders] = useState<Provider[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [locationFilter, setLocationFilter] = useState("All");
   const [minRating, setMinRating] = useState(0);
 
-  // Derived unique locations for the dropdown
-  const locations = [
-    "All",
-    ...new Set(mockProviders.map((p) => p.location.split(",")[0])),
-  ];
+  useEffect(() => {
+    supabase
+      .from("provider_profiles")
+      .select(`
+        user_id, business_name, bio, avg_rating, total_reviews,
+        is_verified, categories, location_name, rate_kes, rate_type, username,
+        profiles!provider_profiles_user_id_fkey ( full_name, avatar_url )
+      `)
+      .order("avg_rating", { ascending: false })
+      .then(({ data }) => {
+        setProviders((data as Provider[]) ?? []);
+        setLoading(false);
+      });
+  }, []);
+
+  const locations = useMemo(() => {
+    const areas = providers
+      .map((p) => p.location_name?.split(",")[0]?.trim())
+      .filter(Boolean) as string[];
+    return ["All", ...new Set(areas)];
+  }, [providers]);
+
   const filtered = useMemo(() => {
-    return mockProviders.filter((p) => {
+    return providers.filter((p) => {
+      const q = search.toLowerCase();
       const matchesSearch =
-        p.business.toLowerCase().includes(search.toLowerCase()) ||
-        p.services.some((s) => s.toLowerCase().includes(search.toLowerCase()));
-
+        !q ||
+        p.business_name.toLowerCase().includes(q) ||
+        (p.categories ?? []).some((c) => c.toLowerCase().includes(q));
       const matchesLocation =
-        locationFilter === "All" || p.location.includes(locationFilter);
-      const matchesRating = p.rating >= minRating;
-
+        locationFilter === "All" ||
+        (p.location_name ?? "").includes(locationFilter);
+      const matchesRating = (p.avg_rating ?? 0) >= minRating;
       return matchesSearch && matchesLocation && matchesRating;
     });
-  }, [search, locationFilter, minRating]);
+  }, [providers, search, locationFilter, minRating]);
 
   const clearFilters = () => {
     setSearch("");
@@ -141,7 +109,6 @@ const Providers = () => {
           {/* Filter Bar */}
           <div className="mb-10 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between bg-card p-4 rounded-2xl border border-border shadow-sm">
             <div className="flex flex-1 flex-wrap items-center gap-3">
-              {/* Location Dropdown */}
               <div className="flex items-center gap-2 px-3 py-2 border rounded-md bg-background text-sm">
                 <MapPin className="h-4 w-4 text-muted-foreground" />
                 <select
@@ -157,7 +124,6 @@ const Providers = () => {
                 </select>
               </div>
 
-              {/* Rating Dropdown */}
               <div className="flex items-center gap-2 px-3 py-2 border rounded-md bg-background text-sm">
                 <Star className="h-4 w-4 text-warning" />
                 <select
@@ -189,69 +155,110 @@ const Providers = () => {
             </div>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {filtered.map((provider, i) => (
-              <motion.div
-                key={provider.id}
-                initial={{ opacity: 0, y: 15 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.05 }}
-                className="group rounded-2xl border border-border bg-card p-5 transition-all hover:border-primary/30 hover:shadow-brand"
-              >
-                <div className="mb-4 flex items-start gap-3">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary-light font-heading text-sm font-bold text-primary-dark">
-                    {provider.avatar}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <h3 className="truncate font-heading text-base font-bold text-foreground">
-                        {provider.business}
-                      </h3>
-                      {provider.verified && (
-                        <BadgeCheck className="h-4 w-4 shrink-0 text-primary" />
+          {loading ? (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <Skeleton key={i} className="h-56 rounded-2xl" />
+              ))}
+            </div>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {filtered.map((provider, i) => {
+                const profileData = Array.isArray(provider.profiles)
+                  ? provider.profiles[0]
+                  : provider.profiles;
+                const initials = provider.business_name
+                  .split(" ")
+                  .map((w) => w[0])
+                  .join("")
+                  .toUpperCase()
+                  .slice(0, 2);
+                const slug =
+                  provider.username || provider.user_id;
+
+                return (
+                  <motion.div
+                    key={provider.user_id}
+                    initial={{ opacity: 0, y: 15 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.05 }}
+                    className="group rounded-2xl border border-border bg-card p-5 transition-all hover:border-primary/30 hover:shadow-lg"
+                  >
+                    <Link to={`/pro/${slug}`} className="block">
+                      <div className="mb-4 flex items-start gap-3">
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 font-heading text-sm font-bold text-primary">
+                          {profileData?.avatar_url ? (
+                            <img
+                              src={profileData.avatar_url}
+                              alt={provider.business_name}
+                              className="h-full w-full rounded-xl object-cover"
+                            />
+                          ) : (
+                            initials
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <h3 className="truncate font-heading text-base font-bold text-foreground">
+                              {provider.business_name}
+                            </h3>
+                            {provider.is_verified && (
+                              <BadgeCheck className="h-4 w-4 shrink-0 text-primary" />
+                            )}
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            {profileData?.full_name}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="mb-3 flex items-center gap-3 text-sm">
+                        <span className="flex items-center gap-1 text-warning">
+                          <Star className="h-3.5 w-3.5 fill-current" />
+                          {(provider.avg_rating ?? 0).toFixed(1)}
+                        </span>
+                        <span className="text-muted-foreground">
+                          ({provider.total_reviews ?? 0} reviews)
+                        </span>
+                      </div>
+
+                      {provider.location_name && (
+                        <div className="mb-3 flex items-center gap-1.5 text-sm text-muted-foreground">
+                          <MapPin className="h-3.5 w-3.5" />
+                          {provider.location_name}
+                        </div>
                       )}
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      {provider.name}
-                    </p>
-                  </div>
-                </div>
 
-                <div className="mb-3 flex items-center gap-3 text-sm">
-                  <span className="flex items-center gap-1 text-warning">
-                    <Star className="h-3.5 w-3.5 fill-current" />
-                    {provider.rating}
-                  </span>
-                  <span className="text-muted-foreground">
-                    ({provider.reviews} reviews)
-                  </span>
-                </div>
+                      <div className="mb-4 flex flex-wrap gap-1.5">
+                        {(provider.categories ?? []).slice(0, 3).map((s) => (
+                          <span
+                            key={s}
+                            className="rounded-full bg-accent px-2.5 py-0.5 text-xs font-medium text-accent-foreground"
+                          >
+                            {s}
+                          </span>
+                        ))}
+                        {(provider.categories ?? []).length > 3 && (
+                          <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs text-muted-foreground">
+                            +{(provider.categories ?? []).length - 3}
+                          </span>
+                        )}
+                      </div>
+                    </Link>
 
-                <div className="mb-3 flex items-center gap-1.5 text-sm text-muted-foreground">
-                  <MapPin className="h-3.5 w-3.5" />
-                  {provider.location}
-                </div>
+                    <Button variant="outline" size="sm" className="w-full" asChild>
+                      <Link to={`/pro/${slug}`}>
+                        <MessageCircle className="h-4 w-4 mr-1" />
+                        View Profile
+                      </Link>
+                    </Button>
+                  </motion.div>
+                );
+              })}
+            </div>
+          )}
 
-                <div className="mb-4 flex flex-wrap gap-1.5">
-                  {provider.services.map((s) => (
-                    <span
-                      key={s}
-                      className="rounded-full bg-accent px-2.5 py-0.5 text-xs font-medium text-accent-foreground"
-                    >
-                      {s}
-                    </span>
-                  ))}
-                </div>
-
-                <Button variant="outline" size="sm" className="w-full">
-                  <MessageCircle className="h-4 w-4" />
-                  Request Quote
-                </Button>
-              </motion.div>
-            ))}
-          </div>
-
-          {filtered.length === 0 && (
+          {!loading && filtered.length === 0 && (
             <div className="py-20 text-center">
               <p className="text-lg font-medium text-muted-foreground">
                 No professionals found
