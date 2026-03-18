@@ -29,7 +29,7 @@ import {
   ARCHETYPE_LABELS,
   type Service,
   type ServiceArchetype,
-} from '@/integrations/supabase/types'
+} from '@/types/services'
 
 // ── Archetype section icons ───────────────────────────────────────────────────
 

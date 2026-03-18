@@ -57,7 +57,7 @@ export const useServicesByArchetype = () =>
       if (error) throw error
 
       const grouped = (data as Service[]).reduce((acc, service) => {
-        const key = normaliseArchetype(service.archetype, service.name)
+        const key = normaliseArchetype(service.category, service.name)
         if (!acc[key]) acc[key] = []
         acc[key].push(service)
         return acc
