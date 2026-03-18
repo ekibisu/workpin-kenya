@@ -1,82 +1,163 @@
 
 
-# SEO-Friendly Provider Slugs
+# Enable RLS on Flagged Tables
 
-## Approach
+## Overview
+Add Row Level Security and ownership-based policies to the 6 flagged tables. Each table gets policies that match existing patterns in the codebase.
 
-Use the existing `username` column on `provider_profiles` to store an auto-generated, URL-friendly slug derived from the business name (e.g. `mwangi-plumbing-nairobi`). The public route becomes `/pro/mwangi-plumbing-nairobi` instead of `/pro/:id`.
+## Policy Design
 
-## Database Changes
+### 1. bookings
+- No direct user_id column; linked via `work_thread_id` to `work_threads` (which has `client_id` and `provider_id`)
+- **SELECT**: Thread participants (client or provider) can view bookings
+- **INSERT**: Thread participants can create bookings
+- **UPDATE**: Thread participants can update bookings
 
-### 1. Add unique index on `username`
+### 2. disputes
+- Has `filed_by_id` and `work_thread_id`
+- **SELECT**: The filer and thread participants can view disputes
+- **INSERT**: Thread participants can file disputes (`filed_by_id = auth.uid()`)
+- **UPDATE**: Admins only (dispute resolution)
+
+### 3. fixed_price_services
+- Has `provider_id` which equals `auth.uid()` directly
+- **SELECT**: Anyone authenticated can view active services (public listing)
+- **INSERT/UPDATE/DELETE**: Only the owning provider (`provider_id = auth.uid()`)
+
+### 4. provider_templates
+- Has `provider_id` which equals `auth.uid()`
+- **ALL**: Only the owning provider (`provider_id = auth.uid()`)
+
+### 5. provider_wallets
+- Has `provider_id` which equals `auth.uid()`
+- **SELECT**: Only the owning provider
+- **INSERT/UPDATE**: Only the owning provider (or system via service role)
+
+### 6. wallet_transactions
+- Has `provider_id` which equals `auth.uid()`
+- **SELECT**: Only the owning provider
+- **INSERT**: Only the owning provider (or system via service role)
+
+## Technical Details
+
+A single database migration will:
+
+1. Enable RLS on all 6 tables
+2. Create policies using patterns consistent with existing codebase (e.g., subqueries against `work_threads` for participant checks, direct `provider_id = auth.uid()` for provider-owned tables)
 
 ```sql
-CREATE UNIQUE INDEX IF NOT EXISTS provider_profiles_username_unique
-  ON public.provider_profiles (username)
-  WHERE username IS NOT NULL;
+-- Enable RLS
+ALTER TABLE public.bookings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.disputes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.fixed_price_services ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.provider_templates ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.provider_wallets ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.wallet_transactions ENABLE ROW LEVEL SECURITY;
+
+-- bookings: thread participants can manage
+CREATE POLICY "Thread participants can view bookings"
+ON public.bookings FOR SELECT TO authenticated
+USING (
+  EXISTS (
+    SELECT 1 FROM work_threads wt
+    WHERE wt.id = bookings.work_thread_id
+    AND (wt.client_id = auth.uid() OR wt.provider_id = auth.uid())
+  )
+);
+
+CREATE POLICY "Thread participants can create bookings"
+ON public.bookings FOR INSERT TO authenticated
+WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM work_threads wt
+    WHERE wt.id = bookings.work_thread_id
+    AND (wt.client_id = auth.uid() OR wt.provider_id = auth.uid())
+  )
+);
+
+CREATE POLICY "Thread participants can update bookings"
+ON public.bookings FOR UPDATE TO authenticated
+USING (
+  EXISTS (
+    SELECT 1 FROM work_threads wt
+    WHERE wt.id = bookings.work_thread_id
+    AND (wt.client_id = auth.uid() OR wt.provider_id = auth.uid())
+  )
+);
+
+-- disputes: participants can view/file, admins can update
+CREATE POLICY "Participants can view disputes"
+ON public.disputes FOR SELECT TO authenticated
+USING (
+  filed_by_id = auth.uid()
+  OR EXISTS (
+    SELECT 1 FROM work_threads wt
+    WHERE wt.id = disputes.work_thread_id
+    AND (wt.client_id = auth.uid() OR wt.provider_id = auth.uid())
+  )
+  OR has_role(auth.uid(), 'admin')
+);
+
+CREATE POLICY "Participants can file disputes"
+ON public.disputes FOR INSERT TO authenticated
+WITH CHECK (
+  filed_by_id = auth.uid()
+  AND EXISTS (
+    SELECT 1 FROM work_threads wt
+    WHERE wt.id = disputes.work_thread_id
+    AND (wt.client_id = auth.uid() OR wt.provider_id = auth.uid())
+  )
+);
+
+CREATE POLICY "Admins can update disputes"
+ON public.disputes FOR UPDATE TO authenticated
+USING (has_role(auth.uid(), 'admin'));
+
+-- fixed_price_services: public read, provider write
+CREATE POLICY "Anyone can view active services"
+ON public.fixed_price_services FOR SELECT TO authenticated
+USING (true);
+
+CREATE POLICY "Providers manage own services"
+ON public.fixed_price_services FOR INSERT TO authenticated
+WITH CHECK (provider_id = auth.uid());
+
+CREATE POLICY "Providers update own services"
+ON public.fixed_price_services FOR UPDATE TO authenticated
+USING (provider_id = auth.uid());
+
+CREATE POLICY "Providers delete own services"
+ON public.fixed_price_services FOR DELETE TO authenticated
+USING (provider_id = auth.uid());
+
+-- provider_templates: provider-only
+CREATE POLICY "Providers manage own templates"
+ON public.provider_templates FOR ALL TO authenticated
+USING (provider_id = auth.uid())
+WITH CHECK (provider_id = auth.uid());
+
+-- provider_wallets: provider-only read/write
+CREATE POLICY "Providers view own wallet"
+ON public.provider_wallets FOR SELECT TO authenticated
+USING (provider_id = auth.uid());
+
+CREATE POLICY "Providers manage own wallet"
+ON public.provider_wallets FOR INSERT TO authenticated
+WITH CHECK (provider_id = auth.uid());
+
+CREATE POLICY "Providers update own wallet"
+ON public.provider_wallets FOR UPDATE TO authenticated
+USING (provider_id = auth.uid());
+
+-- wallet_transactions: provider-only
+CREATE POLICY "Providers view own transactions"
+ON public.wallet_transactions FOR SELECT TO authenticated
+USING (provider_id = auth.uid());
+
+CREATE POLICY "Providers create own transactions"
+ON public.wallet_transactions FOR INSERT TO authenticated
+WITH CHECK (provider_id = auth.uid());
 ```
 
-### 2. Add public RLS policy for `provider_profiles` and `profiles`
-
-Anonymous users need to browse providers and view landing pages:
-
-```sql
--- Provider profiles: public read
-CREATE POLICY "Anyone can view provider profiles"
-  ON public.provider_profiles FOR SELECT
-  TO anon, authenticated USING (true);
-
-DROP POLICY IF EXISTS "Anyone authenticated can view providers" ON public.provider_profiles;
-
--- Profiles: public read for name/avatar (needed for provider cards)
-CREATE POLICY "Anyone can view basic profiles"
-  ON public.profiles FOR SELECT
-  TO anon, authenticated USING (true);
-
-DROP POLICY IF EXISTS "Authenticated can view all profiles" ON public.profiles;
-```
-
-## Frontend Changes
-
-### 1. Slug utility (`src/lib/slugify.ts`)
-
-A function that converts business name + location into a URL slug:
-- `"Mwangi Plumbing"` + `"Westlands, Nairobi"` → `mwangi-plumbing-westlands`
-- Strips special characters, lowercases, dedupes hyphens
-- On collision (checked via DB query), appends `-2`, `-3`, etc.
-
-### 2. Onboarding (`src/pages/Onboarding.tsx`)
-
-- Auto-generate slug from `businessName` on blur
-- Show a preview: "Your public URL: workpin.app/pro/mwangi-plumbing-westlands"
-- Allow manual editing with real-time uniqueness check
-- Save slug to `provider_profiles.username` during `handleSave`
-
-### 3. Provider directory (`src/pages/Providers.tsx`)
-
-- Replace `mockProviders` with a Supabase query joining `provider_profiles` + `profiles`
-- Each card links to `/pro/:slug` using the `username` field
-- Keep existing filter UI (search, location, rating) operating on real data
-
-### 4. Provider landing page (`src/pages/ProviderLanding.tsx` — new)
-
-- Route: `/pro/:slug` (public, no auth required)
-- Fetch provider by `username` column
-- Sections: hero with cover photo, bio, services (categories as badges), portfolio gallery, business hours, reviews from `reviews` table, and CTAs ("Request a Quote" → `/request?provider=userId`, "Book Now")
-- SEO: Set `document.title` and meta description dynamically
-
-### 5. Routing (`src/App.tsx`)
-
-- Add public route: `<Route path="/pro/:slug" element={<ProviderLanding />} />`
-
-## Files Changed
-
-| File | Change |
-|---|---|
-| New migration | Unique index on `username`, public RLS on `provider_profiles` + `profiles` |
-| `src/lib/slugify.ts` (new) | Slug generation + uniqueness check utility |
-| `src/pages/Onboarding.tsx` | Auto-generate slug, preview URL, save to `username` |
-| `src/pages/Providers.tsx` | Replace mock data with DB query, link cards to `/pro/:slug` |
-| `src/pages/ProviderLanding.tsx` (new) | Public landing page fetched by slug |
-| `src/App.tsx` | Add `/pro/:slug` route |
+No code changes are needed -- the application already queries these tables through the existing hooks which filter by the authenticated user's ID.
 

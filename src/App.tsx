@@ -9,6 +9,7 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Services from "./pages/Services";
 import Providers from "./pages/Providers";
+import ProviderLanding from "./pages/ProviderLanding";
 import HowItWorks from "./pages/HowItWorks";
 import RequestService from "./pages/RequestService";
 import Dashboard from "./pages/Dashboard";
@@ -35,6 +36,7 @@ const App = () => (
             <Route path="/register" element={<Register />} />
             <Route path="/services" element={<Services />} />
             <Route path="/providers" element={<Providers />} />
+            <Route path="/pro/:slug" element={<ProviderLanding />} />
             <Route path="/how-it-works" element={<HowItWorks />} />
             <Route path="/request" element={<RequestService />} />
             <Route

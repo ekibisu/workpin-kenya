@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,11 +13,12 @@ import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { MapPin, Briefcase, Loader2, ChevronRight, ChevronLeft, Check } from "lucide-react";
+import { MapPin, Briefcase, Loader2, ChevronRight, ChevronLeft, Check, Globe } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { generateSlug, isSlugAvailable } from "@/lib/slugify";
 
 // ─── Step progress indicator ─────────────────────────────────────────────────
 
@@ -245,6 +246,9 @@ const ProviderForm = ({ userId, initialName }: { userId: string; initialName: st
   const [fullName, setFullName] = useState(initialName);
   const [businessName, setBusinessName] = useState("");
   const [bio, setBio] = useState("");
+  const [slug, setSlug] = useState("");
+  const [slugAvailable, setSlugAvailable] = useState<boolean | null>(null);
+  const [checkingSlug, setCheckingSlug] = useState(false);
 
   // Step 2
   const [services, setServices] = useState<Service[]>([]);
@@ -257,6 +261,31 @@ const ProviderForm = ({ userId, initialName }: { userId: string; initialName: st
   const [rateType, setRateType] = useState<"hourly" | "per_job">("hourly");
   const [mpesa, setMpesa] = useState("");
   const [saving, setSaving] = useState(false);
+
+  const checkSlugAvailability = useCallback(async (s: string) => {
+    if (!s) { setSlugAvailable(null); return; }
+    setCheckingSlug(true);
+    const available = await isSlugAvailable(s, userId);
+    setSlugAvailable(available);
+    setCheckingSlug(false);
+  }, [userId]);
+
+  const handleBusinessNameBlur = useCallback(() => {
+    if (!businessName.trim()) return;
+    const newSlug = generateSlug(businessName);
+    setSlug(newSlug);
+    checkSlugAvailability(newSlug);
+  }, [businessName, checkSlugAvailability]);
+
+  const handleSlugChange = useCallback((value: string) => {
+    const cleaned = value.toLowerCase().replace(/[^a-z0-9-]/g, "").replace(/-+/g, "-");
+    setSlug(cleaned);
+    setSlugAvailable(null);
+  }, []);
+
+  const handleSlugBlur = useCallback(() => {
+    checkSlugAvailability(slug);
+  }, [slug, checkSlugAvailability]);
 
   useEffect(() => {
     supabase
@@ -300,6 +329,22 @@ const ProviderForm = ({ userId, initialName }: { userId: string; initialName: st
 
     setSaving(true);
     try {
+      // Ensure slug is unique before saving
+      let finalSlug = slug || generateSlug(businessName);
+      if (finalSlug) {
+        const available = await isSlugAvailable(finalSlug, userId);
+        if (!available) {
+          // Append suffix
+          for (let i = 2; i <= 20; i++) {
+            const candidate = `${finalSlug}-${i}`;
+            if (await isSlugAvailable(candidate, userId)) {
+              finalSlug = candidate;
+              break;
+            }
+          }
+        }
+      }
+
       const { error: ppErr } = await supabase
         .from("provider_profiles")
         .upsert(
@@ -312,6 +357,7 @@ const ProviderForm = ({ userId, initialName }: { userId: string; initialName: st
             rate_kes: rateNum,
             rate_type: rateType,
             mpesa_phone: digits,
+            username: finalSlug || null,
           },
           { onConflict: "user_id" }
         );
@@ -370,7 +416,32 @@ const ProviderForm = ({ userId, initialName }: { userId: string; initialName: st
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="businessName">Business name</Label>
-                  <Input id="businessName" value={businessName} onChange={(e) => setBusinessName(e.target.value)} placeholder="e.g. Juma Electricals" required />
+                  <Input id="businessName" value={businessName} onChange={(e) => setBusinessName(e.target.value)} onBlur={handleBusinessNameBlur} placeholder="e.g. Juma Electricals" required />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="slug" className="flex items-center gap-1.5">
+                    <Globe className="h-3.5 w-3.5" /> Public URL
+                  </Label>
+                  <div className="flex items-center gap-0 rounded-md border border-input bg-muted overflow-hidden">
+                    <span className="px-3 text-xs text-muted-foreground select-none whitespace-nowrap bg-muted border-r border-input">
+                      workpin.app/pro/
+                    </span>
+                    <Input
+                      id="slug"
+                      value={slug}
+                      onChange={(e) => handleSlugChange(e.target.value)}
+                      onBlur={handleSlugBlur}
+                      placeholder="your-business-name"
+                      className="border-0 rounded-none focus-visible:ring-0"
+                    />
+                  </div>
+                  {checkingSlug && <p className="text-xs text-muted-foreground">Checking availability…</p>}
+                  {!checkingSlug && slugAvailable === true && slug && (
+                    <p className="text-xs text-primary font-medium">✓ workpin.app/pro/{slug} is available</p>
+                  )}
+                  {!checkingSlug && slugAvailable === false && slug && (
+                    <p className="text-xs text-destructive font-medium">✗ That URL is taken — try another</p>
+                  )}
                 </div>
                 <div className="space-y-1.5">
                   <div className="flex justify-between items-baseline">
