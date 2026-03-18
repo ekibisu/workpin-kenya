@@ -14,35 +14,40 @@ export type Database = {
   }
   public: {
     Tables: {
-      audit_logs: {
+      bookings: {
         Row: {
-          action: string
-          created_at: string | null
+          created_at: string
+          duration_minutes: number | null
           id: string
-          new_value: Json | null
-          old_value: Json | null
-          record_id: string
-          table_name: string
+          is_quick_pin: boolean
+          scheduled_at: string
+          work_thread_id: string
         }
         Insert: {
-          action: string
-          created_at?: string | null
+          created_at?: string
+          duration_minutes?: number | null
           id?: string
-          new_value?: Json | null
-          old_value?: Json | null
-          record_id: string
-          table_name: string
+          is_quick_pin?: boolean
+          scheduled_at: string
+          work_thread_id: string
         }
         Update: {
-          action?: string
-          created_at?: string | null
+          created_at?: string
+          duration_minutes?: number | null
           id?: string
-          new_value?: Json | null
-          old_value?: Json | null
-          record_id?: string
-          table_name?: string
+          is_quick_pin?: boolean
+          scheduled_at?: string
+          work_thread_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "bookings_work_thread_id_fkey"
+            columns: ["work_thread_id"]
+            isOneToOne: false
+            referencedRelation: "work_threads"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       client_profiles: {
         Row: {
@@ -52,8 +57,6 @@ export type Database = {
           lng: number | null
           location_name: string | null
           mpesa_phone: string | null
-          neighborhood: string | null
-          property_type: string | null
           user_id: string
         }
         Insert: {
@@ -63,8 +66,6 @@ export type Database = {
           lng?: number | null
           location_name?: string | null
           mpesa_phone?: string | null
-          neighborhood?: string | null
-          property_type?: string | null
           user_id: string
         }
         Update: {
@@ -74,8 +75,6 @@ export type Database = {
           lng?: number | null
           location_name?: string | null
           mpesa_phone?: string | null
-          neighborhood?: string | null
-          property_type?: string | null
           user_id?: string
         }
         Relationships: [
@@ -109,7 +108,7 @@ export type Database = {
             foreignKeyName: "conversation_read_status_request_id_fkey"
             columns: ["request_id"]
             isOneToOne: false
-            referencedRelation: "service_requests"
+            referencedRelation: "job_requests"
             referencedColumns: ["id"]
           },
         ]
@@ -141,7 +140,7 @@ export type Database = {
             foreignKeyName: "direct_messages_request_id_fkey"
             columns: ["request_id"]
             isOneToOne: false
-            referencedRelation: "service_requests"
+            referencedRelation: "job_requests"
             referencedColumns: ["id"]
           },
         ]
@@ -304,71 +303,27 @@ export type Database = {
           },
         ]
       }
-      jobs: {
-        Row: {
-          created_at: string
-          id: string
-          payment_status: string
-          quote_id: string
-          status: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          payment_status?: string
-          quote_id: string
-          status?: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          payment_status?: string
-          quote_id?: string
-          status?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "jobs_quote_id_fkey"
-            columns: ["quote_id"]
-            isOneToOne: false
-            referencedRelation: "quotes"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       messages: {
         Row: {
-          body: string
+          content: string
           created_at: string
           id: string
-          job_id: string
-          read_at: string | null
           sender_id: string
-          type: string
-          work_thread_id: string | null
+          work_thread_id: string
         }
         Insert: {
-          body: string
+          content: string
           created_at?: string
           id?: string
-          job_id: string
-          read_at?: string | null
           sender_id: string
-          type?: string
-          work_thread_id?: string | null
+          work_thread_id: string
         }
         Update: {
-          body?: string
+          content?: string
           created_at?: string
           id?: string
-          job_id?: string
-          read_at?: string | null
           sender_id?: string
-          type?: string
-          work_thread_id?: string | null
+          work_thread_id?: string
         }
         Relationships: [
           {
@@ -379,7 +334,7 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "messages_work_thread_id_fkey"
+            foreignKeyName: "messages_work_thread_fkey"
             columns: ["work_thread_id"]
             isOneToOne: false
             referencedRelation: "work_threads"
@@ -440,69 +395,33 @@ export type Database = {
           avatar_url: string | null
           created_at: string
           email: string | null
-          facebook_url: string | null
           full_name: string | null
           id: string
-          instagram_url: string | null
-          is_verified: boolean | null
-          job_count: number | null
-          latitude: number | null
-          linkedin_url: string | null
-          location_name: string | null
-          location_verified: boolean | null
-          longitude: number | null
           onboarding_complete: boolean
-          payment_verified: boolean | null
           phone: string | null
-          phone_verified: boolean | null
           role: string
-          trust_score: number | null
           updated_at: string
         }
         Insert: {
           avatar_url?: string | null
           created_at?: string
           email?: string | null
-          facebook_url?: string | null
           full_name?: string | null
           id: string
-          instagram_url?: string | null
-          is_verified?: boolean | null
-          job_count?: number | null
-          latitude?: number | null
-          linkedin_url?: string | null
-          location_name?: string | null
-          location_verified?: boolean | null
-          longitude?: number | null
           onboarding_complete?: boolean
-          payment_verified?: boolean | null
           phone?: string | null
-          phone_verified?: boolean | null
           role?: string
-          trust_score?: number | null
           updated_at?: string
         }
         Update: {
           avatar_url?: string | null
           created_at?: string
           email?: string | null
-          facebook_url?: string | null
           full_name?: string | null
           id?: string
-          instagram_url?: string | null
-          is_verified?: boolean | null
-          job_count?: number | null
-          latitude?: number | null
-          linkedin_url?: string | null
-          location_name?: string | null
-          location_verified?: boolean | null
-          longitude?: number | null
           onboarding_complete?: boolean
-          payment_verified?: boolean | null
           phone?: string | null
-          phone_verified?: boolean | null
           role?: string
-          trust_score?: number | null
           updated_at?: string
         }
         Relationships: []
@@ -527,10 +446,13 @@ export type Database = {
           rate_type: string | null
           response_time_minutes: number | null
           service_radius_km: number | null
+          social_links: Json | null
           subscription_status: string | null
+          top_skills: string[] | null
           total_reviews: number | null
           updated_at: string
           user_id: string
+          username: string | null
         }
         Insert: {
           availability_json?: Json | null
@@ -551,10 +473,13 @@ export type Database = {
           rate_type?: string | null
           response_time_minutes?: number | null
           service_radius_km?: number | null
+          social_links?: Json | null
           subscription_status?: string | null
+          top_skills?: string[] | null
           total_reviews?: number | null
           updated_at?: string
           user_id: string
+          username?: string | null
         }
         Update: {
           availability_json?: Json | null
@@ -575,10 +500,13 @@ export type Database = {
           rate_type?: string | null
           response_time_minutes?: number | null
           service_radius_km?: number | null
+          social_links?: Json | null
           subscription_status?: string | null
+          top_skills?: string[] | null
           total_reviews?: number | null
           updated_at?: string
           user_id?: string
+          username?: string | null
         }
         Relationships: [
           {
@@ -651,62 +579,6 @@ export type Database = {
           {
             foreignKeyName: "provider_wallets_provider_id_fkey"
             columns: ["provider_id"]
-            isOneToOne: true
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      providers: {
-        Row: {
-          bio: string | null
-          business_name: string
-          created_at: string
-          id: string
-          is_verified: boolean | null
-          location_lat: number | null
-          location_long: number | null
-          rating: number | null
-          subscription_status: string | null
-          total_reviews: number | null
-          updated_at: string
-          user_id: string
-          whatsapp_number: string | null
-        }
-        Insert: {
-          bio?: string | null
-          business_name: string
-          created_at?: string
-          id?: string
-          is_verified?: boolean | null
-          location_lat?: number | null
-          location_long?: number | null
-          rating?: number | null
-          subscription_status?: string | null
-          total_reviews?: number | null
-          updated_at?: string
-          user_id: string
-          whatsapp_number?: string | null
-        }
-        Update: {
-          bio?: string | null
-          business_name?: string
-          created_at?: string
-          id?: string
-          is_verified?: boolean | null
-          location_lat?: number | null
-          location_long?: number | null
-          rating?: number | null
-          subscription_status?: string | null
-          total_reviews?: number | null
-          updated_at?: string
-          user_id?: string
-          whatsapp_number?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "providers_user_id_fkey1"
-            columns: ["user_id"]
             isOneToOne: true
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -833,93 +705,27 @@ export type Database = {
           },
         ]
       }
-      service_requests: {
-        Row: {
-          budget: number | null
-          created_at: string
-          customer_id: string
-          description: string
-          id: string
-          image_urls: string[] | null
-          location_name: string | null
-          service_id: string
-          status: string
-          updated_at: string
-        }
-        Insert: {
-          budget?: number | null
-          created_at?: string
-          customer_id: string
-          description: string
-          id?: string
-          image_urls?: string[] | null
-          location_name?: string | null
-          service_id: string
-          status?: string
-          updated_at?: string
-        }
-        Update: {
-          budget?: number | null
-          created_at?: string
-          customer_id?: string
-          description?: string
-          id?: string
-          image_urls?: string[] | null
-          location_name?: string | null
-          service_id?: string
-          status?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "service_requests_customer_id_fkey1"
-            columns: ["customer_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "service_requests_service_id_fkey1"
-            columns: ["service_id"]
-            isOneToOne: false
-            referencedRelation: "services"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       services: {
         Row: {
-          archetype: string | null
           category: string
           created_at: string
-          description: string | null
           icon: string | null
           id: string
-          is_active: boolean
           name: string
-          sort_order: number
         }
         Insert: {
-          archetype?: string | null
           category: string
           created_at?: string
-          description?: string | null
           icon?: string | null
           id?: string
-          is_active?: boolean
           name: string
-          sort_order?: number
         }
         Update: {
-          archetype?: string | null
           category?: string
           created_at?: string
-          description?: string | null
           icon?: string | null
           id?: string
-          is_active?: boolean
           name?: string
-          sort_order?: number
         }
         Relationships: []
       }
@@ -944,48 +750,6 @@ export type Database = {
           proj4text?: string | null
           srid?: number
           srtext?: string | null
-        }
-        Relationships: []
-      }
-      user_profiles: {
-        Row: {
-          auth_uid: string | null
-          created_at: string | null
-          email: string | null
-          id: string
-        }
-        Insert: {
-          auth_uid?: string | null
-          created_at?: string | null
-          email?: string | null
-          id: string
-        }
-        Update: {
-          auth_uid?: string | null
-          created_at?: string | null
-          email?: string | null
-          id?: string
-        }
-        Relationships: []
-      }
-      user_roles: {
-        Row: {
-          created_at: string
-          id: string
-          role: Database["public"]["Enums"]["app_role"]
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          role: Database["public"]["Enums"]["app_role"]
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          role?: Database["public"]["Enums"]["app_role"]
-          user_id?: string
         }
         Relationships: []
       }
@@ -2039,7 +1803,7 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "client" | "provider" | "admin"
+      app_role: "customer" | "provider" | "admin"
     }
     CompositeTypes: {
       geometry_dump: {
@@ -2171,34 +1935,11 @@ export type CompositeTypes<
   : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
     ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
     : never
-export type Service = Tables<'services'>
 
-export type ServiceArchetype =
-  | 'home_maintenance'
-  | 'lifestyle_wellness'
-  | 'events_celebrations'
-  | 'professional_business'
-  | 'outdoor_heavy_duty'
-
-export const ARCHETYPE_LABELS: Record<ServiceArchetype, string> = {
-  home_maintenance:      'Home Maintenance',
-  lifestyle_wellness:    'Lifestyle & Wellness',
-  events_celebrations:   'Events & Celebrations',
-  professional_business: 'Professional & Business',
-  outdoor_heavy_duty:    'Outdoor & Heavy Duty',
-}
-
-export const ARCHETYPE_COLORS: Record<ServiceArchetype, string> = {
-  home_maintenance:      '#1565C0',
-  lifestyle_wellness:    '#AD1457',
-  events_celebrations:   '#E65100',
-  professional_business: '#1A3A5C',
-  outdoor_heavy_duty:    '#2E7D32',
-}
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["client", "provider", "admin"],
+      app_role: ["customer", "provider", "admin"],
     },
   },
 } as const
