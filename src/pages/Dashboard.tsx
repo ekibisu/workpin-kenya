@@ -463,9 +463,20 @@ const Dashboard = () => {
                                   variant="ghost"
                                   size="sm"
                                   className="h-6 px-2 text-xs"
-                                  onClick={() => {
-                                    // Use work_thread_id from the quote if available; fall back to job_request_id
-                                    setChatWorkThreadId(req.id);
+                                  onClick={async () => {
+                                    // Use cached work_thread_id or fetch from DB
+                                    let threadId = workThreadMap[req.id];
+                                    if (!threadId) {
+                                      const { data: wt } = await supabase
+                                        .from("work_threads")
+                                        .select("id")
+                                        .eq("job_request_id", req.id)
+                                        .eq("client_id", user!.id)
+                                        .maybeSingle();
+                                      threadId = wt?.id || req.id;
+                                      if (wt?.id) setWorkThreadMap(prev => ({ ...prev, [req.id]: wt.id }));
+                                    }
+                                    setChatWorkThreadId(threadId);
                                     setChatRecipientName(acceptedQuote.profiles?.full_name || "Provider");
                                   }}
                                 >

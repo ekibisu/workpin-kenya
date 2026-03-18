@@ -449,9 +449,16 @@ const ProviderDashboard = () => {
                             variant="ghost"
                             size="sm"
                             className="flex-1 text-xs"
-                            onClick={() => {
+                            onClick={async () => {
                               const clientId = (req as any).client_id;
-                              setChatWorkThreadId(req.id);
+                              // Look up the work_thread for this job
+                              const { data: wt } = await supabase
+                                .from("work_threads")
+                                .select("id")
+                                .eq("job_request_id", req.id)
+                                .eq("provider_id", user!.id)
+                                .maybeSingle();
+                              setChatWorkThreadId(wt?.id || req.id);
                               setChatRecipientName(customerNames?.[clientId] || "Client");
                             }}
                           >
