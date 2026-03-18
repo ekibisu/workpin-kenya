@@ -84,13 +84,13 @@ const ProviderDashboard = () => {
 
       const providerCategories: string[] = providerProfile?.categories || [];
 
-      // 2. Fetch matching service IDs for the provider's categories
+      // 2. Fetch matching service IDs for the provider's categories (which store service names)
       let matchingServiceIds: string[] = [];
       if (providerCategories.length > 0) {
         const { data: matchingServices } = await supabase
           .from("services")
           .select("id")
-          .in("category", providerCategories);
+          .in("name", providerCategories);
         matchingServiceIds = (matchingServices || []).map((s) => s.id);
       }
 
