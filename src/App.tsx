@@ -36,6 +36,7 @@ const App = () => (
             <Route path="/register" element={<Register />} />
             <Route path="/services" element={<Services />} />
             <Route path="/providers" element={<Providers />} />
+            <Route path="/pro/:slug" element={<ProviderLanding />} />
             <Route path="/how-it-works" element={<HowItWorks />} />
             <Route path="/request" element={<RequestService />} />
             <Route
