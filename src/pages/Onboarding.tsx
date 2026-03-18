@@ -13,10 +13,12 @@ import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { MapPin, Briefcase, Loader2, ChevronRight, ChevronLeft, Check } from "lucide-react";
+import { MapPin, Briefcase, Loader2, ChevronRight, ChevronLeft, Check, Globe } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
+import { generateSlug, isSlugAvailable } from "@/lib/slugify";
 import { cn } from "@/lib/utils";
 
 // ─── Step progress indicator ─────────────────────────────────────────────────
