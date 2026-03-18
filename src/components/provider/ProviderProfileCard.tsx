@@ -29,13 +29,13 @@ interface ProviderProfile {
   availability_json: Record<string, string>;
   portfolio_photos: string[];
   response_time_minutes: number;
+  location_name: string | null;
 }
 
 interface ProfileData {
   full_name: string;
   phone: string;
   email: string;
-  location_name: string;
   provider_profiles: ProviderProfile;
 }
 
@@ -81,11 +81,11 @@ const ProviderProfileCard = ({ userId }: ProviderProfileCardProps) => {
     const { data: profileData } = await supabase
       .from("profiles")
       .select(`
-        full_name, phone, email, location_name,
+        full_name, phone, email,
         provider_profiles (
           business_name, bio, avg_rating, total_reviews,
           is_verified, categories, availability_json,
-          portfolio_photos, response_time_minutes
+          portfolio_photos, response_time_minutes, location_name
         )
       `)
       .eq("id", userId)
@@ -98,7 +98,7 @@ const ProviderProfileCard = ({ userId }: ProviderProfileCardProps) => {
           profileData.provider_profiles.portfolio_photos = [];
         }
       }
-      setData(profileData as ProfileData);
+      setData(profileData as unknown as ProfileData);
 
       // Validate that availability_json is a record of string:string
       const avail = profileData.provider_profiles?.availability_json;
@@ -197,7 +197,7 @@ const ProviderProfileCard = ({ userId }: ProviderProfileCardProps) => {
           {/* LOCATION */}
           <div className="flex items-center gap-2">
             <MapPin size={16} />
-            <span>{data.location_name || "Location not set"}</span>
+            <span>{prov?.location_name || "Location not set"}</span>
           </div>
           {/* BIO */}
           <p className="text-slate-500 italic">{prov.bio || "No description provided."}</p>

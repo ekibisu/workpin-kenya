@@ -1,111 +1,163 @@
 
 
-# WorkPin Kenya — System Audit and Gap Analysis
+# Enable RLS on Flagged Tables
 
-## Current State Summary
+## Overview
+Add Row Level Security and ownership-based policies to the 6 flagged tables. Each table gets policies that match existing patterns in the codebase.
 
-The application has a solid foundation with most core marketplace features partially or fully built:
+## Policy Design
 
-### What Works (Built)
-1. **Authentication** — Email/password signup with client/provider role selection, auto-role assignment via DB trigger, role-based routing
-2. **Service catalog** — ~60+ Kenya-specific services across 5 archetypes (home maintenance, lifestyle, events, professional, outdoor), stored in `services` table with archetype grouping
-3. **Job request flow** — 4-step wizard (Pick Service → TED Questions → Location/Budget → Review), saves to `job_requests` with image uploads to storage
-4. **Client dashboard** — Shows requests, received quotes, stat cards, quote accept/decline, job completion confirmation, review submission, messaging
-5. **Provider dashboard** — Shows open jobs, sent quotes, "Jobs Pending" section, quote submission, mark-complete, messaging
-6. **Messaging** — Real-time chat via `messages` table with Supabase Realtime, slide-in drawer, unread badge tracking
-7. **Quoting system** — Providers submit price offers, clients accept/decline, accepted quote auto-rejects others
-8. **Job lifecycle** — open → pending → completion_pending → completed with verified completion flow
-9. **Onboarding** — Multi-step forms for both clients and providers (services, rates, M-Pesa phone)
-10. **Database** — Comprehensive schema with RLS policies on all tables
+### 1. bookings
+- No direct user_id column; linked via `work_thread_id` to `work_threads` (which has `client_id` and `provider_id`)
+- **SELECT**: Thread participants (client or provider) can view bookings
+- **INSERT**: Thread participants can create bookings
+- **UPDATE**: Thread participants can update bookings
 
-### Critical Build Errors (Must Fix First)
+### 2. disputes
+- Has `filed_by_id` and `work_thread_id`
+- **SELECT**: The filer and thread participants can view disputes
+- **INSERT**: Thread participants can file disputes (`filed_by_id = auth.uid()`)
+- **UPDATE**: Admins only (dispute resolution)
 
-There are **6 TypeScript compilation errors** preventing the app from building:
+### 3. fixed_price_services
+- Has `provider_id` which equals `auth.uid()` directly
+- **SELECT**: Anyone authenticated can view active services (public listing)
+- **INSERT/UPDATE/DELETE**: Only the owning provider (`provider_id = auth.uid()`)
 
-1. **`TedQuestionForm.tsx` line 91** — The `previews` state type doesn't include `error` property. The type needs to be `{ url: string; uploading: boolean; error?: boolean }[]`.
+### 4. provider_templates
+- Has `provider_id` which equals `auth.uid()`
+- **ALL**: Only the owning provider (`provider_id = auth.uid()`)
 
-2. **`MessageDrawer.tsx` line 53** — The DB `messages` table has `body` (not `content`) and requires `job_id`. The component's `Message` interface expects `content` but the DB returns `body`. The insert also uses `content` instead of `body` and omits the required `job_id`.
+### 5. provider_wallets
+- Has `provider_id` which equals `auth.uid()`
+- **SELECT**: Only the owning provider
+- **INSERT/UPDATE**: Only the owning provider (or system via service role)
 
-3. **`useNewSchemaQueries.ts` line 7** — References `Tables<"bookings">` but `bookings` doesn't exist in the generated types. The DB has the table, but the types file is out of sync OR the table was created after the last type generation.
-
-4. **`useNewSchemaQueries.ts` lines 64-65** — Cascading errors from the bookings type issue.
-
-### What's Missing for a Thumbtack-like MVP
-
-#### High Priority (Core Flow Gaps)
-
-1. **Messages table schema mismatch** — The `messages` table in the DB has columns `body`, `job_id`, `read_at`, `type` but the RLS policies reference `work_thread_id`. The code writes `content` and `work_thread_id`. Need a migration to align the DB columns with what the code expects (rename `body` → `content`, make `work_thread_id` required, drop or make `job_id` nullable).
-
-2. **Work thread creation on quote acceptance** — When a client accepts a quote ("Start Job"), the code updates quote status and job_request status but never creates a `work_thread` record. Without this, messaging between client and provider won't work after job start. Need to insert into `work_threads` with `client_id`, `provider_id`, and `job_request_id`, and store the thread ID on the quote.
-
-3. **Provider filtering by service match** — The provider dashboard shows ALL open requests to ALL providers. Providers should only see requests matching their registered service categories. Need to filter `job_requests` by comparing `service_id` against the provider's `categories` array in `provider_profiles`.
-
-4. **No notification system** — Providers aren't notified when new matching requests are posted. Clients aren't notified when quotes arrive. Africa's Talking SMS integration is planned but not built.
-
-#### Medium Priority (Trust and Usability)
-
-5. **Provider profile public page** — No route for clients to view a provider's profile, portfolio photos, reviews, and ratings before accepting a quote. The `Providers.tsx` page exists but is a listing page.
-
-6. **Review aggregation** — Reviews are stored but `avg_rating` and `total_reviews` on `provider_profiles` aren't updated via trigger. Need a DB trigger to recalculate on review insert.
-
-7. **Search and discovery** — No search functionality on the services or providers pages. No geo-based provider matching (the `match_providers` PostGIS function may or may not exist).
-
-8. **M-Pesa payments** — Edge function `mpesa-stk-push` is referenced in the build plan but the `supabase/functions` directory doesn't exist. No payment flow is wired up.
-
-#### Lower Priority (Scale and Polish)
-
-9. **`useNewSchemaQueries.ts` cleanup** — This file references tables that don't exist in types (`bookings`). Either generate fresh types or remove dead code.
-
-10. **Conversation list** — The `useConversations` hook queries `work_threads` but the thread creation gap (item 2) means conversations won't populate.
-
-11. **Provider wallet/earnings** — Tables exist but no UI for providers to see earnings or request payouts.
-
-12. **Dispute system** — Table exists with RLS but no UI to file or manage disputes.
-
-13. **Fixed-price services / Quick Pin booking** — Tables exist but no UI for providers to list fixed-price offerings or for clients to book instantly.
-
-## Recommended Implementation Order
-
-### Phase 1: Fix Build Errors (Immediate)
-- Fix `TedQuestionForm.tsx` type error (add `error?: boolean` to state type)
-- Fix `MessageDrawer.tsx` to use `body` instead of `content` (or migrate DB column)
-- Fix `useNewSchemaQueries.ts` — remove `bookings` type reference or regenerate types
-- Migrate `messages` table: rename `body` → `content`, make `job_id` nullable
-
-### Phase 2: Complete Core Loop (Makes the app functional)
-- Create `work_thread` on quote acceptance, store thread ID on quote
-- Wire messaging to use work threads properly
-- Filter provider dashboard to show only matching service requests
-- Add provider profile detail page (public view)
-
-### Phase 3: Trust and Payments
-- Add review aggregation trigger
-- Build M-Pesa STK Push edge function
-- Add SMS notifications via Africa's Talking
-- Build search/filter on services and providers pages
-
-### Phase 4: Advanced Features
-- Dispute filing UI
-- Provider wallet and earnings dashboard
-- Fixed-price services and instant booking
-- Geo-based provider matching
+### 6. wallet_transactions
+- Has `provider_id` which equals `auth.uid()`
+- **SELECT**: Only the owning provider
+- **INSERT**: Only the owning provider (or system via service role)
 
 ## Technical Details
 
-```text
-Current table alignment issues:
+A single database migration will:
 
-messages table (DB)          vs   Code expects
-─────────────────────────         ─────────────
-body: text (required)             content: string
-job_id: uuid (required)           (not used)
-work_thread_id: uuid (nullable)   work_thread_id: string (required)
-read_at: timestamp (nullable)     (not used)
-type: text                        (not used)
+1. Enable RLS on all 6 tables
+2. Create policies using patterns consistent with existing codebase (e.g., subqueries against `work_threads` for participant checks, direct `provider_id = auth.uid()` for provider-owned tables)
 
-Fix: DB migration to rename body→content, make job_id nullable,
-     make work_thread_id NOT NULL
+```sql
+-- Enable RLS
+ALTER TABLE public.bookings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.disputes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.fixed_price_services ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.provider_templates ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.provider_wallets ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.wallet_transactions ENABLE ROW LEVEL SECURITY;
+
+-- bookings: thread participants can manage
+CREATE POLICY "Thread participants can view bookings"
+ON public.bookings FOR SELECT TO authenticated
+USING (
+  EXISTS (
+    SELECT 1 FROM work_threads wt
+    WHERE wt.id = bookings.work_thread_id
+    AND (wt.client_id = auth.uid() OR wt.provider_id = auth.uid())
+  )
+);
+
+CREATE POLICY "Thread participants can create bookings"
+ON public.bookings FOR INSERT TO authenticated
+WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM work_threads wt
+    WHERE wt.id = bookings.work_thread_id
+    AND (wt.client_id = auth.uid() OR wt.provider_id = auth.uid())
+  )
+);
+
+CREATE POLICY "Thread participants can update bookings"
+ON public.bookings FOR UPDATE TO authenticated
+USING (
+  EXISTS (
+    SELECT 1 FROM work_threads wt
+    WHERE wt.id = bookings.work_thread_id
+    AND (wt.client_id = auth.uid() OR wt.provider_id = auth.uid())
+  )
+);
+
+-- disputes: participants can view/file, admins can update
+CREATE POLICY "Participants can view disputes"
+ON public.disputes FOR SELECT TO authenticated
+USING (
+  filed_by_id = auth.uid()
+  OR EXISTS (
+    SELECT 1 FROM work_threads wt
+    WHERE wt.id = disputes.work_thread_id
+    AND (wt.client_id = auth.uid() OR wt.provider_id = auth.uid())
+  )
+  OR has_role(auth.uid(), 'admin')
+);
+
+CREATE POLICY "Participants can file disputes"
+ON public.disputes FOR INSERT TO authenticated
+WITH CHECK (
+  filed_by_id = auth.uid()
+  AND EXISTS (
+    SELECT 1 FROM work_threads wt
+    WHERE wt.id = disputes.work_thread_id
+    AND (wt.client_id = auth.uid() OR wt.provider_id = auth.uid())
+  )
+);
+
+CREATE POLICY "Admins can update disputes"
+ON public.disputes FOR UPDATE TO authenticated
+USING (has_role(auth.uid(), 'admin'));
+
+-- fixed_price_services: public read, provider write
+CREATE POLICY "Anyone can view active services"
+ON public.fixed_price_services FOR SELECT TO authenticated
+USING (true);
+
+CREATE POLICY "Providers manage own services"
+ON public.fixed_price_services FOR INSERT TO authenticated
+WITH CHECK (provider_id = auth.uid());
+
+CREATE POLICY "Providers update own services"
+ON public.fixed_price_services FOR UPDATE TO authenticated
+USING (provider_id = auth.uid());
+
+CREATE POLICY "Providers delete own services"
+ON public.fixed_price_services FOR DELETE TO authenticated
+USING (provider_id = auth.uid());
+
+-- provider_templates: provider-only
+CREATE POLICY "Providers manage own templates"
+ON public.provider_templates FOR ALL TO authenticated
+USING (provider_id = auth.uid())
+WITH CHECK (provider_id = auth.uid());
+
+-- provider_wallets: provider-only read/write
+CREATE POLICY "Providers view own wallet"
+ON public.provider_wallets FOR SELECT TO authenticated
+USING (provider_id = auth.uid());
+
+CREATE POLICY "Providers manage own wallet"
+ON public.provider_wallets FOR INSERT TO authenticated
+WITH CHECK (provider_id = auth.uid());
+
+CREATE POLICY "Providers update own wallet"
+ON public.provider_wallets FOR UPDATE TO authenticated
+USING (provider_id = auth.uid());
+
+-- wallet_transactions: provider-only
+CREATE POLICY "Providers view own transactions"
+ON public.wallet_transactions FOR SELECT TO authenticated
+USING (provider_id = auth.uid());
+
+CREATE POLICY "Providers create own transactions"
+ON public.wallet_transactions FOR INSERT TO authenticated
+WITH CHECK (provider_id = auth.uid());
 ```
 
-The `bookings` table exists in the actual database (confirmed by RLS policies in context) but is missing from the auto-generated `types.ts` — a type regeneration would fix this.
+No code changes are needed -- the application already queries these tables through the existing hooks which filter by the authenticated user's ID.
 

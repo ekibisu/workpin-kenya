@@ -71,7 +71,7 @@ function ImageUploadField({ question, onImagesChange }: ImageUploadFieldProps) {
     if (toAdd.length === 0) return
 
     // Optimistic previews
-    const newPreviews = toAdd.map((f) => ({ url: URL.createObjectURL(f), uploading: true }))
+    const newPreviews: { url: string; uploading: boolean; error?: boolean }[] = toAdd.map((f) => ({ url: URL.createObjectURL(f), uploading: true }))
     const nextPreviews = [...previews, ...newPreviews]
     setPreviews(nextPreviews)
 

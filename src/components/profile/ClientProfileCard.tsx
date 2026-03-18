@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState, ElementType } from "react";
-import { verifyLocation } from "@/lib/utils";
 import MapPicker from "@/components/MapPicker";
 import {
   MapPin,
@@ -13,9 +12,6 @@ import {
   Hammer,
   Star,
   CheckCircle2,
-  Linkedin,
-  Instagram,
-  Facebook,
   Phone,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -38,72 +34,42 @@ const ClientProfileCard = ({ userId }: ClientProfileCardProps) => {
     phone: string | null;
     created_at: string;
     avatar_url: string | null;
-    is_verified?: boolean | null;
-    linkedin_url?: string | null;
-    instagram_url?: string | null;
-    facebook_url?: string | null;
-    job_count?: number | null;
-    longitude?: number | null;
-    latitude?: number | null;
-    location_name?: string | null;
-    location_verified?: boolean | null;
   };
   type ClientProfileType = {
-    neighborhood?: string | null;
-    property_type?: string | null;
+    lat: number | null;
+    lng: number | null;
+    location_name: string | null;
+    mpesa_phone: string | null;
   };
   const [profile, setProfile] = useState<ProfileType | null>(null);
-  const [clientProfile, setClientProfile] = useState<ClientProfileType | null>(
-    null,
-  );
+  const [clientProfile, setClientProfile] = useState<ClientProfileType | null>(null);
   const [uploading, setUploading] = useState(false);
-  const [locationValid, setLocationValid] = useState<boolean | null>(null);
   const [editMode, setEditMode] = useState(false);
   const [editProfile, setEditProfile] = useState<ProfileType | null>(null);
-  const [editClientProfile, setEditClientProfile] =
-    useState<ClientProfileType | null>(null);
+  const [editClientProfile, setEditClientProfile] = useState<ClientProfileType | null>(null);
   const [saving, setSaving] = useState(false);
   const [jobCount, setJobCount] = useState<number>(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
-  // Fetch profile and job count
   const fetchProfile = async () => {
     setLoading(true);
 
     const { data: profileData } = await supabase
       .from("profiles")
-      .select(
-        "full_name, email, phone, avatar_url, created_at, is_verified, linkedin_url, instagram_url, facebook_url, job_count, longitude, latitude, location_name, location_verified",
-      )
+      .select("full_name, email, phone, avatar_url, created_at")
       .eq("id", userId)
       .maybeSingle();
 
-    // Check if location data exists but isn't marked as verified in DB
-    const hasLocationData =
-      profileData?.latitude !== null &&
-      profileData?.longitude !== null &&
-      !!profileData?.location_name?.trim();
-
-    if (hasLocationData && profileData?.location_verified !== true) {
-      await supabase
-        .from("profiles")
-        .update({ location_verified: true })
-        .eq("id", userId);
-
-      // Update the local object so the UI reflects it immediately
-      if (profileData) profileData.location_verified = true;
-    }
-
-    setProfile(profileData);
+    setProfile(profileData as ProfileType | null);
 
     const { data: clientProfileData } = await supabase
       .from("client_profiles")
-      .select("neighborhood, property_type")
+      .select("lat, lng, location_name, mpesa_phone")
       .eq("user_id", userId)
       .maybeSingle();
 
-    setClientProfile(clientProfileData);
+    setClientProfile(clientProfileData as ClientProfileType | null);
 
     const { count, error } = await supabase
       .from("job_requests")
@@ -112,19 +78,6 @@ const ClientProfileCard = ({ userId }: ClientProfileCardProps) => {
 
     if (!error && typeof count === "number") {
       setJobCount(count);
-
-      const verified =
-        !!profileData?.phone &&
-        profileData?.location_verified === true &&
-        count >= 3;
-
-      await supabase
-        .from("profiles")
-        .update({
-          job_count: count,
-          is_verified: verified,
-        })
-        .eq("id", userId);
     } else {
       setJobCount(0);
     }
@@ -143,19 +96,6 @@ const ClientProfileCard = ({ userId }: ClientProfileCardProps) => {
   useEffect(() => {
     if (clientProfile) setEditClientProfile(clientProfile);
   }, [clientProfile]);
-  useEffect(() => {
-    if (profile) {
-      verifyLocation({
-        lat: profile.latitude,
-        lng: profile.longitude,
-        location_name: profile.location_name,
-      }).then((isValid) => {
-        setLocationValid(isValid);
-      });
-    } else {
-      setLocationValid(null);
-    }
-  }, [profile]);
 
   const handleAvatarClick = () => {
     if (!uploading && fileInputRef.current) {
@@ -222,10 +162,10 @@ const ClientProfileCard = ({ userId }: ClientProfileCardProps) => {
   };
   const handleEditClientChange = (
     field: keyof ClientProfileType,
-    value: string | number,
+    value: string | number | null,
   ) => {
     setEditClientProfile((prev) =>
-      prev ? { ...prev, [field]: value } : { [field]: value },
+      prev ? { ...prev, [field]: value } : { lat: null, lng: null, location_name: null, mpesa_phone: null, [field]: value },
     );
   };
 
@@ -233,59 +173,31 @@ const ClientProfileCard = ({ userId }: ClientProfileCardProps) => {
     if (!editProfile) return;
     setSaving(true);
     try {
-      // 1. Refined Location Validation Logic
-      const hasLat =
-        editProfile.latitude !== null && editProfile.latitude !== undefined;
-      const hasLng =
-        editProfile.longitude !== null && editProfile.longitude !== undefined;
-      const hasName = !!editProfile.location_name?.trim();
-
-      const isLocationVerified = hasLat && hasLng && hasName;
-
-      // 2. Compute overall profile verification
-      // (Requires phone, verified location, and 3+ jobs)
-      const verified =
-        !!editProfile.phone && isLocationVerified && jobCount >= 3;
-
-      // 3. Update profiles table
       const { error: profileError } = await supabase
         .from("profiles")
         .update({
           full_name: editProfile.full_name,
           email: editProfile.email,
           phone: editProfile.phone,
-          linkedin_url: editProfile.linkedin_url,
-          instagram_url: editProfile.instagram_url,
-          facebook_url: editProfile.facebook_url,
-          longitude: editProfile.longitude,
-          latitude: editProfile.latitude,
-          location_name: editProfile.location_name,
-          location_verified: isLocationVerified, // Updates based on the check above
-          is_verified: verified,
         })
         .eq("id", userId);
 
       if (profileError) throw profileError;
 
-      // 4. Update client_profiles table
       if (editClientProfile) {
         const { error: clientError } = await supabase
           .from("client_profiles")
-          .update({
-            neighborhood: editClientProfile.neighborhood,
-            property_type: editClientProfile.property_type,
-          })
-          .eq("user_id", userId);
+          .upsert({
+            user_id: userId,
+            lat: editClientProfile.lat,
+            lng: editClientProfile.lng,
+            location_name: editClientProfile.location_name,
+            mpesa_phone: editClientProfile.mpesa_phone,
+          }, { onConflict: "user_id" });
         if (clientError) throw clientError;
       }
 
-      toast({
-        title: "Profile updated!",
-        description: isLocationVerified
-          ? "Your profile and location have been verified."
-          : "Profile updated, but provide full location details for verification.",
-      });
-
+      toast({ title: "Profile updated!" });
       setEditMode(false);
       await fetchProfile();
     } catch (err) {
@@ -300,8 +212,10 @@ const ClientProfileCard = ({ userId }: ClientProfileCardProps) => {
       setSaving(false);
     }
   };
+
   const handleCancel = () => {
     setEditProfile(profile);
+    setEditClientProfile(clientProfile);
     setEditMode(false);
   };
 
@@ -309,46 +223,32 @@ const ClientProfileCard = ({ userId }: ClientProfileCardProps) => {
     ? format(new Date(profile.created_at), "MMMM yyyy")
     : "—";
 
-  type DetailItem =
-    | {
-        icon: ElementType;
-        label: string;
-        value: string;
-        field?: keyof ProfileType;
-        client?: false;
-      }
-    | {
-        icon: ElementType;
-        label: string;
-        value: string;
-        field: keyof ClientProfileType;
-        client: true;
-      };
-
   function maskPhone(phone: string | null | undefined): string {
     if (!phone || phone.length < 2) return "—";
     const visible = phone.slice(-2);
     return `******${visible}`;
   }
+
+  type DetailItem = {
+    icon: ElementType;
+    label: string;
+    value: string;
+    field?: string;
+    isClient?: boolean;
+  };
+
   const details: DetailItem[] = [
     { icon: Calendar, label: "Member Since", value: memberSince },
     {
-      icon: Briefcase,
-      label: "Property Type",
-      field: "property_type",
-      value: editClientProfile?.property_type ?? "Not specified",
-      client: true,
-    },
-    {
       icon: Mail,
       label: "Contact Email",
-      field: "email" as keyof ProfileType,
+      field: "email",
       value: editProfile?.email ?? "—",
     },
     {
       icon: Phone,
       label: "Phone Number",
-      field: "phone" as keyof ProfileType,
+      field: "phone",
       value: !editMode
         ? maskPhone(editProfile?.phone)
         : (editProfile?.phone ?? ""),
@@ -358,17 +258,6 @@ const ClientProfileCard = ({ userId }: ClientProfileCardProps) => {
 
   return (
     <div className="rounded-xl border border-border bg-card p-6 space-y-5 shadow-sm">
-      {/* Location warning */}
-      {locationValid === false && (
-        <div className="mb-3 rounded-lg bg-amber-50 border border-amber-200 p-3 text-amber-700 text-sm flex items-center gap-2">
-          <MapPin className="h-4 w-4 text-amber-500" />
-          <span>
-            Location could not be verified. Please enable location services or
-            update your profile location.
-          </span>
-        </div>
-      )}
-
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-foreground">
           Client Profile
@@ -429,7 +318,7 @@ const ClientProfileCard = ({ userId }: ClientProfileCardProps) => {
           />
           <button
             type="button"
-            className="absolute bottom-0 right-0 bg-primary text-white rounded-full p-1 shadow-md hover:bg-primary/80"
+            className="absolute bottom-0 right-0 bg-primary text-primary-foreground rounded-full p-1 shadow-md hover:bg-primary/80"
             style={{ transform: "translate(20%, 20%)" }}
             onClick={handleAvatarClick}
             disabled={uploading}
@@ -451,23 +340,6 @@ const ClientProfileCard = ({ userId }: ClientProfileCardProps) => {
                 onChange={(e) => handleEditChange("full_name", e.target.value)}
                 placeholder="Full Name"
               />
-            )}
-
-            {/* Dynamic Verification Badge */}
-            {profile && profile.is_verified === true ? (
-              <div className="flex items-center gap-1 bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full border border-blue-100 shadow-sm shrink-0">
-                <CheckCircle2 className="h-3 w-3 fill-blue-600 text-white" />
-                <span className="text-[10px] font-bold uppercase tracking-wider">
-                  Verified
-                </span>
-              </div>
-            ) : (
-              <div className="flex items-center gap-1 bg-amber-50 text-amber-600 px-2 py-0.5 rounded-full border border-amber-100 shadow-sm shrink-0">
-                <Clock className="h-3 w-3" />
-                <span className="text-[10px] font-bold uppercase tracking-wider">
-                  Unverified
-                </span>
-              </div>
             )}
           </div>
           {!editMode ? (
@@ -500,61 +372,49 @@ const ClientProfileCard = ({ userId }: ClientProfileCardProps) => {
             <p className="text-[11px] text-muted-foreground mb-1">Location</p>
             {editMode ? (
               <>
-                <Input
-                  className="text-sm font-medium text-foreground mb-2"
-                  value={editClientProfile?.neighborhood || ""}
-                  onChange={(e) =>
-                    handleEditClientChange("neighborhood", e.target.value)
-                  }
-                  placeholder="Neighborhood or Area"
-                />
                 <MapPicker
-                  lat={editProfile?.latitude ?? null}
-                  lng={editProfile?.longitude ?? null}
+                  lat={editClientProfile?.lat ?? null}
+                  lng={editClientProfile?.lng ?? null}
                   onChange={(lat, lng, locationName) => {
-                    handleEditChange("latitude", lat);
-                    handleEditChange("longitude", lng);
+                    handleEditClientChange("lat", lat);
+                    handleEditClientChange("lng", lng);
                     if (locationName !== undefined) {
-                      handleEditChange("location_name", locationName);
+                      handleEditClientChange("location_name", locationName);
                     }
                   }}
                 />
-                {typeof editProfile?.latitude === "number" &&
-                  typeof editProfile?.longitude === "number" && (
+                {typeof editClientProfile?.lat === "number" &&
+                  typeof editClientProfile?.lng === "number" && (
                     <div className="text-xs text-muted-foreground mt-1">
-                      Lat: {editProfile.latitude}, Lng: {editProfile.longitude}
+                      Lat: {editClientProfile.lat}, Lng: {editClientProfile.lng}
                     </div>
                   )}
-                {editProfile?.location_name && (
+                {editClientProfile?.location_name && (
                   <div className="text-xs text-primary mt-1">
-                    {editProfile.location_name}
+                    {editClientProfile.location_name}
                   </div>
                 )}
               </>
             ) : (
               <>
                 <p className="text-sm font-medium text-foreground">
-                  {editClientProfile?.neighborhood ?? "Nairobi, Kenya"}
+                  {clientProfile?.location_name ?? "Nairobi, Kenya"}
                 </p>
-                {typeof profile?.latitude === "number" &&
-                  typeof profile?.longitude === "number" && (
+                {typeof clientProfile?.lat === "number" &&
+                  typeof clientProfile?.lng === "number" && (
                     <div className="text-xs text-muted-foreground mt-1">
-                      Lat: {profile.latitude}, Lng: {profile.longitude}
+                      Lat: {clientProfile.lat}, Lng: {clientProfile.lng}
                     </div>
                   )}
-                {profile?.location_name && (
-                  <div className="text-xs text-primary mt-1">
-                    {profile.location_name}
-                  </div>
-                )}
               </>
             )}
           </div>
         </div>
       </div>
+
       {/* Other details */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        {details.map(({ icon: Icon, label, value, field, client }) => (
+        {details.map(({ icon: Icon, label, value, field }) => (
           <div
             key={label}
             className="flex items-start gap-3 rounded-lg border border-border bg-background p-3 transition-colors hover:bg-muted/10"
@@ -565,22 +425,9 @@ const ClientProfileCard = ({ userId }: ClientProfileCardProps) => {
               {editMode && field ? (
                 <Input
                   className="text-sm font-medium text-foreground"
-                  value={String(
-                    client
-                      ? editClientProfile?.[field as keyof ClientProfileType] ||
-                          ""
-                      : editProfile?.[field as keyof ProfileType] || "",
-                  )}
+                  value={String(editProfile?.[field as keyof ProfileType] || "")}
                   onChange={(e) =>
-                    client
-                      ? handleEditClientChange(
-                          field as keyof ClientProfileType,
-                          e.target.value,
-                        )
-                      : handleEditChange(
-                          field as keyof ProfileType,
-                          e.target.value,
-                        )
+                    handleEditChange(field as keyof ProfileType, e.target.value)
                   }
                   placeholder={label}
                 />
@@ -592,84 +439,6 @@ const ClientProfileCard = ({ userId }: ClientProfileCardProps) => {
         ))}
       </div>
 
-      {/* Social Links */}
-      <div className="flex flex-col gap-3">
-        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-          Connected Accounts
-        </p>
-        {!editMode ? (
-          <div className="flex gap-4">
-            {profile?.linkedin_url && (
-              <a
-                href={profile.linkedin_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="p-2 rounded-full bg-slate-50 text-slate-600 hover:text-blue-600 hover:bg-blue-50 transition-all"
-                title="LinkedIn"
-              >
-                <Linkedin className="h-5 w-5" />
-              </a>
-            )}
-            {profile?.instagram_url && (
-              <a
-                href={profile.instagram_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="p-2 rounded-full bg-slate-50 text-slate-600 hover:text-pink-600 hover:bg-pink-50 transition-all"
-                title="Instagram"
-              >
-                <Instagram className="h-5 w-5" />
-              </a>
-            )}
-            {profile?.facebook_url && (
-              <a
-                href={profile.facebook_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="p-2 rounded-full bg-slate-50 text-slate-600 hover:text-blue-700 hover:bg-blue-100 transition-all"
-                title="Facebook"
-              >
-                <Facebook className="h-5 w-5" />
-              </a>
-            )}
-            {/* Fallback if no socials are linked */}
-            {!profile?.linkedin_url &&
-              !profile?.instagram_url &&
-              !profile?.facebook_url && (
-                <p className="text-xs text-muted-foreground italic">
-                  No social accounts linked
-                </p>
-              )}
-          </div>
-        ) : (
-          <div className="flex flex-col gap-2 max-w-xs">
-            <Input
-              className=""
-              value={editProfile?.linkedin_url || ""}
-              onChange={(e) => handleEditChange("linkedin_url", e.target.value)}
-              placeholder="LinkedIn URL"
-              type="url"
-            />
-            <Input
-              className=""
-              value={editProfile?.instagram_url || ""}
-              onChange={(e) =>
-                handleEditChange("instagram_url", e.target.value)
-              }
-              placeholder="Instagram URL"
-              type="url"
-            />
-            <Input
-              className=""
-              value={editProfile?.facebook_url || ""}
-              onChange={(e) => handleEditChange("facebook_url", e.target.value)}
-              placeholder="Facebook URL"
-              type="url"
-            />
-          </div>
-        )}
-      </div>
-
       <Separator />
 
       {/* Reputation Scoreboard */}
@@ -678,12 +447,12 @@ const ClientProfileCard = ({ userId }: ClientProfileCardProps) => {
           Reputation Scoreboard
         </p>
         <div className="grid grid-cols-2 gap-4">
-          <div className="bg-blue-50/50 border border-blue-100 p-4 rounded-2xl flex flex-col items-center shadow-sm">
-            <div className="flex items-center gap-1.5 text-blue-700">
+          <div className="bg-accent/50 border border-border p-4 rounded-2xl flex flex-col items-center shadow-sm">
+            <div className="flex items-center gap-1.5 text-primary">
               <span className="text-xl font-black">{jobCount}</span>
               <Hammer className="h-5 w-5" />
             </div>
-            <p className="text-[10px] font-bold text-blue-600 uppercase mt-1">
+            <p className="text-[10px] font-bold text-primary uppercase mt-1">
               Jobs Posted
             </p>
           </div>

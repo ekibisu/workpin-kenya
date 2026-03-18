@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/integrations/supabase/client'
-import type { Service, ServiceArchetype } from '@/integrations/supabase/types'
+import type { Service, ServiceArchetype } from '@/types/services'
 
 // Fetch all active services
 export const useServices = () =>
@@ -10,8 +10,7 @@ export const useServices = () =>
       const { data, error } = await supabase
         .from('services')
         .select('*')
-        .eq('is_active', true)
-        .order('sort_order', { ascending: true })
+        .order('name', { ascending: true })
 
       if (error) throw error
       return data as Service[]
@@ -53,13 +52,12 @@ export const useServicesByArchetype = () =>
       const { data, error } = await supabase
         .from('services')
         .select('*')
-        .eq('is_active', true)
-        .order('sort_order', { ascending: true })
+        .order('name', { ascending: true })
 
       if (error) throw error
 
       const grouped = (data as Service[]).reduce((acc, service) => {
-        const key = normaliseArchetype(service.archetype, service.name)
+        const key = normaliseArchetype(service.category, service.name)
         if (!acc[key]) acc[key] = []
         acc[key].push(service)
         return acc
