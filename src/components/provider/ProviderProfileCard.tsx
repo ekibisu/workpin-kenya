@@ -98,7 +98,7 @@ const ProviderProfileCard = ({ userId }: ProviderProfileCardProps) => {
           profileData.provider_profiles.portfolio_photos = [];
         }
       }
-      setData(profileData as ProfileData);
+      setData(profileData as unknown as ProfileData);
 
       // Validate that availability_json is a record of string:string
       const avail = profileData.provider_profiles?.availability_json;
