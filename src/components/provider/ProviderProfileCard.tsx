@@ -196,7 +196,7 @@ const ProviderProfileCard = ({ userId }: ProviderProfileCardProps) => {
           {/* LOCATION */}
           <div className="flex items-center gap-2">
             <MapPin size={16} />
-            <span>{data.location_name || "Location not set"}</span>
+            <span>{prov?.location_name || "Location not set"}</span>
           </div>
           {/* BIO */}
           <p className="text-slate-500 italic">{prov.bio || "No description provided."}</p>
