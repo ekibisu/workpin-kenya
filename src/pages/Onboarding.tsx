@@ -416,7 +416,32 @@ const ProviderForm = ({ userId, initialName }: { userId: string; initialName: st
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="businessName">Business name</Label>
-                  <Input id="businessName" value={businessName} onChange={(e) => setBusinessName(e.target.value)} placeholder="e.g. Juma Electricals" required />
+                  <Input id="businessName" value={businessName} onChange={(e) => setBusinessName(e.target.value)} onBlur={handleBusinessNameBlur} placeholder="e.g. Juma Electricals" required />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="slug" className="flex items-center gap-1.5">
+                    <Globe className="h-3.5 w-3.5" /> Public URL
+                  </Label>
+                  <div className="flex items-center gap-0 rounded-md border border-input bg-muted overflow-hidden">
+                    <span className="px-3 text-xs text-muted-foreground select-none whitespace-nowrap bg-muted border-r border-input">
+                      workpin.app/pro/
+                    </span>
+                    <Input
+                      id="slug"
+                      value={slug}
+                      onChange={(e) => handleSlugChange(e.target.value)}
+                      onBlur={handleSlugBlur}
+                      placeholder="your-business-name"
+                      className="border-0 rounded-none focus-visible:ring-0"
+                    />
+                  </div>
+                  {checkingSlug && <p className="text-xs text-muted-foreground">Checking availability…</p>}
+                  {!checkingSlug && slugAvailable === true && slug && (
+                    <p className="text-xs text-primary font-medium">✓ workpin.app/pro/{slug} is available</p>
+                  )}
+                  {!checkingSlug && slugAvailable === false && slug && (
+                    <p className="text-xs text-destructive font-medium">✗ That URL is taken — try another</p>
+                  )}
                 </div>
                 <div className="space-y-1.5">
                   <div className="flex justify-between items-baseline">
