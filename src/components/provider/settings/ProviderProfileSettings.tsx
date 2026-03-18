@@ -93,17 +93,17 @@ const ProviderAccountSettings = ({ userId }: ProviderProfileCardProps) => {
       .from("profiles")
       .select(
         `
-          full_name, phone, email, location_name,
+          full_name, phone, email,
           provider_profiles (
             business_name, bio, avg_rating, total_reviews,
             is_verified, categories, availability_json,
-            portfolio_photos, response_time_minutes
+            portfolio_photos, response_time_minutes, location_name
           )
         `,
       )
       .eq("id", userId)
       .maybeSingle();
-    if (profileData) setData(profileData as ProfileData);
+    if (profileData) setData(profileData as unknown as ProfileData);
   };
   const { toast } = useToast();
   const days = ["Sun", "Mon", "Tue", "Wed", "Thurs", "Fri", "Sat"];
