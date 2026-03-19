@@ -1,60 +1,61 @@
 
 
-# Refactor All Uploads to Centralized Media System
+# Fix Media Path Generation for All Upload Contexts
 
 ## Problem
 
-Three upload flows still bypass the new media system, writing directly to old storage buckets (`avatars`, `request-images`) without compression, tracking, or SEO metadata:
+The `generateMediaPath` function only produces deterministic paths when `providerSlug` AND `providerName` are both provided. For all other uploads (client avatars, request images), it falls back to `user-uploads/general/{uuid}-{context}.{ext}` — random UUIDs, not the deterministic convention.
 
-| Location | Old Bucket | What It Uploads |
-|---|---|---|
-| `ClientProfileCard.tsx` (line 113) | `avatars` | Client avatar photo |
-| `TedQuestionForm.tsx` (line 87) | `request-images` | Job request reference images |
-| `RequestService.tsx` (line 167) | `request-images` | Job request images (post-submit) |
-
-Meanwhile, `ProviderProfileCard.tsx` and `ProviderProfileSettings.tsx` were already migrated to use `useMediaUpload` → `media` bucket.
-
-## Plan
-
-### 1. Refactor `ClientProfileCard.tsx`
-
-Replace the direct `supabase.storage.from("avatars")` upload with the `useMediaUpload` hook:
-- Context: `'avatar'`
-- Add `'avatar'` preset to `COMPRESSION_PRESETS` (same as `profile-photo`: 600×600, webp)
-- After upload, save `result.public_url` to `profiles.avatar_url` as before
-- Add proper error toasts (already has try/catch, just wire the hook)
-
-### 2. Refactor `TedQuestionForm.tsx`
-
-Replace the direct `supabase.storage.from("request-images")` upload with `uploadMediaFile`:
-- Context: `'request-image'`
-- No `providerId` — use the current user as `uploaded_by`
-- Add `'request-image'` preset to `COMPRESSION_PRESETS` (1200×800, jpeg, 500KB)
-- Return the `public_url` for the parent form to use
-
-### 3. Refactor `RequestService.tsx`
-
-Replace the post-submit image upload loop with `uploadMediaFile`:
-- Context: `'request-image'`
-- Store `result.public_url` into the `image_urls` array as before
-- This is the secondary upload path (TedQuestionForm handles the primary)
-
-### 4. Add missing compression preset
-
-Add `avatar` and `request-image` entries to `COMPRESSION_PRESETS` in `imageCompression.ts`:
+From the network logs, request images are landing at paths like:
 ```
-avatar: { maxWidth: 600, maxHeight: 600, quality: 0.8, format: 'webp', maxSizeKB: 200 }
-'request-image': { maxWidth: 1200, maxHeight: 800, quality: 0.8, format: 'jpeg', maxSizeKB: 500 }
+user-uploads/general/3888187a-c125-40d9-8a3b-b5c6bf83231f-request-image.jpg
 ```
+
+## Desired Convention
+
+All paths should be deterministic and human-readable:
+
+| Context | Path Pattern |
+|---|---|
+| Provider media | `{provider-slug}/{provider-name}-{context}-{timestamp}.{ext}` |
+| Client avatar | `clients/{user-full-name}-avatar-{timestamp}.{ext}` |
+| Request image | `requests/{service-name}-{context}-{timestamp}.{ext}` |
+| Unknown user | `user-uploads/{user-id}/{context}-{timestamp}.{ext}` |
+
+## Changes
+
+### 1. Expand `UploadOptions` in `useMediaUpload.ts`
+
+Add optional `userName` and `serviceName` fields so callers can pass client/service context for deterministic naming.
+
+### 2. Rewrite `generateMediaPath` in `mediaPath.ts`
+
+Add branches for non-provider uploads:
+- If `userName` is provided (client uploads): `clients/{clean-name}-{context}-{ts}.{ext}`
+- If `serviceName` is provided (request images): `requests/{clean-service}-{context}-{ts}.{ext}`
+- Final fallback uses `uploaded_by` user ID instead of random UUID: `user-uploads/{userId}/{context}-{ts}.{ext}`
+
+### 3. Update callers to pass context
+
+| File | Change |
+|---|---|
+| `ClientProfileCard.tsx` | Pass `userName: profile.full_name` to `uploadMediaFile` |
+| `TedQuestionForm.tsx` | Accept and pass `serviceName` prop to `uploadMediaFile` |
+| `RequestService.tsx` | Pass `serviceName` from the selected service to `uploadMediaFile` |
+
+### 4. Update `generateAltText` calls
+
+Pass `userName` or `serviceName` through so alt text is also descriptive (e.g., "Eric Kibisu avatar" instead of "316008 10150355108602594 680024 n").
 
 ## Files Changed
 
 | File | Change |
 |---|---|
-| `src/utils/imageCompression.ts` | Add `avatar` and `request-image` presets |
-| `src/components/profile/ClientProfileCard.tsx` | Use `useMediaUpload` instead of direct storage call |
-| `src/components/TedQuestionForm.tsx` | Use `uploadMediaFile` instead of direct storage call |
-| `src/pages/RequestService.tsx` | Use `uploadMediaFile` instead of direct storage call |
+| `src/utils/mediaPath.ts` | Add `userName`, `serviceName`, `userId` params; new path branches |
+| `src/hooks/useMediaUpload.ts` | Add `userName`, `serviceName` to `UploadOptions`; pass to `generateMediaPath` |
+| `src/components/profile/ClientProfileCard.tsx` | Pass `userName` to upload call |
+| `src/components/TedQuestionForm.tsx` | Accept `serviceName` prop, pass to `uploadMediaFile` |
+| `src/pages/RequestService.tsx` | Pass `serviceName` to upload calls |
 
-No database or RLS changes needed — the `media` bucket and `media_files` table already exist with the correct policies.
+No database or migration changes needed.
 
