@@ -60,7 +60,7 @@ interface ImageUploadFieldProps {
   serviceName?: string | null
 }
 
-function ImageUploadField({ question, onImagesChange }: ImageUploadFieldProps) {
+function ImageUploadField({ question, onImagesChange, serviceName }: ImageUploadFieldProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [previews, setPreviews] = useState<{ url: string; uploading: boolean; error?: boolean }[]>([])
   const [files, setFiles] = useState<File[]>([])
