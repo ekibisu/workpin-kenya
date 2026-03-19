@@ -158,26 +158,9 @@ const RequestService = () => {
       return;
     }
 
-    // Upload images if any (best-effort — job is already created)
-    if (uploadedImages.length > 0) {
-      const imageUrls: string[] = [];
-      for (const file of uploadedImages) {
-        try {
-          const result = await uploadMediaFile({
-            file,
-            context: 'request-image',
-            tags: ['request-image', 'job-request'],
-            metadata: { job_request_id: inserted.id },
-            serviceName: selectedService?.name ?? undefined,
-          });
-          imageUrls.push(result.public_url);
-        } catch {
-          // best-effort — job is already created
-        }
-      }
-      if (imageUrls.length > 0) {
-        await supabase.from("job_requests").update({ image_urls: imageUrls }).eq("id", inserted.id);
-      }
+    // Write pre-uploaded image URLs to the job request (no re-upload needed)
+    if (uploadedImageUrls.length > 0) {
+      await supabase.from("job_requests").update({ image_urls: uploadedImageUrls }).eq("id", inserted.id);
     }
 
     setSubmitting(false);
