@@ -163,13 +163,16 @@ const RequestService = () => {
     if (uploadedImages.length > 0) {
       const imageUrls: string[] = [];
       for (const file of uploadedImages) {
-        const path = `${user.id}/${inserted.id}/${Date.now()}_${file.name}`;
-        const { error: upErr } = await supabase.storage
-          .from("request-images")
-          .upload(path, file);
-        if (!upErr) {
-          const { data: urlData } = supabase.storage.from("request-images").getPublicUrl(path);
-          imageUrls.push(urlData.publicUrl);
+        try {
+          const result = await uploadMediaFile({
+            file,
+            context: 'request-image',
+            tags: ['request-image', 'job-request'],
+            metadata: { job_request_id: inserted.id },
+          });
+          imageUrls.push(result.public_url);
+        } catch {
+          // best-effort — job is already created
         }
       }
       if (imageUrls.length > 0) {

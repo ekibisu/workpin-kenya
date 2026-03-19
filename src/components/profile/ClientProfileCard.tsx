@@ -106,20 +106,15 @@ const ClientProfileCard = ({ userId }: ClientProfileCardProps) => {
     if (!file) return;
     setUploading(true);
     try {
-      const fileExt = file.name.split(".").pop();
-      const filePath = `${userId}/${userId}_${Date.now()}.${fileExt}`;
-      const { error: uploadError } = await supabase.storage
-        .from("avatars")
-        .upload(filePath, file, { upsert: true });
-      if (uploadError) throw uploadError;
-
-      const {
-        data: { publicUrl },
-      } = supabase.storage.from("avatars").getPublicUrl(filePath);
+      const result = await uploadMediaFile({
+        file,
+        context: 'avatar',
+        tags: ['avatar', 'client'],
+      });
 
       const { error: updateError } = await supabase
         .from("profiles")
-        .update({ avatar_url: publicUrl })
+        .update({ avatar_url: result.public_url })
         .eq("id", userId);
       if (updateError) throw updateError;
 
@@ -129,10 +124,7 @@ const ClientProfileCard = ({ userId }: ClientProfileCardProps) => {
       });
       await fetchProfile();
     } catch (err: unknown) {
-      let message = "Could not upload avatar.";
-      if (err && typeof err === "object" && "message" in err) {
-        message = (err as { message: string }).message;
-      }
+      const message = err instanceof Error ? err.message : "Could not upload avatar.";
       toast({
         title: "Upload failed",
         description: message,
