@@ -112,9 +112,8 @@ const Dashboard = () => {
   const [editingRequest, setEditingRequest] = useState<JobRequest | null>(null);
   const [editAnswers, setEditAnswers] = useState<Record<string, string>>({});
   const [editLocation, setEditLocation] = useState("");
-  const [editBudgetMin, setEditBudgetMin] = useState("");
-  const [editBudgetMax, setEditBudgetMax] = useState("");
   const [savingEdit, setSavingEdit] = useState(false);
+  const [deletingRequestId, setDeletingRequestId] = useState<string | null>(null);
 
   // Map job_request_id → work_thread_id for messaging & reviews
   const [workThreadMap, setWorkThreadMap] = useState<Record<string, string>>({});
