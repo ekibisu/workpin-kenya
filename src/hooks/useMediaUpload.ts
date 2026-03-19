@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import type { Json } from '@/integrations/supabase/types';
 import { compressImage, needsCompression, COMPRESSION_PRESETS } from '@/utils/imageCompression';
 import { generateMediaPath, sanitizePath } from '@/utils/mediaPath';
 import { generateAltText } from '@/utils/mediaAltText';
