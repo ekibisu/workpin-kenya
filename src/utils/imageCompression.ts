@@ -8,9 +8,11 @@ export interface CompressionOptions {
 
 export const COMPRESSION_PRESETS: Record<string, CompressionOptions> = {
   logo: { maxWidth: 400, maxHeight: 400, quality: 0.85, format: 'webp', maxSizeKB: 100 },
+  avatar: { maxWidth: 600, maxHeight: 600, quality: 0.8, format: 'webp', maxSizeKB: 200 },
   'profile-photo': { maxWidth: 600, maxHeight: 600, quality: 0.8, format: 'webp', maxSizeKB: 200 },
   portfolio: { maxWidth: 1200, maxHeight: 800, quality: 0.8, format: 'jpeg', maxSizeKB: 500 },
   hero: { maxWidth: 1600, maxHeight: 900, quality: 0.8, format: 'jpeg', maxSizeKB: 600 },
+  'request-image': { maxWidth: 1200, maxHeight: 800, quality: 0.8, format: 'jpeg', maxSizeKB: 500 },
   general: { maxWidth: 1200, maxHeight: 800, quality: 0.8, format: 'jpeg', maxSizeKB: 500 },
 };
 
