@@ -222,8 +222,6 @@ const Dashboard = () => {
       setEditAnswers({ task_description: req.description });
     }
     setEditLocation(req.location_name ?? "");
-    setEditBudgetMin(req.budget_min_kes != null ? String(req.budget_min_kes) : "");
-    setEditBudgetMax(req.budget_max_kes != null ? String(req.budget_max_kes) : "");
   };
 
   const handleSaveEdit = async () => {
