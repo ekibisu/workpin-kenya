@@ -233,8 +233,6 @@ const Dashboard = () => {
       .update({
         description: updatedDescription,
         location_name: editLocation.trim() || null,
-        budget_min_kes: editBudgetMin ? parseInt(editBudgetMin.replace(/\D/g, ""), 10) : null,
-        budget_max_kes: editBudgetMax ? parseInt(editBudgetMax.replace(/\D/g, ""), 10) : null,
       })
       .eq("id", editingRequest.id);
     setSavingEdit(false);
