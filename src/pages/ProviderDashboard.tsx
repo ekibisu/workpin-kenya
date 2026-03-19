@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import Image from "@/components/ui/Image";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import { Button } from "@/components/ui/button";
@@ -270,9 +271,9 @@ const ProviderDashboard = () => {
                                     key={i}
                                     className="h-12 w-12 overflow-hidden rounded-lg border-2 border-card"
                                   >
-                                    <img
+                                    <Image
                                       src={url}
-                                      alt=""
+                                      alt={`Job photo ${i + 1}`}
                                       className="h-full w-full object-cover"
                                     />
                                   </div>
@@ -294,7 +295,7 @@ const ProviderDashboard = () => {
                                   key={i}
                                   className="overflow-hidden rounded-xl border border-border"
                                 >
-                                  <img
+                                  <Image
                                     src={url}
                                     alt={`Job photo ${i + 1}`}
                                     className="h-48 w-full object-cover"

@@ -15,7 +15,6 @@ import { toast } from "@/hooks/use-toast";
 import { ServicePicker } from "@/components/ServicePicker";
 import { TedQuestionForm, validateTedAnswers } from "@/components/TedQuestionForm";
 import { useService, useServices } from "@/hooks/useServices";
-import { uploadMediaFile } from "@/hooks/useMediaUpload";
 import questionsData from "@/data/questions.json";
 
 const STEP_LABELS = ["Pick a Service", "About the Job", "Location & Budget", "Review & Post"];
@@ -104,7 +103,7 @@ const RequestService = () => {
     }
   }, [allServices, searchParams]);
   const [tedAnswers, setTedAnswers] = useState<Record<string, string>>({});
-  const [uploadedImages, setUploadedImages] = useState<File[]>([]);
+  const [uploadedImageUrls, setUploadedImageUrls] = useState<string[]>([]);
   const [location, setLocation] = useState("");
   const [budgetMin, setBudgetMin] = useState("");
   const [budgetMax, setBudgetMax] = useState("");
@@ -159,26 +158,9 @@ const RequestService = () => {
       return;
     }
 
-    // Upload images if any (best-effort — job is already created)
-    if (uploadedImages.length > 0) {
-      const imageUrls: string[] = [];
-      for (const file of uploadedImages) {
-        try {
-          const result = await uploadMediaFile({
-            file,
-            context: 'request-image',
-            tags: ['request-image', 'job-request'],
-            metadata: { job_request_id: inserted.id },
-            serviceName: selectedService?.name ?? undefined,
-          });
-          imageUrls.push(result.public_url);
-        } catch {
-          // best-effort — job is already created
-        }
-      }
-      if (imageUrls.length > 0) {
-        await supabase.from("job_requests").update({ image_urls: imageUrls }).eq("id", inserted.id);
-      }
+    // Write pre-uploaded image URLs to the job request (no re-upload needed)
+    if (uploadedImageUrls.length > 0) {
+      await supabase.from("job_requests").update({ image_urls: uploadedImageUrls }).eq("id", inserted.id);
     }
 
     setSubmitting(false);
@@ -245,7 +227,7 @@ const RequestService = () => {
                     serviceName={selectedService?.name}
                     value={tedAnswers}
                     onChange={setTedAnswers}
-                    onImagesChange={setUploadedImages}
+                    onImagesChange={setUploadedImageUrls}
                   />
                 </div>
               )}

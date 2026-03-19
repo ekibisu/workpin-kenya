@@ -56,18 +56,18 @@ function QuestionLabel({ question }: { question: Question }) {
 
 interface ImageUploadFieldProps {
   question: ImageQuestion
-  onImagesChange: (files: File[]) => void
+  onImagesChange: (urls: string[]) => void
   serviceName?: string | null
 }
 
 function ImageUploadField({ question, onImagesChange, serviceName }: ImageUploadFieldProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [previews, setPreviews] = useState<{ url: string; uploading: boolean; error?: boolean }[]>([])
-  const [files, setFiles] = useState<File[]>([])
+  const [uploadedUrls, setUploadedUrls] = useState<string[]>([])
 
   const handleSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(e.target.files ?? [])
-    const remaining = question.max_files - files.length
+    const remaining = question.max_files - previews.length
     const toAdd = selected.slice(0, remaining)
     if (toAdd.length === 0) return
 
@@ -76,8 +76,8 @@ function ImageUploadField({ question, onImagesChange, serviceName }: ImageUpload
     const nextPreviews = [...previews, ...newPreviews]
     setPreviews(nextPreviews)
 
-    // Upload each file
-    const uploadedFiles: File[] = [...files]
+    // Upload each file and collect public URLs
+    const newUrls: string[] = [...uploadedUrls]
     const finalPreviews = [...nextPreviews]
 
     await Promise.all(
@@ -90,10 +90,8 @@ function ImageUploadField({ question, onImagesChange, serviceName }: ImageUpload
             tags: ['request-image'],
             serviceName: serviceName ?? undefined,
           })
-          if (result) {
-            uploadedFiles.push(file)
-            finalPreviews[previewIdx] = { ...finalPreviews[previewIdx], uploading: false }
-          }
+          newUrls.push(result.public_url)
+          finalPreviews[previewIdx] = { ...finalPreviews[previewIdx], uploading: false }
         } catch {
           finalPreviews[previewIdx] = { ...finalPreviews[previewIdx], uploading: false, error: true }
         }
@@ -101,8 +99,8 @@ function ImageUploadField({ question, onImagesChange, serviceName }: ImageUpload
     )
 
     setPreviews([...finalPreviews])
-    setFiles(uploadedFiles)
-    onImagesChange(uploadedFiles)
+    setUploadedUrls(newUrls)
+    onImagesChange(newUrls)
 
     // Reset input so the same file can be re-selected if needed
     if (inputRef.current) inputRef.current.value = ''
@@ -110,10 +108,10 @@ function ImageUploadField({ question, onImagesChange, serviceName }: ImageUpload
 
   const remove = (idx: number) => {
     const nextPreviews = previews.filter((_, i) => i !== idx)
-    const nextFiles = files.filter((_, i) => i !== idx)
+    const nextUrls = uploadedUrls.filter((_, i) => i !== idx)
     setPreviews(nextPreviews)
-    setFiles(nextFiles)
-    onImagesChange(nextFiles)
+    setUploadedUrls(nextUrls)
+    onImagesChange(nextUrls)
   }
 
   const canAdd = previews.length < question.max_files
@@ -187,7 +185,6 @@ function ImageUploadField({ question, onImagesChange, serviceName }: ImageUpload
 // ── Service-specific placeholders for the task_description field ──────────────
 
 const SERVICE_PLACEHOLDERS: Record<string, string> = {
-  // Home maintenance
   'House Cleaning':             'e.g. I need a deep clean of my 3-bedroom apartment — kitchen, bathrooms and floors',
   'Plumbing':                   'e.g. My kitchen tap is leaking and the water pressure is very low',
   'Electrical Repair':          'e.g. Two power sockets in my living room have stopped working',
@@ -205,7 +202,6 @@ const SERVICE_PLACEHOLDERS: Record<string, string> = {
   'Waterproofing':              'e.g. My basement wall seeps water during heavy rains',
   'Security / Usalama':         'e.g. I need a day guard for my residential compound, Monday to Saturday',
   'Carpentry / Useremala':      'e.g. I need a custom wooden wardrobe built for a master bedroom, 3 m wide',
-  // Lifestyle & wellness
   'Personal Training':          'e.g. I want a personal trainer for 3 sessions per week focused on weight loss',
   'Beauty / Uzuri':             'e.g. I need a full hair and makeup session at home for a formal event',
   'Mobile Massage Therapy':     'e.g. I need a 90-minute deep tissue massage at my home in Lavington',
@@ -217,7 +213,6 @@ const SERVICE_PLACEHOLDERS: Record<string, string> = {
   'Nutrition Coaching':         'e.g. I want a personalised meal plan to lose weight and manage my blood sugar',
   'Yoga & Pilates Instruction': 'e.g. I need a yoga instructor for private home sessions, 3× per week',
   'Home Care for Elderly':      'e.g. My mother needs daytime care assistance Monday to Friday',
-  // Events & celebrations
   'Photography':                'e.g. I need a photographer for a birthday party, 50 guests, in Karen on 20th April',
   'Catering':                   'e.g. I need catering for a corporate lunch — 30 people, buffet style',
   'DJ & Music':                 'e.g. Looking for a DJ for a wedding reception in Nairobi, approx 6 hours',
@@ -227,14 +222,12 @@ const SERVICE_PLACEHOLDERS: Record<string, string> = {
   'Tent & Chair Rental':        'e.g. I need a 20×10 m tent, 100 chairs and 10 tables for an outdoor event',
   'Video Production':           'e.g. I need a videographer to film and edit a 3-minute highlight reel of my event',
   'Wedding Officiant':          'e.g. I need a licensed officiant for a civil wedding ceremony for 60 guests',
-  // Outdoor & heavy duty
   'Landscaping':                'e.g. My compound needs mowing and the hedges need trimming — approx 200 sqm',
   'Landscaping & Mowing':       'e.g. My compound needs mowing and the hedges need trimming — approx 200 sqm',
   'Car Wash':                   'e.g. I need a full exterior and interior wash for my SUV at my home',
   'Mechanic':                   'e.g. My car makes a grinding noise when braking and the check-engine light is on',
   'Pest Control & Fumigation':  'e.g. I have a cockroach infestation in my kitchen and need immediate treatment',
   'Garbage Collection':         'e.g. I need weekly garbage collection for my 3-bedroom house in Ruaka',
-  // Professional & business
   'Tutoring':                   'e.g. My Form 3 student needs weekly Maths and Physics tutoring sessions',
   'Web Development':            'e.g. I need a 5-page business website with a contact form and online booking',
   'Graphic Design':             'e.g. I need a logo and full brand kit for my new restaurant',
@@ -250,7 +243,7 @@ interface TedQuestionFormProps {
   serviceName?: string | null
   value: Record<string, string>
   onChange: (answers: Record<string, string>) => void
-  onImagesChange: (files: File[]) => void
+  onImagesChange: (urls: string[]) => void
 }
 
 export function TedQuestionForm({
