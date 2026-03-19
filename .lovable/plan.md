@@ -1,110 +1,60 @@
 
 
-# Media System Implementation Plan
+# Refactor All Uploads to Centralized Media System
 
-## Overview
+## Problem
 
-Replace the current broken image system (missing `avatars_pro` bucket, no error handling, scattered upload logic) with a centralized media management system using a single `media` storage bucket, a `media_files` tracking table, client-side compression, and SEO-friendly paths.
+Three upload flows still bypass the new media system, writing directly to old storage buckets (`avatars`, `request-images`) without compression, tracking, or SEO metadata:
 
-## Adaptations from the Provided Guide
+| Location | Old Bucket | What It Uploads |
+|---|---|---|
+| `ClientProfileCard.tsx` (line 113) | `avatars` | Client avatar photo |
+| `TedQuestionForm.tsx` (line 87) | `request-images` | Job request reference images |
+| `RequestService.tsx` (line 167) | `request-images` | Job request images (post-submit) |
 
-The guide references `public.providers(id)` — this table does not exist. The project uses `provider_profiles` with `user_id` as the primary identifier. The `moddatetime` extension is not installed, so we will use a plain trigger function for `updated_at`. The `has_role` function already exists and uses the `app_role` enum — no need to recreate it.
+Meanwhile, `ProviderProfileCard.tsx` and `ProviderProfileSettings.tsx` were already migrated to use `useMediaUpload` → `media` bucket.
 
----
+## Plan
 
-## Step 1: Database Migration
+### 1. Refactor `ClientProfileCard.tsx`
 
-Create the `media` storage bucket and `media_files` table with RLS.
+Replace the direct `supabase.storage.from("avatars")` upload with the `useMediaUpload` hook:
+- Context: `'avatar'`
+- Add `'avatar'` preset to `COMPRESSION_PRESETS` (same as `profile-photo`: 600×600, webp)
+- After upload, save `result.public_url` to `profiles.avatar_url` as before
+- Add proper error toasts (already has try/catch, just wire the hook)
 
-**Storage bucket:**
-- Create `media` bucket (public, 5MB limit)
-- RLS: anyone can SELECT, authenticated can INSERT, owners can UPDATE/DELETE
+### 2. Refactor `TedQuestionForm.tsx`
 
-**`media_files` table** (adapted from guide):
-- `provider_id UUID` references `provider_profiles(user_id)` instead of `providers(id)`
-- Use a custom trigger function for `updated_at` instead of `moddatetime`
-- All columns as specified in guide Section 2
+Replace the direct `supabase.storage.from("request-images")` upload with `uploadMediaFile`:
+- Context: `'request-image'`
+- No `providerId` — use the current user as `uploaded_by`
+- Add `'request-image'` preset to `COMPRESSION_PRESETS` (1200×800, jpeg, 500KB)
+- Return the `public_url` for the parent form to use
 
-**RLS policies** (from guide Section 9):
-- Authenticated users read non-deleted media or their own
-- Users insert with `uploaded_by = auth.uid()`
-- Users soft-delete (update) their own records
-- Admins full access via existing `has_role` function
+### 3. Refactor `RequestService.tsx`
 
----
+Replace the post-submit image upload loop with `uploadMediaFile`:
+- Context: `'request-image'`
+- Store `result.public_url` into the `image_urls` array as before
+- This is the secondary upload path (TedQuestionForm handles the primary)
 
-## Step 2: Create Utility Files
+### 4. Add missing compression preset
 
-### `src/utils/imageCompression.ts`
-Client-side Canvas API compression with context-aware presets (logo, profile-photo, portfolio, hero, general). Recursive quality reduction until under `maxSizeKB`. Falls back to original on error.
+Add `avatar` and `request-image` entries to `COMPRESSION_PRESETS` in `imageCompression.ts`:
+```
+avatar: { maxWidth: 600, maxHeight: 600, quality: 0.8, format: 'webp', maxSizeKB: 200 }
+'request-image': { maxWidth: 1200, maxHeight: 800, quality: 0.8, format: 'jpeg', maxSizeKB: 500 }
+```
 
-### `src/utils/mediaPath.ts`
-Deterministic path generation: `{provider-slug}/{provider-name}-{context}-{timestamp}.{ext}`. Falls back to `user-uploads/general/{uuid}-{context}.{ext}` when no provider context. Uses the existing `slugify.ts` patterns.
-
-### `src/utils/mediaAltText.ts`
-Auto-generates alt text from context + provider name (e.g., "Portfolio work by Elite Plumbing", "Elite Plumbing logo").
-
----
-
-## Step 3: Create Upload Hook
-
-### `src/hooks/useMediaUpload.ts`
-Single `uploadMediaFile()` function that orchestrates the full flow:
-1. Validate file size (max 5MB)
-2. Compress via preset
-3. Generate deterministic path
-4. Upload to `media` bucket
-5. Get public URL
-6. Generate alt text
-7. Insert into `media_files`
-8. Return the full record
-
----
-
-## Step 4: Create Image Component
-
-### `src/components/ui/Image.tsx`
-Drop-in replacement for `<img>` with:
-- Skeleton loading state
-- Error fallback UI
-- `loading="lazy"` by default
-- Prefers `mediaFile.alt_text` from DB over hardcoded `alt` prop
-
----
-
-## Step 5: Migrate Existing Upload Code
-
-Update these files to use the new `uploadMediaFile` hook instead of direct `supabase.storage` calls to `avatars_pro`:
+## Files Changed
 
 | File | Change |
 |---|---|
-| `src/components/provider/ProviderProfileCard.tsx` | Replace `handlePhotoUpload` to use `uploadMediaFile`, store URL from `media_files.public_url` into `portfolio_photos`, add error handling with toasts |
-| `src/components/provider/settings/ProviderProfileSettings.tsx` | Same refactor for both profile photo and portfolio uploads |
-| `src/pages/ProviderLanding.tsx` | Replace `<img>` tags with `<Image>` component |
-| `src/pages/Providers.tsx` | Replace avatar `<img>` tags with `<Image>` component |
+| `src/utils/imageCompression.ts` | Add `avatar` and `request-image` presets |
+| `src/components/profile/ClientProfileCard.tsx` | Use `useMediaUpload` instead of direct storage call |
+| `src/components/TedQuestionForm.tsx` | Use `uploadMediaFile` instead of direct storage call |
+| `src/pages/RequestService.tsx` | Use `uploadMediaFile` instead of direct storage call |
 
----
-
-## Step 6: Clean Up Stale Data
-
-Clear broken `portfolio_photos` URLs that reference the non-existent `avatars_pro` bucket from the two existing provider records.
-
----
-
-## Files Created/Modified
-
-| File | Action |
-|---|---|
-| New migration SQL | Create `media` bucket + `media_files` table + RLS + trigger |
-| `src/utils/imageCompression.ts` | New |
-| `src/utils/mediaPath.ts` | New |
-| `src/utils/mediaAltText.ts` | New |
-| `src/hooks/useMediaUpload.ts` | New |
-| `src/components/ui/Image.tsx` | New |
-| `src/components/provider/ProviderProfileCard.tsx` | Refactor uploads |
-| `src/components/provider/settings/ProviderProfileSettings.tsx` | Refactor uploads |
-| `src/pages/ProviderLanding.tsx` | Use `<Image>` component |
-| `src/pages/Providers.tsx` | Use `<Image>` component |
-
-**Not included** (optional, per guide Section 8): CDN proxy and branded URL rewriting — can be added later when a custom domain is configured.
+No database or RLS changes needed — the `media` bucket and `media_files` table already exist with the correct policies.
 
