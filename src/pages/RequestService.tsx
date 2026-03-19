@@ -285,18 +285,6 @@ const RequestService = () => {
                           <dd className="font-medium">{location}</dd>
                         </div>
                       )}
-
-                      {/* Budget */}
-                      {(budgetMin || budgetMax) && (
-                        <div className="flex justify-between border-t border-border pt-3">
-                          <dt className="text-muted-foreground">Budget</dt>
-                          <dd className="font-medium">
-                            {budgetMin ? `KES ${fmtKes(budgetMin)}` : "—"}
-                            {" – "}
-                            {budgetMax ? `KES ${fmtKes(budgetMax)}` : "—"}
-                          </dd>
-                        </div>
-                      )}
                     </dl>
                   </CardContent>
                 </Card>

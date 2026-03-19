@@ -760,27 +760,6 @@ const Dashboard = () => {
               </div>
             </div>
 
-            {/* Budget */}
-            <div className="space-y-1.5">
-              <Label className="text-sm font-medium">Budget range (KES) <span className="font-normal text-muted-foreground">— optional</span></Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  value={editBudgetMin}
-                  onChange={(e) => setEditBudgetMin(e.target.value.replace(/\D/g, ""))}
-                  placeholder="Min"
-                  className="text-sm"
-                  inputMode="numeric"
-                />
-                <span className="shrink-0 text-muted-foreground">–</span>
-                <Input
-                  value={editBudgetMax}
-                  onChange={(e) => setEditBudgetMax(e.target.value.replace(/\D/g, ""))}
-                  placeholder="Max"
-                  className="text-sm"
-                  inputMode="numeric"
-                />
-              </div>
-            </div>
           </div>
 
           {/* Fixed footer */}

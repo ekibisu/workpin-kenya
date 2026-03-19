@@ -423,18 +423,12 @@ const ProviderDashboard = () => {
                         )}
 
                         <div className="mt-auto flex items-center gap-3 text-xs text-muted-foreground">
-                          {req.location_name && (
-                            <span className="flex items-center gap-1">
-                              <MapPin className="h-3 w-3" />
-                              {req.location_name}
-                            </span>
-                          )}
-                          {req.budget_min_kes && (
-                            <span className="flex items-center gap-1">
-                              <Banknote className="h-3 w-3" />
-                              KES {Number(req.budget_min_kes).toLocaleString()}
-                            </span>
-                          )}
+                        {req.location_name && (
+                          <span className="flex items-center gap-1">
+                            <MapPin className="h-3 w-3" />
+                            {req.location_name}
+                          </span>
+                        )}
                           <span>{format(new Date(req.created_at), "MMM d")}</span>
                         </div>
 
