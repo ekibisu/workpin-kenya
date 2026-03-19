@@ -14,7 +14,7 @@ interface UploadOptions {
   providerName?: string;
   context?: string;
   tags?: string[];
-  metadata?: Record<string, unknown>;
+  metadata?: Record<string, string | number | boolean | null>;
 }
 
 interface MediaFileRecord {
