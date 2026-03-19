@@ -451,7 +451,6 @@ const Dashboard = () => {
                           <p className="mt-1 line-clamp-1 text-sm text-muted-foreground">{parseDescriptionSummary(req.description)}</p>
                           <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
                             {req.location_name && <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{req.location_name}</span>}
-                            {req.budget_min_kes && <span>KES {Number(req.budget_min_kes).toLocaleString()}</span>}
                             <span>{format(new Date(req.created_at), "MMM d, yyyy")}</span>
                           </div>
                           {(req.status === "pending" || req.status === "completion_pending") && (() => {
