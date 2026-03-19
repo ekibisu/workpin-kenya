@@ -8,8 +8,19 @@ import { Input } from "@/components/ui/input";
 import { Link, useLocation } from "react-router-dom";
 import {
   LayoutDashboard, FileText, MessageCircle, Settings, Plus,
-  TrendingUp, Clock, CheckCircle, DollarSign, MapPin, Loader2, User, Star, Pencil, Banknote,
+  TrendingUp, Clock, CheckCircle, DollarSign, MapPin, Loader2, User, Star, Pencil, Trash2,
 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import MessageDrawer from "@/components/messaging/MessageDrawer";
 import ConversationList from "@/components/messaging/ConversationList";
 import { Badge } from "@/components/ui/badge";

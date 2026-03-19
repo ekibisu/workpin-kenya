@@ -17,7 +17,7 @@ import { TedQuestionForm, validateTedAnswers } from "@/components/TedQuestionFor
 import { useService, useServices } from "@/hooks/useServices";
 import questionsData from "@/data/questions.json";
 
-const STEP_LABELS = ["Pick a Service", "About the Job", "Location & Budget", "Review & Post"];
+const STEP_LABELS = ["Pick a Service", "About the Job", "Location", "Review & Post"];
 
 // Fallback map: service name → archetype when the DB archetype field is null.
 // Keeps questions relevant for every service regardless of DB state.
