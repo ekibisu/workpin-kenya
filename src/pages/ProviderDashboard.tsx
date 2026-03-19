@@ -313,12 +313,6 @@ const ProviderDashboard = () => {
                             {req.location_name}
                           </span>
                         )}
-                        {req.budget_min_kes && (
-                          <span className="flex items-center gap-1">
-                            <Banknote className="h-3 w-3" />
-                            KES {Number(req.budget_min_kes).toLocaleString()}
-                          </span>
-                        )}
                         <span>{format(new Date(req.created_at), "MMM d")}</span>
                       </div>
 
