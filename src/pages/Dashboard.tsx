@@ -8,8 +8,19 @@ import { Input } from "@/components/ui/input";
 import { Link, useLocation } from "react-router-dom";
 import {
   LayoutDashboard, FileText, MessageCircle, Settings, Plus,
-  TrendingUp, Clock, CheckCircle, DollarSign, MapPin, Loader2, User, Star, Pencil, Banknote,
+  TrendingUp, Clock, CheckCircle, DollarSign, MapPin, Loader2, User, Star, Pencil, Trash2,
 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import MessageDrawer from "@/components/messaging/MessageDrawer";
 import ConversationList from "@/components/messaging/ConversationList";
 import { Badge } from "@/components/ui/badge";
@@ -32,8 +43,6 @@ import questionsData from "@/data/questions.json";
 interface JobRequest {
   id: string;
   description: string;
-  budget_min_kes: number | null;
-  budget_max_kes: number | null;
   location_name: string | null;
   status: string;
   created_at: string;
@@ -103,9 +112,8 @@ const Dashboard = () => {
   const [editingRequest, setEditingRequest] = useState<JobRequest | null>(null);
   const [editAnswers, setEditAnswers] = useState<Record<string, string>>({});
   const [editLocation, setEditLocation] = useState("");
-  const [editBudgetMin, setEditBudgetMin] = useState("");
-  const [editBudgetMax, setEditBudgetMax] = useState("");
   const [savingEdit, setSavingEdit] = useState(false);
+  const [deletingRequestId, setDeletingRequestId] = useState<string | null>(null);
 
   // Map job_request_id → work_thread_id for messaging & reviews
   const [workThreadMap, setWorkThreadMap] = useState<Record<string, string>>({});
@@ -214,8 +222,6 @@ const Dashboard = () => {
       setEditAnswers({ task_description: req.description });
     }
     setEditLocation(req.location_name ?? "");
-    setEditBudgetMin(req.budget_min_kes != null ? String(req.budget_min_kes) : "");
-    setEditBudgetMax(req.budget_max_kes != null ? String(req.budget_max_kes) : "");
   };
 
   const handleSaveEdit = async () => {
@@ -227,8 +233,6 @@ const Dashboard = () => {
       .update({
         description: updatedDescription,
         location_name: editLocation.trim() || null,
-        budget_min_kes: editBudgetMin ? parseInt(editBudgetMin.replace(/\D/g, ""), 10) : null,
-        budget_max_kes: editBudgetMax ? parseInt(editBudgetMax.replace(/\D/g, ""), 10) : null,
       })
       .eq("id", editingRequest.id);
     setSavingEdit(false);
@@ -243,8 +247,6 @@ const Dashboard = () => {
               ...r,
               description: updatedDescription,
               location_name: editLocation.trim() || null,
-              budget_min_kes: editBudgetMin ? parseInt(editBudgetMin.replace(/\D/g, ""), 10) : null,
-              budget_max_kes: editBudgetMax ? parseInt(editBudgetMax.replace(/\D/g, ""), 10) : null,
             }
           : r
       )
@@ -307,7 +309,7 @@ const Dashboard = () => {
     if (!user) return;
     supabase
       .from("job_requests")
-      .select("id, description, budget_min_kes, budget_max_kes, location_name, status, created_at, image_urls, services(name, archetype)")
+      .select("id, description, location_name, status, created_at, image_urls, services(name, archetype)")
       .eq("client_id", user.id)
       .order("created_at", { ascending: false })
       .then(({ data }) => {
@@ -449,7 +451,6 @@ const Dashboard = () => {
                           <p className="mt-1 line-clamp-1 text-sm text-muted-foreground">{parseDescriptionSummary(req.description)}</p>
                           <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
                             {req.location_name && <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{req.location_name}</span>}
-                            {req.budget_min_kes && <span>KES {Number(req.budget_min_kes).toLocaleString()}</span>}
                             <span>{format(new Date(req.created_at), "MMM d, yyyy")}</span>
                           </div>
                           {(req.status === "pending" || req.status === "completion_pending") && (() => {
@@ -502,14 +503,63 @@ const Dashboard = () => {
                             </div>
                           )}
                           {req.status === "open" && (
-                            <button
-                              type="button"
-                              onClick={() => openEditDialog(req)}
-                              className="mt-2 flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                            >
-                              <Pencil className="h-3 w-3" />
-                              Edit request
-                            </button>
+                            <div className="mt-2 flex items-center gap-3">
+                              <button
+                                type="button"
+                                onClick={() => openEditDialog(req)}
+                                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                              >
+                                <Pencil className="h-3 w-3" />
+                                Edit request
+                              </button>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <button
+                                    type="button"
+                                    className="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive transition-colors"
+                                    disabled={deletingRequestId === req.id}
+                                  >
+                                    {deletingRequestId === req.id ? (
+                                      <Loader2 className="h-3 w-3 animate-spin" />
+                                    ) : (
+                                      <Trash2 className="h-3 w-3" />
+                                    )}
+                                    Delete
+                                  </button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Delete this request?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      This will permanently remove the request and any associated quotes. This action cannot be undone.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction
+                                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                      onClick={async () => {
+                                        setDeletingRequestId(req.id);
+                                        const { error } = await supabase
+                                          .from("job_requests")
+                                          .delete()
+                                          .eq("id", req.id);
+                                        setDeletingRequestId(null);
+                                        if (error) {
+                                          toast({ title: "Error", description: "Could not delete request.", variant: "destructive" });
+                                          return;
+                                        }
+                                        setRequests((prev) => prev.filter((r) => r.id !== req.id));
+                                        setQuotes((prev) => prev.filter((q) => q.request_id !== req.id));
+                                        toast({ title: "Request deleted" });
+                                      }}
+                                    >
+                                      Delete
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </div>
                           )}
                           {req.status === "completion_pending" && (
                             <div className="mt-3 rounded-lg border border-yellow-200 bg-yellow-50 p-3 dark:border-yellow-800 dark:bg-yellow-900/20">
@@ -710,27 +760,6 @@ const Dashboard = () => {
               </div>
             </div>
 
-            {/* Budget */}
-            <div className="space-y-1.5">
-              <Label className="text-sm font-medium">Budget range (KES) <span className="font-normal text-muted-foreground">— optional</span></Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  value={editBudgetMin}
-                  onChange={(e) => setEditBudgetMin(e.target.value.replace(/\D/g, ""))}
-                  placeholder="Min"
-                  className="text-sm"
-                  inputMode="numeric"
-                />
-                <span className="shrink-0 text-muted-foreground">–</span>
-                <Input
-                  value={editBudgetMax}
-                  onChange={(e) => setEditBudgetMax(e.target.value.replace(/\D/g, ""))}
-                  placeholder="Max"
-                  className="text-sm"
-                  inputMode="numeric"
-                />
-              </div>
-            </div>
           </div>
 
           {/* Fixed footer */}

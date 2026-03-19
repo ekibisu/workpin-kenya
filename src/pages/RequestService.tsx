@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronLeft, ChevronRight, MapPin, Banknote, CheckCircle, Loader2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, MapPin, CheckCircle, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
@@ -17,7 +17,7 @@ import { TedQuestionForm, validateTedAnswers } from "@/components/TedQuestionFor
 import { useService, useServices } from "@/hooks/useServices";
 import questionsData from "@/data/questions.json";
 
-const STEP_LABELS = ["Pick a Service", "About the Job", "Location & Budget", "Review & Post"];
+const STEP_LABELS = ["Pick a Service", "About the Job", "Location", "Review & Post"];
 
 // Fallback map: service name → archetype when the DB archetype field is null.
 // Keeps questions relevant for every service regardless of DB state.
@@ -105,8 +105,6 @@ const RequestService = () => {
   const [tedAnswers, setTedAnswers] = useState<Record<string, string>>({});
   const [uploadedImageUrls, setUploadedImageUrls] = useState<string[]>([]);
   const [location, setLocation] = useState("");
-  const [budgetMin, setBudgetMin] = useState("");
-  const [budgetMax, setBudgetMax] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   // Fetch selected service details (name + archetype)
@@ -144,8 +142,8 @@ const RequestService = () => {
         service_id: selectedServiceId,
         description: JSON.stringify(tedAnswers),
         location_name: location.trim() || null,
-        budget_min_kes: budgetMin ? parseInt(budgetMin.replace(/\D/g, ""), 10) : null,
-        budget_max_kes: budgetMax ? parseInt(budgetMax.replace(/\D/g, ""), 10) : null,
+        budget_min_kes: null,
+        budget_max_kes: null,
         timeline: null,
         status: "open",
       })
@@ -239,7 +237,7 @@ const RequestService = () => {
                     {/* Location */}
                     <div className="space-y-2">
                       <Label className="text-sm font-semibold">Location</Label>
-                      <div className="relative">
+                     <div className="relative">
                         <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                         <Input
                           value={location}
@@ -247,35 +245,6 @@ const RequestService = () => {
                           placeholder="e.g. Kilimani, Nairobi"
                           className="pl-9"
                         />
-                      </div>
-                      <p className="text-xs text-muted-foreground">Helps providers quote accurately</p>
-                    </div>
-
-                    {/* Budget range */}
-                    <div className="space-y-2">
-                      <Label className="text-sm font-semibold">Budget range (KES) — optional</Label>
-                      <div className="flex items-center gap-3">
-                        <div className="relative flex-1">
-                          <Banknote className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                          <Input
-                            value={budgetMin}
-                            onChange={(e) => setBudgetMin(e.target.value.replace(/\D/g, ""))}
-                            placeholder="Min"
-                            className="pl-9"
-                            inputMode="numeric"
-                          />
-                        </div>
-                        <span className="text-muted-foreground">–</span>
-                        <div className="relative flex-1">
-                          <Banknote className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                          <Input
-                            value={budgetMax}
-                            onChange={(e) => setBudgetMax(e.target.value.replace(/\D/g, ""))}
-                            placeholder="Max"
-                            className="pl-9"
-                            inputMode="numeric"
-                          />
-                        </div>
                       </div>
                       <p className="text-xs text-muted-foreground">Helps providers quote accurately</p>
                     </div>
@@ -314,18 +283,6 @@ const RequestService = () => {
                         <div className="flex justify-between border-t border-border pt-3">
                           <dt className="text-muted-foreground">Location</dt>
                           <dd className="font-medium">{location}</dd>
-                        </div>
-                      )}
-
-                      {/* Budget */}
-                      {(budgetMin || budgetMax) && (
-                        <div className="flex justify-between border-t border-border pt-3">
-                          <dt className="text-muted-foreground">Budget</dt>
-                          <dd className="font-medium">
-                            {budgetMin ? `KES ${fmtKes(budgetMin)}` : "—"}
-                            {" – "}
-                            {budgetMax ? `KES ${fmtKes(budgetMax)}` : "—"}
-                          </dd>
                         </div>
                       )}
                     </dl>

@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Link, useLocation } from "react-router-dom";
 import {
   LayoutDashboard, FileText, MessageCircle, Settings,
-  Clock, MapPin, Banknote, Loader2, Image as ImageIcon, CheckCircle, XCircle,
+  Clock, MapPin, Loader2, Image as ImageIcon, CheckCircle, XCircle,
 } from "lucide-react";
 
 import MessageDrawer from "@/components/messaging/MessageDrawer";
@@ -31,7 +31,6 @@ import {
 interface OpenRequest {
   id: string;
   description: string;
-  budget_min_kes: number | null;
   location_name: string | null;
   status: string;
   created_at: string;
@@ -98,7 +97,7 @@ const ProviderDashboard = () => {
       // 3. Fetch open requests filtered by matching services, pending jobs, and provider's quotes
       const openReqQuery = supabase
         .from("job_requests")
-        .select("id, description, budget_min_kes, location_name, status, created_at, image_urls, services(name)")
+        .select("id, description, location_name, status, created_at, image_urls, services(name)")
         .eq("status", "open")
         .order("created_at", { ascending: false });
       // Only filter by service if provider has categories set
@@ -110,7 +109,7 @@ const ProviderDashboard = () => {
         openReqQuery,
         supabase
           .from("job_requests")
-          .select("id, description, budget_min_kes, location_name, status, created_at, image_urls, client_id, services(name)")
+          .select("id, description, location_name, status, created_at, image_urls, client_id, services(name)")
           .in("status", ["pending", "completion_pending"])
           .order("created_at", { ascending: false }),
         supabase
@@ -314,12 +313,6 @@ const ProviderDashboard = () => {
                             {req.location_name}
                           </span>
                         )}
-                        {req.budget_min_kes && (
-                          <span className="flex items-center gap-1">
-                            <Banknote className="h-3 w-3" />
-                            KES {Number(req.budget_min_kes).toLocaleString()}
-                          </span>
-                        )}
                         <span>{format(new Date(req.created_at), "MMM d")}</span>
                       </div>
 
@@ -430,18 +423,12 @@ const ProviderDashboard = () => {
                         )}
 
                         <div className="mt-auto flex items-center gap-3 text-xs text-muted-foreground">
-                          {req.location_name && (
-                            <span className="flex items-center gap-1">
-                              <MapPin className="h-3 w-3" />
-                              {req.location_name}
-                            </span>
-                          )}
-                          {req.budget_min_kes && (
-                            <span className="flex items-center gap-1">
-                              <Banknote className="h-3 w-3" />
-                              KES {Number(req.budget_min_kes).toLocaleString()}
-                            </span>
-                          )}
+                        {req.location_name && (
+                          <span className="flex items-center gap-1">
+                            <MapPin className="h-3 w-3" />
+                            {req.location_name}
+                          </span>
+                        )}
                           <span>{format(new Date(req.created_at), "MMM d")}</span>
                         </div>
 
