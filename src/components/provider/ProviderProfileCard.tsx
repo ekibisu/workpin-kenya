@@ -14,6 +14,8 @@ import {
   SelectContent,
   SelectItem
 } from "@/components/ui/select";
+import Image from "@/components/ui/Image";
+import { useMediaUpload } from "@/hooks/useMediaUpload";
 
 interface ProviderProfileCardProps {
   userId: string;
@@ -30,6 +32,7 @@ interface ProviderProfile {
   portfolio_photos: string[];
   response_time_minutes: number;
   location_name: string | null;
+  username: string | null;
 }
 
 interface ProfileData {
@@ -40,9 +43,7 @@ interface ProfileData {
 }
 
 const ProviderProfileCard = ({ userId }: ProviderProfileCardProps) => {
-
-  // TODO: Replace with actual ownership logic
-  const isOwner = true;
+  const isOwner = true; // TODO: Replace with actual ownership logic
 
   const servicesRef = useRef<HTMLDivElement | null>(null);
   const reviewsRef = useRef<HTMLDivElement | null>(null);
@@ -51,11 +52,9 @@ const ProviderProfileCard = ({ userId }: ProviderProfileCardProps) => {
   const scrollToServices = useCallback(() => {
     servicesRef.current?.scrollIntoView({ behavior: "smooth" });
   }, []);
-
   const scrollToReviews = useCallback(() => {
     reviewsRef.current?.scrollIntoView({ behavior: "smooth" });
   }, []);
-
   const scrollToPortfolio = useCallback(() => {
     portfolioRef.current?.scrollIntoView({ behavior: "smooth" });
   }, []);
@@ -63,7 +62,6 @@ const ProviderProfileCard = ({ userId }: ProviderProfileCardProps) => {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<ProfileData | null>(null);
   const [hours, setHours] = useState<{ [key: string]: string }>({});
-  const [uploading, setUploading] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -72,12 +70,12 @@ const ProviderProfileCard = ({ userId }: ProviderProfileCardProps) => {
   const [selectedTime, setSelectedTime] = useState("");
 
   const { toast } = useToast();
+  const { upload, uploading } = useMediaUpload();
 
   const days = ["Sun", "Mon", "Tue", "Wed", "Thurs", "Fri", "Sat"];
 
   const fetchFullProfile = async () => {
     setLoading(true);
-
     const { data: profileData } = await supabase
       .from("profiles")
       .select(`
@@ -85,14 +83,13 @@ const ProviderProfileCard = ({ userId }: ProviderProfileCardProps) => {
         provider_profiles (
           business_name, bio, avg_rating, total_reviews,
           is_verified, categories, availability_json,
-          portfolio_photos, response_time_minutes, location_name
+          portfolio_photos, response_time_minutes, location_name, username
         )
       `)
       .eq("id", userId)
       .maybeSingle();
 
     if (profileData) {
-      // Ensure portfolio_photos is always an array
       if (profileData.provider_profiles) {
         if (!Array.isArray(profileData.provider_profiles.portfolio_photos)) {
           profileData.provider_profiles.portfolio_photos = [];
@@ -100,7 +97,6 @@ const ProviderProfileCard = ({ userId }: ProviderProfileCardProps) => {
       }
       setData(profileData as unknown as ProfileData);
 
-      // Validate that availability_json is a record of string:string
       const avail = profileData.provider_profiles?.availability_json;
       if (
         avail &&
@@ -113,7 +109,6 @@ const ProviderProfileCard = ({ userId }: ProviderProfileCardProps) => {
         setHours({});
       }
     }
-
     setLoading(false);
   };
 
@@ -121,9 +116,7 @@ const ProviderProfileCard = ({ userId }: ProviderProfileCardProps) => {
     fetchFullProfile();
   }, [userId]);
 
-
   const handleSaveHours = async () => {
-
     const { error } = await supabase
       .from("provider_profiles")
       .update({ availability_json: hours })
@@ -136,36 +129,33 @@ const ProviderProfileCard = ({ userId }: ProviderProfileCardProps) => {
   };
 
   const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-
     const file = event.target.files?.[0];
     if (!file) return;
 
-    setUploading(true);
+    const prov = data?.provider_profiles;
+    const result = await upload({
+      file,
+      providerId: userId,
+      providerSlug: prov?.username || userId,
+      providerName: prov?.business_name,
+      context: 'profile-photo',
+      tags: ['profile-photo'],
+    });
 
-    const fileExt = file.name.split(".").pop();
-    const filePath = `profile-photos/${userId}-${Math.random()}.${fileExt}`;
+    if (!result) {
+      toast({ title: "Upload failed", variant: "destructive" });
+      return;
+    }
 
-    await supabase.storage
-      .from("avatars_pro")
-      .upload(filePath, file, { upsert: true });
-
-    const { data: { publicUrl } } = supabase.storage
-      .from("avatars_pro")
-      .getPublicUrl(filePath);
-
-    const currentPhotos = data?.provider_profiles?.portfolio_photos || [];
-
-    const updatedPhotos = [...currentPhotos, publicUrl].slice(0, 4);
+    const currentPhotos = prov?.portfolio_photos || [];
+    const updatedPhotos = [result.public_url, ...currentPhotos.slice(1)].slice(0, 4);
 
     await supabase
       .from("provider_profiles")
       .update({ portfolio_photos: updatedPhotos })
       .eq("user_id", userId);
 
-    setUploading(false);
-
     toast({ title: "Photo uploaded" });
-
     fetchFullProfile();
   };
 
@@ -182,36 +172,29 @@ const ProviderProfileCard = ({ userId }: ProviderProfileCardProps) => {
   const availability = prov?.availability_json || {};
 
   return (
-
-    <div className="max-w-5xl mx-auto bg-white text-slate-800">
-
+    <div className="max-w-5xl mx-auto bg-card text-foreground">
       {/* HEADER */}
       <section className="flex flex-col md:flex-row justify-between pt-8 pb-4 px-4 gap-8">
-        {/* Left: Info and Actions */}
         <div className="flex-1 flex flex-col space-y-3">
-          {/* BUSINESS NAME */}
           <h1 className="text-3xl font-bold uppercase">
             {prov.business_name || "Business Name"}
           </h1>
-          <p className="text-xl text-slate-600">{data.full_name}</p>
-          {/* LOCATION */}
+          <p className="text-xl text-muted-foreground">{data.full_name}</p>
           <div className="flex items-center gap-2">
             <MapPin size={16} />
             <span>{prov?.location_name || "Location not set"}</span>
           </div>
-          {/* BIO */}
-          <p className="text-slate-500 italic">{prov.bio || "No description provided."}</p>
+          <p className="text-muted-foreground italic">{prov.bio || "No description provided."}</p>
 
-          {/* --- ACTION BUTTONS --- */}
           <div className="flex gap-4 pt-4 w-full md:w-auto mt-4">
-            <Button className="bg-[#16a34a] hover:bg-[#15803d] text-white px-10 py-6 font-bold uppercase text-xs tracking-widest rounded-sm">
+            <Button className="bg-primary hover:bg-primary/90 text-primary-foreground px-10 py-6 font-bold uppercase text-xs tracking-widest rounded-sm">
               Request a Quote
             </Button>
             <Dialog open={calendarOpen} onOpenChange={setCalendarOpen}>
               <DialogTrigger asChild>
                 <Button
                   variant="outline"
-                  className="border-[#16a34a] text-[#16a34a] px-10 py-6 font-bold uppercase text-xs tracking-widest rounded-sm"
+                  className="border-primary text-primary px-10 py-6 font-bold uppercase text-xs tracking-widest rounded-sm"
                 >
                   Book Now
                 </Button>
@@ -260,7 +243,7 @@ const ProviderProfileCard = ({ userId }: ProviderProfileCardProps) => {
                         setSelectedDate(undefined);
                         setSelectedTime("");
                       }}
-                      className="bg-[#16a34a] text-white"
+                      className="bg-primary text-primary-foreground"
                     >
                       Confirm Booking
                     </Button>
@@ -270,48 +253,43 @@ const ProviderProfileCard = ({ userId }: ProviderProfileCardProps) => {
             </Dialog>
           </div>
         </div>
+
         {/* Right: Profile Photo Box */}
-        <div className="relative group w-64 h-72 bg-slate-100 rounded-sm overflow-hidden border shadow-sm self-start">
-          <img 
-            src={prov?.portfolio_photos?.[0] || "https://via.placeholder.com/300?text=No+Image"} 
-            alt="Provider Profile" 
+        <div className="relative group w-64 h-72 bg-muted rounded-sm overflow-hidden border shadow-sm self-start">
+          <Image
+            src={prov?.portfolio_photos?.[0]}
+            alt={`${prov.business_name} profile photo`}
             className="w-full h-full object-cover"
           />
           {isOwner && (
-            (prov?.portfolio_photos?.length === 0 || !prov?.portfolio_photos?.[0]) ? (
-              // Always show upload button if no photo
-              <div className="absolute inset-0 flex items-center justify-center bg-black/20">
-                <input
-                  type="file"
-                  accept="image/*"
-                  ref={fileInputRef}
-                  className="hidden"
-                  onChange={handlePhotoUpload}
-                />
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  className="shadow-xl flex gap-2 font-bold"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={uploading}
-                >
-                  {uploading ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Camera className="h-4 w-4" />
-                  )}
-                  {uploading ? "Uploading..." : "Upload Photo"}
-                </Button>
-              </div>
-            ) : null
+            <>
+              <input
+                type="file"
+                accept="image/*"
+                ref={fileInputRef}
+                className="hidden"
+                onChange={handlePhotoUpload}
+              />
+              <button
+                type="button"
+                className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-black/70 text-white px-4 py-2 rounded shadow hover:bg-black/90 text-xs font-semibold opacity-0 group-hover:opacity-100 transition-opacity"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+              >
+                {uploading ? (
+                  <Loader2 className="h-4 w-4 animate-spin inline mr-1" />
+                ) : (
+                  <Camera className="h-4 w-4 inline mr-1" />
+                )}
+                {uploading ? "Uploading..." : prov?.portfolio_photos?.[0] ? "Change Photo" : "Upload Photo"}
+              </button>
+            </>
           )}
         </div>
       </section>
 
-
       {/* BUSINESS HOURS & PAYMENT METHODS ROW */}
       <div className="p-8 flex flex-col md:flex-row gap-8">
-        {/* Business Hours (left) */}
         <div className="flex-1 min-w-[220px]">
           <h3 className="font-bold mb-3">Business Hours</h3>
           <div className="space-y-1">
@@ -323,55 +301,40 @@ const ProviderProfileCard = ({ userId }: ProviderProfileCardProps) => {
             ))}
           </div>
         </div>
-        {/* Payment Methods (right) */}
         <div className="flex-1 min-w-[220px]">
           <h3 className="font-bold mb-3">Payment Methods</h3>
-          <p className="text-slate-600">
+          <p className="text-muted-foreground">
             This pro accepts Cash, Cheque, Credit Card, and M-Pesa.
           </p>
         </div>
       </div>
-      
-      
 
       {/* SERVICES */}
-
-      <div ref={servicesRef} className="p-10 bg-green-600 text-white text-center">
-
+      <div ref={servicesRef} className="p-10 bg-primary text-primary-foreground text-center">
         <h2 className="text-xl font-bold mb-6">Services</h2>
-
         <div className="flex flex-wrap justify-center gap-3">
-
           {prov?.categories?.map((cat: string) => (
-            <Badge key={cat} className="bg-white text-green-800">
+            <Badge key={cat} className="bg-card text-primary">
               <Check size={14} /> {cat}
             </Badge>
           ))}
-
         </div>
-
       </div>
 
       {/* PORTFOLIO */}
-
       <section ref={portfolioRef} className="px-4 py-12">
-
         <h2 className="text-xl font-bold mb-8">Portfolio Photos</h2>
-
         <div className="grid md:grid-cols-3 gap-4">
-
           {prov?.portfolio_photos?.slice(1, 4).map((url: string, index: number) => (
-            <img
+            <Image
               key={index}
               src={url}
+              alt={`${prov.business_name} portfolio work ${index + 1}`}
               className="w-full h-48 object-cover rounded"
             />
           ))}
-
         </div>
-
       </section>
-
     </div>
   );
 };

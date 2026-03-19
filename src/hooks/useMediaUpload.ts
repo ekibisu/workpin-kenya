@@ -69,7 +69,7 @@ export async function uploadMediaFile(opts: UploadOptions): Promise<MediaFileRec
 
   // 7. Record in database
   const { data: user } = await supabase.auth.getUser();
-  const { data, error } = await supabase.from('media_files').insert({
+  const { data, error } = await supabase.from('media_files').insert([{
     file_name: uploadFile.name,
     file_path: safePath,
     public_url: publicUrl,
@@ -80,8 +80,8 @@ export async function uploadMediaFile(opts: UploadOptions): Promise<MediaFileRec
     uploaded_by: user?.user?.id ?? null,
     tags: [...tags, context],
     alt_text: altText,
-    metadata,
-  }).select('*').single();
+    metadata: metadata as Record<string, unknown>,
+  }]).select('*').single();
 
   if (error) throw error;
   return data as unknown as MediaFileRecord;
