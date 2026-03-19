@@ -81,7 +81,7 @@ export async function uploadMediaFile(opts: UploadOptions): Promise<MediaFileRec
     uploaded_by: user?.user?.id ?? null,
     tags: [...tags, context],
     alt_text: altText,
-    metadata: metadata as Record<string, unknown>,
+    metadata: (metadata ?? {}) as Json,
   }]).select('*').single();
 
   if (error) throw error;
