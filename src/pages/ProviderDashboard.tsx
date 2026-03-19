@@ -270,9 +270,9 @@ const ProviderDashboard = () => {
                                     key={i}
                                     className="h-12 w-12 overflow-hidden rounded-lg border-2 border-card"
                                   >
-                                    <img
+                                    <Image
                                       src={url}
-                                      alt=""
+                                      alt={`Job photo ${i + 1}`}
                                       className="h-full w-full object-cover"
                                     />
                                   </div>
