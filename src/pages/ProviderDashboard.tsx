@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Link, useLocation } from "react-router-dom";
 import {
   LayoutDashboard, FileText, MessageCircle, Settings,
-  Clock, MapPin, Banknote, Loader2, Image as ImageIcon, CheckCircle, XCircle,
+  Clock, MapPin, Loader2, Image as ImageIcon, CheckCircle, XCircle,
 } from "lucide-react";
 
 import MessageDrawer from "@/components/messaging/MessageDrawer";
