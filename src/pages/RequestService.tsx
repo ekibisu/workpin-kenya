@@ -105,8 +105,6 @@ const RequestService = () => {
   const [tedAnswers, setTedAnswers] = useState<Record<string, string>>({});
   const [uploadedImageUrls, setUploadedImageUrls] = useState<string[]>([]);
   const [location, setLocation] = useState("");
-  const [budgetMin, setBudgetMin] = useState("");
-  const [budgetMax, setBudgetMax] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   // Fetch selected service details (name + archetype)
