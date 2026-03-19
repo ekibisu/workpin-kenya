@@ -3,15 +3,12 @@ import MapPicker from "@/components/MapPicker";
 import {
   MapPin,
   Calendar,
-  Briefcase,
   Mail,
   User,
   Loader2,
   Upload,
   Clock,
   Hammer,
-  Star,
-  CheckCircle2,
   Phone,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -21,6 +18,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { uploadMediaFile } from "@/hooks/useMediaUpload";
 
 interface ClientProfileCardProps {
   userId: string;
