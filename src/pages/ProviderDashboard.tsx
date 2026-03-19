@@ -31,7 +31,6 @@ import {
 interface OpenRequest {
   id: string;
   description: string;
-  budget_min_kes: number | null;
   location_name: string | null;
   status: string;
   created_at: string;
