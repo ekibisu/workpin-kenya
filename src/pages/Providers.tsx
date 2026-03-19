@@ -189,7 +189,7 @@ const Providers = () => {
                       <div className="mb-4 flex items-start gap-3">
                         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 font-heading text-sm font-bold text-primary">
                           {profileData?.avatar_url ? (
-                            <img
+                            <Image
                               src={profileData.avatar_url}
                               alt={provider.business_name}
                               className="h-full w-full rounded-xl object-cover"

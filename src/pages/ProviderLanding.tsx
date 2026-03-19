@@ -310,11 +310,10 @@ const ProviderLanding = () => {
                       key={i}
                       className="aspect-square overflow-hidden rounded-xl border border-border"
                     >
-                      <img
+                      <Image
                         src={url}
                         alt={`${provider.business_name} work sample ${i + 1}`}
                         className="h-full w-full object-cover transition-transform hover:scale-105"
-                        loading="lazy"
                       />
                     </div>
                   ))}
