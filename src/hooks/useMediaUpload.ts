@@ -13,6 +13,8 @@ interface UploadOptions {
   providerId?: string;
   providerSlug?: string;
   providerName?: string;
+  userName?: string;
+  serviceName?: string;
   context?: string;
   tags?: string[];
   metadata?: Record<string, string | number | boolean | null>;
@@ -30,7 +32,7 @@ interface MediaFileRecord {
 }
 
 export async function uploadMediaFile(opts: UploadOptions): Promise<MediaFileRecord> {
-  const { file, providerId, providerSlug, providerName, context = 'general', tags = [], metadata = {} } = opts;
+  const { file, providerId, providerSlug, providerName, userName, serviceName, context = 'general', tags = [], metadata = {} } = opts;
 
   // 1. Validate
   if (file.size > MAX_FILE_SIZE) {
@@ -51,25 +53,36 @@ export async function uploadMediaFile(opts: UploadOptions): Promise<MediaFileRec
     }
   }
 
-  // 3. Generate path
-  const { filePath } = generateMediaPath(uploadFile, providerSlug, providerName, context);
+  // 3. Get current user for fallback userId
+  const { data: userData } = await supabase.auth.getUser();
+  const userId = userData?.user?.id ?? undefined;
+
+  // 4. Generate path
+  const { filePath } = generateMediaPath({
+    file: uploadFile,
+    context,
+    providerSlug,
+    providerName,
+    userName,
+    serviceName,
+    userId,
+  });
   const safePath = sanitizePath(filePath);
 
-  // 4. Upload to Supabase Storage
+  // 5. Upload to Supabase Storage
   const { error: uploadError } = await supabase.storage
     .from(BUCKET)
     .upload(safePath, uploadFile, { cacheControl: '31536000', upsert: true });
 
   if (uploadError) throw uploadError;
 
-  // 5. Get public URL
+  // 6. Get public URL
   const { data: { publicUrl } } = supabase.storage.from(BUCKET).getPublicUrl(safePath);
 
-  // 6. Generate SEO alt text
-  const altText = generateAltText(uploadFile.name, context, providerName);
+  // 7. Generate SEO alt text
+  const altText = generateAltText(uploadFile.name, context, providerName ?? userName, serviceName);
 
-  // 7. Record in database
-  const { data: user } = await supabase.auth.getUser();
+  // 8. Record in database
   const { data, error } = await supabase.from('media_files').insert([{
     file_name: uploadFile.name,
     file_path: safePath,
@@ -78,7 +91,7 @@ export async function uploadMediaFile(opts: UploadOptions): Promise<MediaFileRec
     file_size: uploadFile.size,
     bucket_id: BUCKET,
     provider_id: providerId ?? null,
-    uploaded_by: user?.user?.id ?? null,
+    uploaded_by: userId ?? null,
     tags: [...tags, context],
     alt_text: altText,
     metadata: (metadata ?? {}) as Json,

@@ -57,9 +57,10 @@ function QuestionLabel({ question }: { question: Question }) {
 interface ImageUploadFieldProps {
   question: ImageQuestion
   onImagesChange: (files: File[]) => void
+  serviceName?: string | null
 }
 
-function ImageUploadField({ question, onImagesChange }: ImageUploadFieldProps) {
+function ImageUploadField({ question, onImagesChange, serviceName }: ImageUploadFieldProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [previews, setPreviews] = useState<{ url: string; uploading: boolean; error?: boolean }[]>([])
   const [files, setFiles] = useState<File[]>([])
@@ -87,6 +88,7 @@ function ImageUploadField({ question, onImagesChange }: ImageUploadFieldProps) {
             file,
             context: 'request-image',
             tags: ['request-image'],
+            serviceName: serviceName ?? undefined,
           })
           if (result) {
             uploadedFiles.push(file)
@@ -277,7 +279,7 @@ export function TedQuestionForm({
         if (q.type === 'image_upload') {
           return (
             <div key={q.id} className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
-              <ImageUploadField question={q} onImagesChange={onImagesChange} />
+              <ImageUploadField question={q} onImagesChange={onImagesChange} serviceName={serviceName} />
             </div>
           )
         }
