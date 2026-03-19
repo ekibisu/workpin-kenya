@@ -160,7 +160,7 @@ const ProviderLanding = () => {
               {/* Avatar */}
               <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground font-heading text-2xl font-bold shadow-lg">
                 {profileData?.avatar_url ? (
-                  <img
+                  <Image
                     src={profileData.avatar_url}
                     alt={provider.business_name}
                     className="h-full w-full rounded-2xl object-cover"
