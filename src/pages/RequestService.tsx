@@ -142,8 +142,8 @@ const RequestService = () => {
         service_id: selectedServiceId,
         description: JSON.stringify(tedAnswers),
         location_name: location.trim() || null,
-        budget_min_kes: budgetMin ? parseInt(budgetMin.replace(/\D/g, ""), 10) : null,
-        budget_max_kes: budgetMax ? parseInt(budgetMax.replace(/\D/g, ""), 10) : null,
+        budget_min_kes: null,
+        budget_max_kes: null,
         timeline: null,
         status: "open",
       })
