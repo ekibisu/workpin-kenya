@@ -29,6 +29,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
+import { uploadMediaFile } from "@/hooks/useMediaUpload";
 import {
   Dialog,
   DialogContent,
@@ -40,11 +41,11 @@ import ClientAccountSettings from "./ClientAccountSettings";
 import ProviderAccountSettings from "./ProviderAccountSettings";
 import questionsData from "@/data/questions.json";
 
-// Normalize image_urls: filter nulls, empty strings, and legacy deleted-bucket URLs
+// Normalize image_urls: filter nulls, empty strings, and obviously broken URLs
 function normalizeImageUrls(urls: string[] | null | undefined): string[] {
   if (!Array.isArray(urls)) return [];
   return urls.filter(
-    (u) => typeof u === 'string' && u.trim() !== '' && !u.includes('/request-images/')
+    (u) => typeof u === 'string' && u.trim() !== '' && !u.includes('deleted-bucket') && !u.startsWith('blob:')
   );
 }
 
@@ -121,6 +122,8 @@ const Dashboard = () => {
   const [editAnswers, setEditAnswers] = useState<Record<string, string>>({});
   const [editLocation, setEditLocation] = useState("");
   const [savingEdit, setSavingEdit] = useState(false);
+  const [editImages, setEditImages] = useState<string[]>([]);
+  const [editUploading, setEditUploading] = useState(false);
   const [deletingRequestId, setDeletingRequestId] = useState<string | null>(null);
 
   // Map job_request_id → work_thread_id for messaging & reviews
@@ -230,6 +233,7 @@ const Dashboard = () => {
       setEditAnswers({ task_description: req.description });
     }
     setEditLocation(req.location_name ?? "");
+    setEditImages(Array.isArray(req.image_urls) ? req.image_urls : []);
   };
 
   const handleSaveEdit = async () => {
@@ -241,6 +245,7 @@ const Dashboard = () => {
       .update({
         description: updatedDescription,
         location_name: editLocation.trim() || null,
+        image_urls: editImages,
       })
       .eq("id", editingRequest.id);
     setSavingEdit(false);
@@ -255,12 +260,31 @@ const Dashboard = () => {
               ...r,
               description: updatedDescription,
               location_name: editLocation.trim() || null,
+              image_urls: editImages,
             }
           : r
       )
     );
     setEditingRequest(null);
     toast({ title: "Request updated" });
+  };
+  // Image management for edit dialog
+  const handleRemoveEditImage = (idx: number) => {
+    setEditImages((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  const handleAddEditImages = async (files: FileList | null) => {
+    if (!files) return;
+    setEditUploading(true);
+    const uploaded: string[] = [];
+    for (let i = 0; i < files.length; i++) {
+      try {
+        const result = await uploadMediaFile({ file: files[i], context: 'request-image' });
+        uploaded.push(result.public_url);
+      } catch {}
+    }
+    setEditImages((prev) => [...prev, ...uploaded]);
+    setEditUploading(false);
   };
 
   const handleDeclineCompletion = async (jobRequestId: string) => {
@@ -501,7 +525,7 @@ const Dashboard = () => {
                             return imgs.length > 0 ? (
                             <div className="mt-2 flex gap-1.5">
                               {imgs.slice(0, 3).map((url, i) => (
-                                <div key={i} className="h-10 w-10 overflow-hidden rounded-md border border-border">
+                                <div key={url || i} className="h-10 w-10 overflow-hidden rounded-md border border-border">
                                   <Image src={url} alt={`Job photo ${i + 1}`} className="h-full w-full object-cover" />
                                 </div>
                               ))}
@@ -756,6 +780,44 @@ const Dashboard = () => {
 
             {/* Divider */}
             <div className="border-t border-border" />
+
+
+            {/* Image management */}
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">Photos</Label>
+              <div className="flex flex-wrap gap-2">
+                {editImages.map((url, idx) => (
+                  <div key={url || idx} className="relative h-20 w-20 overflow-hidden rounded-lg border border-gray-200">
+                    <img src={url} alt={`edit-img-${idx}`} className="h-full w-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveEditImage(idx)}
+                      className="absolute right-0.5 top-0.5 rounded-full bg-white/90 p-0.5 shadow"
+                      aria-label="Remove image"
+                    >
+                      <span style={{fontWeight:'bold',fontSize:'1.1em'}}>&times;</span>
+                    </button>
+                  </div>
+                ))}
+                {editImages.length < 3 && (
+                  <label className="flex h-20 w-20 flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-gray-300 bg-gray-50 text-gray-400 transition-colors hover:border-gray-400 hover:bg-gray-100 cursor-pointer">
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      multiple
+                      style={{ display: 'none' }}
+                      disabled={editUploading}
+                      onChange={e => handleAddEditImages(e.target.files)}
+                    />
+                    <span style={{fontSize:'2em'}}>+</span>
+                    <span className="text-[10px]">Add photo</span>
+                  </label>
+                )}
+              </div>
+              <p className="text-xs text-gray-400">
+                Up to 3 photos · JPG, PNG, WebP
+              </p>
+            </div>
 
             {/* Location */}
             <div className="space-y-1.5">
