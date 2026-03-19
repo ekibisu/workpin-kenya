@@ -109,7 +109,7 @@ const ProviderDashboard = () => {
         openReqQuery,
         supabase
           .from("job_requests")
-          .select("id, description, budget_min_kes, location_name, status, created_at, image_urls, client_id, services(name)")
+          .select("id, description, location_name, status, created_at, image_urls, client_id, services(name)")
           .in("status", ["pending", "completion_pending"])
           .order("created_at", { ascending: false }),
         supabase
