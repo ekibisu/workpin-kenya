@@ -97,7 +97,7 @@ const ProviderDashboard = () => {
       // 3. Fetch open requests filtered by matching services, pending jobs, and provider's quotes
       const openReqQuery = supabase
         .from("job_requests")
-        .select("id, description, budget_min_kes, location_name, status, created_at, image_urls, services(name)")
+        .select("id, description, location_name, status, created_at, image_urls, services(name)")
         .eq("status", "open")
         .order("created_at", { ascending: false });
       // Only filter by service if provider has categories set
