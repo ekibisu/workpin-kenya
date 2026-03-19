@@ -40,6 +40,14 @@ import ClientAccountSettings from "./ClientAccountSettings";
 import ProviderAccountSettings from "./ProviderAccountSettings";
 import questionsData from "@/data/questions.json";
 
+// Normalize image_urls: filter nulls, empty strings, and legacy deleted-bucket URLs
+function normalizeImageUrls(urls: string[] | null | undefined): string[] {
+  if (!Array.isArray(urls)) return [];
+  return urls.filter(
+    (u) => typeof u === 'string' && u.trim() !== '' && !u.includes('/request-images/')
+  );
+}
+
 interface JobRequest {
   id: string;
   description: string;

@@ -38,6 +38,14 @@ interface OpenRequest {
   services: { name: string } | null;
 }
 
+// Normalize image_urls: filter nulls, empty strings, and legacy deleted-bucket URLs
+function normalizeImageUrls(urls: string[] | null | undefined): string[] {
+  if (!Array.isArray(urls)) return [];
+  return urls.filter(
+    (u) => typeof u === 'string' && u.trim() !== '' && !u.includes('/request-images/')
+  );
+}
+
 const sideLinks = [
   { label: "Open Jobs", icon: LayoutDashboard, href: "/provider-dashboard" },
   { label: "My Quotes", icon: FileText, href: "/provider-dashboard/quotes" },
