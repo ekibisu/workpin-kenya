@@ -88,6 +88,7 @@ function ImageUploadField({ question, onImagesChange, serviceName }: ImageUpload
             file,
             context: 'request-image',
             tags: ['request-image'],
+            serviceName: serviceName ?? undefined,
           })
           if (result) {
             uploadedFiles.push(file)
