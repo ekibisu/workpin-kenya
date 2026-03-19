@@ -309,7 +309,7 @@ const Dashboard = () => {
     if (!user) return;
     supabase
       .from("job_requests")
-      .select("id, description, budget_min_kes, budget_max_kes, location_name, status, created_at, image_urls, services(name, archetype)")
+      .select("id, description, location_name, status, created_at, image_urls, services(name, archetype)")
       .eq("client_id", user.id)
       .order("created_at", { ascending: false })
       .then(({ data }) => {
