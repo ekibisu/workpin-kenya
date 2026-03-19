@@ -57,6 +57,7 @@ function QuestionLabel({ question }: { question: Question }) {
 interface ImageUploadFieldProps {
   question: ImageQuestion
   onImagesChange: (files: File[]) => void
+  serviceName?: string | null
 }
 
 function ImageUploadField({ question, onImagesChange }: ImageUploadFieldProps) {
