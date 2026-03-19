@@ -15,6 +15,7 @@ import { toast } from "@/hooks/use-toast";
 import { ServicePicker } from "@/components/ServicePicker";
 import { TedQuestionForm, validateTedAnswers } from "@/components/TedQuestionForm";
 import { useService, useServices } from "@/hooks/useServices";
+import { uploadMediaFile } from "@/hooks/useMediaUpload";
 import questionsData from "@/data/questions.json";
 
 const STEP_LABELS = ["Pick a Service", "About the Job", "Location & Budget", "Review & Post"];
