@@ -1,55 +1,48 @@
 
 
-# Delete Open Requests + Remove Budget Option
+# Fix: Request Images Not Saving (Missing `user_roles` Table)
+
+## Root Cause
+
+After creating a job request, `RequestService` runs a separate PATCH to write `image_urls`. This PATCH **fails with a 404** because the SELECT RLS policy on `job_requests` calls `has_role()`, which queries `public.user_roles` — a table that **does not exist**.
+
+The error from the network response:
+```
+{"code":"42P01","message":"relation \"public.user_roles\" does not exist"}
+```
+
+The `has_role` function and `app_role` enum exist, but the underlying `user_roles` table was never created.
 
 ## Changes
 
-### 1. Add "Delete Request" button to Dashboard (`src/pages/Dashboard.tsx`)
+### 1. Create `user_roles` table (migration)
 
-- Add a delete button (with Trash icon) next to the existing "Edit request" link for requests with `status === "open"`
-- Add confirmation via AlertDialog before deleting
-- On confirm: call `supabase.from("job_requests").delete().eq("id", reqId)` — but RLS currently blocks DELETE. Need a new RLS policy.
-- Remove the request from local state on success
-- Add state for `deletingRequestId` to show loading spinner
+Create the missing table that `has_role()` already references:
 
-### 2. Add DELETE RLS policy (migration)
-
-The `job_requests` table currently has no DELETE policy. Add one:
 ```sql
-CREATE POLICY "Client can delete own open requests"
-ON public.job_requests
-FOR DELETE
+CREATE TABLE public.user_roles (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  role app_role NOT NULL,
+  UNIQUE (user_id, role)
+);
+
+ALTER TABLE public.user_roles ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can read own roles"
+ON public.user_roles FOR SELECT
 TO authenticated
-USING (auth.uid() = client_id AND status = 'open');
+USING (auth.uid() = user_id);
 ```
 
-### 3. Remove budget from RequestService wizard (`src/pages/RequestService.tsx`)
+### 2. Include `image_urls` in the initial insert (`RequestService.tsx`)
 
-- Rename step 3 label from "Location & Budget" to "Location"
-- Remove `budgetMin`/`budgetMax` state variables and the budget input fields from step 3
-- Remove budget from the review step (step 4)
-- Stop sending `budget_min_kes`/`budget_max_kes` in the insert call (send `null`)
-- Remove `Banknote` import if no longer used
-
-### 4. Remove budget from Dashboard edit dialog (`src/pages/Dashboard.tsx`)
-
-- Remove `editBudgetMin`/`editBudgetMax` state and the budget fields from the edit dialog (lines 713-733)
-- Remove budget from `handleSaveEdit` and `openEditDialog`
-- Remove budget display from the request list item (line 452)
-- Remove `Banknote` from imports if unused
-
-### 5. Remove budget from ProviderDashboard (`src/pages/ProviderDashboard.tsx`)
-
-- Remove budget display from open requests and pending jobs cards
-- Remove `budget_min_kes` from the select queries
-- Remove `Banknote` import if unused
+Instead of a separate PATCH (which can fail silently), pass `image_urls` directly in the insert call. This eliminates the two-step write entirely.
 
 ## Files Changed
 
 | File | Change |
 |---|---|
-| Migration SQL | Add DELETE policy on `job_requests` for open requests |
-| `src/pages/Dashboard.tsx` | Add delete button + confirmation; remove all budget UI |
-| `src/pages/RequestService.tsx` | Remove budget fields, state, and review display |
-| `src/pages/ProviderDashboard.tsx` | Remove budget display from request cards |
+| Migration SQL | Create `user_roles` table with RLS |
+| `src/pages/RequestService.tsx` | Move `image_urls` into the insert; remove the separate update call |
 
