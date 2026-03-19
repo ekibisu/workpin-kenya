@@ -503,14 +503,63 @@ const Dashboard = () => {
                             </div>
                           )}
                           {req.status === "open" && (
-                            <button
-                              type="button"
-                              onClick={() => openEditDialog(req)}
-                              className="mt-2 flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                            >
-                              <Pencil className="h-3 w-3" />
-                              Edit request
-                            </button>
+                            <div className="mt-2 flex items-center gap-3">
+                              <button
+                                type="button"
+                                onClick={() => openEditDialog(req)}
+                                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                              >
+                                <Pencil className="h-3 w-3" />
+                                Edit request
+                              </button>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <button
+                                    type="button"
+                                    className="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive transition-colors"
+                                    disabled={deletingRequestId === req.id}
+                                  >
+                                    {deletingRequestId === req.id ? (
+                                      <Loader2 className="h-3 w-3 animate-spin" />
+                                    ) : (
+                                      <Trash2 className="h-3 w-3" />
+                                    )}
+                                    Delete
+                                  </button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Delete this request?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      This will permanently remove the request and any associated quotes. This action cannot be undone.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction
+                                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                      onClick={async () => {
+                                        setDeletingRequestId(req.id);
+                                        const { error } = await supabase
+                                          .from("job_requests")
+                                          .delete()
+                                          .eq("id", req.id);
+                                        setDeletingRequestId(null);
+                                        if (error) {
+                                          toast({ title: "Error", description: "Could not delete request.", variant: "destructive" });
+                                          return;
+                                        }
+                                        setRequests((prev) => prev.filter((r) => r.id !== req.id));
+                                        setQuotes((prev) => prev.filter((q) => q.request_id !== req.id));
+                                        toast({ title: "Request deleted" });
+                                      }}
+                                    >
+                                      Delete
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </div>
                           )}
                           {req.status === "completion_pending" && (
                             <div className="mt-3 rounded-lg border border-yellow-200 bg-yellow-50 p-3 dark:border-yellow-800 dark:bg-yellow-900/20">
