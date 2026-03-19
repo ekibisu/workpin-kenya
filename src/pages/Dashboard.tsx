@@ -496,20 +496,23 @@ const Dashboard = () => {
                               </div>
                             ) : null;
                           })()}
-                          {req.image_urls && req.image_urls.length > 0 && (
+                          {(() => {
+                            const imgs = normalizeImageUrls(req.image_urls);
+                            return imgs.length > 0 ? (
                             <div className="mt-2 flex gap-1.5">
-                              {req.image_urls.slice(0, 3).map((url, i) => (
+                              {imgs.slice(0, 3).map((url, i) => (
                                 <div key={i} className="h-10 w-10 overflow-hidden rounded-md border border-border">
                                   <Image src={url} alt={`Job photo ${i + 1}`} className="h-full w-full object-cover" />
                                 </div>
                               ))}
-                              {req.image_urls.length > 3 && (
+                              {imgs.length > 3 && (
                                 <div className="flex h-10 w-10 items-center justify-center rounded-md border border-border bg-muted text-xs font-medium text-muted-foreground">
-                                  +{req.image_urls.length - 3}
+                                  +{imgs.length - 3}
                                 </div>
                               )}
                             </div>
-                          )}
+                            ) : null;
+                          })()}
                           {req.status === "open" && (
                             <div className="mt-2 flex items-center gap-3">
                               <button

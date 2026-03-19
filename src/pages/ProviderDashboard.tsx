@@ -268,12 +268,14 @@ const ProviderDashboard = () => {
                       </p>
 
                       {/* Image thumbnails */}
-                      {req.image_urls && req.image_urls.length > 0 && (
+                      {(() => {
+                        const imgs = normalizeImageUrls(req.image_urls);
+                        return imgs.length > 0 ? (
                         <Dialog>
                           <DialogTrigger asChild>
                             <button className="mb-3 flex items-center gap-1.5">
                               <div className="flex -space-x-2">
-                                {req.image_urls.slice(0, 3).map((url, i) => (
+                                {imgs.slice(0, 3).map((url, i) => (
                                   <div
                                     key={i}
                                     className="h-12 w-12 overflow-hidden rounded-lg border-2 border-card"
@@ -288,7 +290,7 @@ const ProviderDashboard = () => {
                               </div>
                               <span className="ml-1 flex items-center gap-1 text-xs font-medium text-primary">
                                 <ImageIcon className="h-3.5 w-3.5" />
-                                {req.image_urls.length} photo{req.image_urls.length > 1 ? "s" : ""}
+                                {imgs.length} photo{imgs.length > 1 ? "s" : ""}
                               </span>
                             </button>
                           </DialogTrigger>
@@ -297,7 +299,7 @@ const ProviderDashboard = () => {
                               <DialogTitle>Job Photos</DialogTitle>
                             </DialogHeader>
                             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                              {req.image_urls.map((url, i) => (
+                              {imgs.map((url, i) => (
                                 <div
                                   key={i}
                                   className="overflow-hidden rounded-xl border border-border"
@@ -312,7 +314,8 @@ const ProviderDashboard = () => {
                             </div>
                           </DialogContent>
                         </Dialog>
-                      )}
+                        ) : null;
+                      })()}
 
                       <div className="mt-auto flex items-center gap-3 text-xs text-muted-foreground">
                         {req.location_name && (
