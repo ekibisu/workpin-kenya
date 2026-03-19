@@ -1,0 +1,13 @@
+CREATE TABLE public.user_roles (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  role app_role NOT NULL,
+  UNIQUE (user_id, role)
+);
+
+ALTER TABLE public.user_roles ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can read own roles"
+ON public.user_roles FOR SELECT
+TO authenticated
+USING (auth.uid() = user_id);
