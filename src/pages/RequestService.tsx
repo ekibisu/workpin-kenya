@@ -135,7 +135,7 @@ const RequestService = () => {
 
     setSubmitting(true);
 
-    const { data: inserted, error } = await supabase
+    const { error } = await supabase
       .from("job_requests")
       .insert({
         client_id: user.id,
@@ -146,19 +146,13 @@ const RequestService = () => {
         budget_max_kes: null,
         timeline: null,
         status: "open",
-      })
-      .select("id")
-      .single();
+        image_urls: uploadedImageUrls.length > 0 ? uploadedImageUrls : [],
+      });
 
-    if (error || !inserted) {
-      toast({ title: "Error", description: error?.message ?? "Failed to post job.", variant: "destructive" });
+    if (error) {
+      toast({ title: "Error", description: error.message ?? "Failed to post job.", variant: "destructive" });
       setSubmitting(false);
       return;
-    }
-
-    // Write pre-uploaded image URLs to the job request (no re-upload needed)
-    if (uploadedImageUrls.length > 0) {
-      await supabase.from("job_requests").update({ image_urls: uploadedImageUrls }).eq("id", inserted.id);
     }
 
     setSubmitting(false);
