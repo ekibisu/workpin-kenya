@@ -43,8 +43,6 @@ import questionsData from "@/data/questions.json";
 interface JobRequest {
   id: string;
   description: string;
-  budget_min_kes: number | null;
-  budget_max_kes: number | null;
   location_name: string | null;
   status: string;
   created_at: string;
