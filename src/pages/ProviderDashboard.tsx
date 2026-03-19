@@ -294,7 +294,7 @@ const ProviderDashboard = () => {
                                   key={i}
                                   className="overflow-hidden rounded-xl border border-border"
                                 >
-                                  <img
+                                  <Image
                                     src={url}
                                     alt={`Job photo ${i + 1}`}
                                     className="h-48 w-full object-cover"

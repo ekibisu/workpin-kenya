@@ -490,7 +490,7 @@ const Dashboard = () => {
                             <div className="mt-2 flex gap-1.5">
                               {req.image_urls.slice(0, 3).map((url, i) => (
                                 <div key={i} className="h-10 w-10 overflow-hidden rounded-md border border-border">
-                                  <img src={url} alt="" className="h-full w-full object-cover" />
+                                  <Image src={url} alt={`Job photo ${i + 1}`} className="h-full w-full object-cover" />
                                 </div>
                               ))}
                               {req.image_urls.length > 3 && (

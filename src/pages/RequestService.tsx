@@ -227,7 +227,7 @@ const RequestService = () => {
                     serviceName={selectedService?.name}
                     value={tedAnswers}
                     onChange={setTedAnswers}
-                    onImagesChange={setUploadedImages}
+                    onImagesChange={setUploadedImageUrls}
                   />
                 </div>
               )}
