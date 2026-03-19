@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { supabase } from '@/integrations/supabase/client'
+import { uploadMediaFile } from '@/hooks/useMediaUpload'
 import questionsData from '@/data/questions.json'
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -82,16 +82,18 @@ function ImageUploadField({ question, onImagesChange }: ImageUploadFieldProps) {
     await Promise.all(
       toAdd.map(async (file, idx) => {
         const previewIdx = previews.length + idx
-        const path = `uploads/${Date.now()}-${file.name}`
-        const { error } = await supabase.storage
-          .from('request-images')
-          .upload(path, file, { upsert: false })
-
-        if (error) {
+        try {
+          const result = await uploadMediaFile({
+            file,
+            context: 'request-image',
+            tags: ['request-image'],
+          })
+          if (result) {
+            uploadedFiles.push(file)
+            finalPreviews[previewIdx] = { ...finalPreviews[previewIdx], uploading: false }
+          }
+        } catch {
           finalPreviews[previewIdx] = { ...finalPreviews[previewIdx], uploading: false, error: true }
-        } else {
-          uploadedFiles.push(file)
-          finalPreviews[previewIdx] = { ...finalPreviews[previewIdx], uploading: false }
         }
       })
     )
