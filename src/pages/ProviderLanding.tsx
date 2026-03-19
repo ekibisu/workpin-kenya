@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import Image from "@/components/ui/Image";
 import {
   BadgeCheck,
   Star,
@@ -159,7 +160,7 @@ const ProviderLanding = () => {
               {/* Avatar */}
               <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground font-heading text-2xl font-bold shadow-lg">
                 {profileData?.avatar_url ? (
-                  <img
+                  <Image
                     src={profileData.avatar_url}
                     alt={provider.business_name}
                     className="h-full w-full rounded-2xl object-cover"
@@ -309,11 +310,10 @@ const ProviderLanding = () => {
                       key={i}
                       className="aspect-square overflow-hidden rounded-xl border border-border"
                     >
-                      <img
+                      <Image
                         src={url}
                         alt={`${provider.business_name} work sample ${i + 1}`}
                         className="h-full w-full object-cover transition-transform hover:scale-105"
-                        loading="lazy"
                       />
                     </div>
                   ))}

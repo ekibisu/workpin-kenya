@@ -303,6 +303,86 @@ export type Database = {
           },
         ]
       }
+      media_files: {
+        Row: {
+          alt_text: string | null
+          bucket_id: string
+          caption: string | null
+          created_at: string | null
+          file_name: string
+          file_path: string
+          file_size: number
+          height: number | null
+          id: string
+          is_deleted: boolean | null
+          last_accessed_at: string | null
+          metadata: Json | null
+          mime_type: string
+          provider_id: string | null
+          public_url: string
+          seo_title: string | null
+          tags: string[] | null
+          updated_at: string | null
+          uploaded_by: string | null
+          usage_count: number | null
+          width: number | null
+        }
+        Insert: {
+          alt_text?: string | null
+          bucket_id?: string
+          caption?: string | null
+          created_at?: string | null
+          file_name: string
+          file_path: string
+          file_size: number
+          height?: number | null
+          id?: string
+          is_deleted?: boolean | null
+          last_accessed_at?: string | null
+          metadata?: Json | null
+          mime_type: string
+          provider_id?: string | null
+          public_url: string
+          seo_title?: string | null
+          tags?: string[] | null
+          updated_at?: string | null
+          uploaded_by?: string | null
+          usage_count?: number | null
+          width?: number | null
+        }
+        Update: {
+          alt_text?: string | null
+          bucket_id?: string
+          caption?: string | null
+          created_at?: string | null
+          file_name?: string
+          file_path?: string
+          file_size?: number
+          height?: number | null
+          id?: string
+          is_deleted?: boolean | null
+          last_accessed_at?: string | null
+          metadata?: Json | null
+          mime_type?: string
+          provider_id?: string | null
+          public_url?: string
+          seo_title?: string | null
+          tags?: string[] | null
+          updated_at?: string | null
+          uploaded_by?: string | null
+          usage_count?: number | null
+          width?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "media_files_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       messages: {
         Row: {
           content: string
