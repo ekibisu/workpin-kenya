@@ -103,7 +103,7 @@ const RequestService = () => {
     }
   }, [allServices, searchParams]);
   const [tedAnswers, setTedAnswers] = useState<Record<string, string>>({});
-  const [uploadedImages, setUploadedImages] = useState<File[]>([]);
+  const [uploadedImageUrls, setUploadedImageUrls] = useState<string[]>([]);
   const [location, setLocation] = useState("");
   const [budgetMin, setBudgetMin] = useState("");
   const [budgetMax, setBudgetMax] = useState("");
