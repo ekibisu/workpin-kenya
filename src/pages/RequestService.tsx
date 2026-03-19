@@ -237,7 +237,7 @@ const RequestService = () => {
                     {/* Location */}
                     <div className="space-y-2">
                       <Label className="text-sm font-semibold">Location</Label>
-                      <div className="relative">
+                     <div className="relative">
                         <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                         <Input
                           value={location}
@@ -245,35 +245,6 @@ const RequestService = () => {
                           placeholder="e.g. Kilimani, Nairobi"
                           className="pl-9"
                         />
-                      </div>
-                      <p className="text-xs text-muted-foreground">Helps providers quote accurately</p>
-                    </div>
-
-                    {/* Budget range */}
-                    <div className="space-y-2">
-                      <Label className="text-sm font-semibold">Budget range (KES) — optional</Label>
-                      <div className="flex items-center gap-3">
-                        <div className="relative flex-1">
-                          <Banknote className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                          <Input
-                            value={budgetMin}
-                            onChange={(e) => setBudgetMin(e.target.value.replace(/\D/g, ""))}
-                            placeholder="Min"
-                            className="pl-9"
-                            inputMode="numeric"
-                          />
-                        </div>
-                        <span className="text-muted-foreground">–</span>
-                        <div className="relative flex-1">
-                          <Banknote className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                          <Input
-                            value={budgetMax}
-                            onChange={(e) => setBudgetMax(e.target.value.replace(/\D/g, ""))}
-                            placeholder="Max"
-                            className="pl-9"
-                            inputMode="numeric"
-                          />
-                        </div>
                       </div>
                       <p className="text-xs text-muted-foreground">Helps providers quote accurately</p>
                     </div>
