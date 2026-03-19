@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import Image from "@/components/ui/Image";
 import Navbar from "@/components/layout/Navbar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
