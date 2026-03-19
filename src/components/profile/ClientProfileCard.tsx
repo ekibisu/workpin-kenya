@@ -110,6 +110,7 @@ const ClientProfileCard = ({ userId }: ClientProfileCardProps) => {
         file,
         context: 'avatar',
         tags: ['avatar', 'client'],
+        userName: profile?.full_name ?? undefined,
       });
 
       const { error: updateError } = await supabase

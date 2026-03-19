@@ -169,6 +169,7 @@ const RequestService = () => {
             context: 'request-image',
             tags: ['request-image', 'job-request'],
             metadata: { job_request_id: inserted.id },
+            serviceName: selectedService?.name ?? undefined,
           });
           imageUrls.push(result.public_url);
         } catch {

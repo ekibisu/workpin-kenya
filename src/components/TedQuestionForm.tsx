@@ -279,7 +279,7 @@ export function TedQuestionForm({
         if (q.type === 'image_upload') {
           return (
             <div key={q.id} className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
-              <ImageUploadField question={q} onImagesChange={onImagesChange} />
+              <ImageUploadField question={q} onImagesChange={onImagesChange} serviceName={serviceName} />
             </div>
           )
         }
