@@ -1,55 +1,55 @@
 
 
-# Fix Request Image Upload Flow + Delete Old Buckets
-
-## Root Cause
-
-The upload flow is broken because images are uploaded **twice**:
-
-1. `TedQuestionForm.ImageUploadField` uploads each image immediately via `uploadMediaFile` (step 2 of the wizard) — this succeeds and creates `media_files` records, but no `job_request_id` is available yet.
-2. `RequestService.handleSubmit` tries to re-upload the same `File` objects — but the job request hasn't been created until step 4. The `image_urls` array ends up empty because the second upload is redundant and the URLs never get written back.
-
-The fix: `TedQuestionForm` should return the **`public_url` values** from the first upload, not the raw `File` objects. `RequestService` should skip re-uploading and just write those URLs into `job_requests.image_urls`.
+# Delete Open Requests + Remove Budget Option
 
 ## Changes
 
-### 1. Fix `TedQuestionForm.tsx` — return URLs instead of Files
+### 1. Add "Delete Request" button to Dashboard (`src/pages/Dashboard.tsx`)
 
-- Change `onImagesChange` callback signature from `(files: File[]) => void` to `(urls: string[]) => void`
-- In `ImageUploadField`, track uploaded `public_url` values alongside previews
-- After each successful `uploadMediaFile` call, store the returned `public_url`
-- Call `onImagesChange` with the accumulated URL strings
-- Also store `media_files.id` values so we can link them to the job request later
+- Add a delete button (with Trash icon) next to the existing "Edit request" link for requests with `status === "open"`
+- Add confirmation via AlertDialog before deleting
+- On confirm: call `supabase.from("job_requests").delete().eq("id", reqId)` — but RLS currently blocks DELETE. Need a new RLS policy.
+- Remove the request from local state on success
+- Add state for `deletingRequestId` to show loading spinner
 
-### 2. Fix `RequestService.tsx` — stop double-uploading
+### 2. Add DELETE RLS policy (migration)
 
-- Change `uploadedImages` state from `File[]` to `string[]` (URLs)
-- In `handleSubmit`, skip the upload loop entirely — just write the already-uploaded URLs into `job_requests.image_urls`
-- After inserting the job request, update the corresponding `media_files` records' metadata with the `job_request_id`
+The `job_requests` table currently has no DELETE policy. Add one:
+```sql
+CREATE POLICY "Client can delete own open requests"
+ON public.job_requests
+FOR DELETE
+TO authenticated
+USING (auth.uid() = client_id AND status = 'open');
+```
 
-### 3. Fix `TedQuestionFormProps` interface
+### 3. Remove budget from RequestService wizard (`src/pages/RequestService.tsx`)
 
-- Update `onImagesChange: (urls: string[]) => void` to match the new contract
+- Rename step 3 label from "Location & Budget" to "Location"
+- Remove `budgetMin`/`budgetMax` state variables and the budget input fields from step 3
+- Remove budget from the review step (step 4)
+- Stop sending `budget_min_kes`/`budget_max_kes` in the insert call (send `null`)
+- Remove `Banknote` import if no longer used
 
-### 4. Delete old storage buckets (migration)
+### 4. Remove budget from Dashboard edit dialog (`src/pages/Dashboard.tsx`)
 
-- Delete all objects from `avatars` and `request-images` buckets
-- Drop the buckets themselves
-- Drop any associated storage RLS policies for those buckets
+- Remove `editBudgetMin`/`editBudgetMax` state and the budget fields from the edit dialog (lines 713-733)
+- Remove budget from `handleSaveEdit` and `openEditDialog`
+- Remove budget display from the request list item (line 452)
+- Remove `Banknote` from imports if unused
 
-### 5. Use `<Image>` component in Dashboard and ProviderDashboard
+### 5. Remove budget from ProviderDashboard (`src/pages/ProviderDashboard.tsx`)
 
-Replace raw `<img>` tags rendering `image_urls` with the `<Image>` component for consistent loading/error states:
-- `Dashboard.tsx` lines 491-494
-- `ProviderDashboard.tsx` lines 273-278, 297-299
+- Remove budget display from open requests and pending jobs cards
+- Remove `budget_min_kes` from the select queries
+- Remove `Banknote` import if unused
 
 ## Files Changed
 
 | File | Change |
 |---|---|
-| `src/components/TedQuestionForm.tsx` | Return URLs from uploads, not File objects |
-| `src/pages/RequestService.tsx` | Use pre-uploaded URLs, stop double-uploading |
-| `src/pages/Dashboard.tsx` | Replace `<img>` with `<Image>` for request thumbnails |
-| `src/pages/ProviderDashboard.tsx` | Replace `<img>` with `<Image>` for request thumbnails |
-| New migration SQL | Delete `avatars` and `request-images` buckets and their objects |
+| Migration SQL | Add DELETE policy on `job_requests` for open requests |
+| `src/pages/Dashboard.tsx` | Add delete button + confirmation; remove all budget UI |
+| `src/pages/RequestService.tsx` | Remove budget fields, state, and review display |
+| `src/pages/ProviderDashboard.tsx` | Remove budget display from request cards |
 
