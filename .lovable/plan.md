@@ -1,61 +1,55 @@
 
 
-# Fix Media Path Generation for All Upload Contexts
+# Fix Request Image Upload Flow + Delete Old Buckets
 
-## Problem
+## Root Cause
 
-The `generateMediaPath` function only produces deterministic paths when `providerSlug` AND `providerName` are both provided. For all other uploads (client avatars, request images), it falls back to `user-uploads/general/{uuid}-{context}.{ext}` — random UUIDs, not the deterministic convention.
+The upload flow is broken because images are uploaded **twice**:
 
-From the network logs, request images are landing at paths like:
-```
-user-uploads/general/3888187a-c125-40d9-8a3b-b5c6bf83231f-request-image.jpg
-```
+1. `TedQuestionForm.ImageUploadField` uploads each image immediately via `uploadMediaFile` (step 2 of the wizard) — this succeeds and creates `media_files` records, but no `job_request_id` is available yet.
+2. `RequestService.handleSubmit` tries to re-upload the same `File` objects — but the job request hasn't been created until step 4. The `image_urls` array ends up empty because the second upload is redundant and the URLs never get written back.
 
-## Desired Convention
-
-All paths should be deterministic and human-readable:
-
-| Context | Path Pattern |
-|---|---|
-| Provider media | `{provider-slug}/{provider-name}-{context}-{timestamp}.{ext}` |
-| Client avatar | `clients/{user-full-name}-avatar-{timestamp}.{ext}` |
-| Request image | `requests/{service-name}-{context}-{timestamp}.{ext}` |
-| Unknown user | `user-uploads/{user-id}/{context}-{timestamp}.{ext}` |
+The fix: `TedQuestionForm` should return the **`public_url` values** from the first upload, not the raw `File` objects. `RequestService` should skip re-uploading and just write those URLs into `job_requests.image_urls`.
 
 ## Changes
 
-### 1. Expand `UploadOptions` in `useMediaUpload.ts`
+### 1. Fix `TedQuestionForm.tsx` — return URLs instead of Files
 
-Add optional `userName` and `serviceName` fields so callers can pass client/service context for deterministic naming.
+- Change `onImagesChange` callback signature from `(files: File[]) => void` to `(urls: string[]) => void`
+- In `ImageUploadField`, track uploaded `public_url` values alongside previews
+- After each successful `uploadMediaFile` call, store the returned `public_url`
+- Call `onImagesChange` with the accumulated URL strings
+- Also store `media_files.id` values so we can link them to the job request later
 
-### 2. Rewrite `generateMediaPath` in `mediaPath.ts`
+### 2. Fix `RequestService.tsx` — stop double-uploading
 
-Add branches for non-provider uploads:
-- If `userName` is provided (client uploads): `clients/{clean-name}-{context}-{ts}.{ext}`
-- If `serviceName` is provided (request images): `requests/{clean-service}-{context}-{ts}.{ext}`
-- Final fallback uses `uploaded_by` user ID instead of random UUID: `user-uploads/{userId}/{context}-{ts}.{ext}`
+- Change `uploadedImages` state from `File[]` to `string[]` (URLs)
+- In `handleSubmit`, skip the upload loop entirely — just write the already-uploaded URLs into `job_requests.image_urls`
+- After inserting the job request, update the corresponding `media_files` records' metadata with the `job_request_id`
 
-### 3. Update callers to pass context
+### 3. Fix `TedQuestionFormProps` interface
 
-| File | Change |
-|---|---|
-| `ClientProfileCard.tsx` | Pass `userName: profile.full_name` to `uploadMediaFile` |
-| `TedQuestionForm.tsx` | Accept and pass `serviceName` prop to `uploadMediaFile` |
-| `RequestService.tsx` | Pass `serviceName` from the selected service to `uploadMediaFile` |
+- Update `onImagesChange: (urls: string[]) => void` to match the new contract
 
-### 4. Update `generateAltText` calls
+### 4. Delete old storage buckets (migration)
 
-Pass `userName` or `serviceName` through so alt text is also descriptive (e.g., "Eric Kibisu avatar" instead of "316008 10150355108602594 680024 n").
+- Delete all objects from `avatars` and `request-images` buckets
+- Drop the buckets themselves
+- Drop any associated storage RLS policies for those buckets
+
+### 5. Use `<Image>` component in Dashboard and ProviderDashboard
+
+Replace raw `<img>` tags rendering `image_urls` with the `<Image>` component for consistent loading/error states:
+- `Dashboard.tsx` lines 491-494
+- `ProviderDashboard.tsx` lines 273-278, 297-299
 
 ## Files Changed
 
 | File | Change |
 |---|---|
-| `src/utils/mediaPath.ts` | Add `userName`, `serviceName`, `userId` params; new path branches |
-| `src/hooks/useMediaUpload.ts` | Add `userName`, `serviceName` to `UploadOptions`; pass to `generateMediaPath` |
-| `src/components/profile/ClientProfileCard.tsx` | Pass `userName` to upload call |
-| `src/components/TedQuestionForm.tsx` | Accept `serviceName` prop, pass to `uploadMediaFile` |
-| `src/pages/RequestService.tsx` | Pass `serviceName` to upload calls |
-
-No database or migration changes needed.
+| `src/components/TedQuestionForm.tsx` | Return URLs from uploads, not File objects |
+| `src/pages/RequestService.tsx` | Use pre-uploaded URLs, stop double-uploading |
+| `src/pages/Dashboard.tsx` | Replace `<img>` with `<Image>` for request thumbnails |
+| `src/pages/ProviderDashboard.tsx` | Replace `<img>` with `<Image>` for request thumbnails |
+| New migration SQL | Delete `avatars` and `request-images` buckets and their objects |
 
