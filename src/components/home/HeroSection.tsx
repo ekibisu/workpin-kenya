@@ -24,13 +24,13 @@ const HeroSection = () => {
               🇰🇪 Kenya's #1 Services Marketplace
             </span>
             <h1 className="mb-6 text-4xl font-extrabold leading-tight text-primary-foreground md:text-5xl lg:text-6xl">
-              Find trusted pros
+              The best hands
               <br />
-              <span className="text-primary-light">for any job.</span>
+              <span className="text-primary-light">for any task.</span>
             </h1>
             <p className="mb-8 max-w-lg text-lg text-primary-foreground/70">
-              From plumbing to photography — get free quotes from verified professionals near you. 
-              Fast, reliable, and built for Kenyans.
+              Stop searching and start hiring Kenya’s most reliable service providers. Whether it’s daily chores or professional business needs, we match you with experts who deliver.
+
             </p>
           </motion.div>
 
@@ -43,7 +43,7 @@ const HeroSection = () => {
             <Button variant="hero" size="xl" asChild>
               <Link to="/register">
                 <Search className="h-5 w-5" />
-                Get Started
+                Hire a Verified Pro
               </Link>
             </Button>
             <Button
