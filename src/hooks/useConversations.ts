@@ -17,6 +17,7 @@ export interface Conversation {
     last_message_body: string | null;
     last_message_at: string | null;
     unread_count: number;
+    thread_status: string;
 }
 
 /**
@@ -120,6 +121,7 @@ export function useConversations() {
                 last_message_body: latest?.content ?? null,
                 last_message_at: latest?.created_at ?? null,
                 unread_count: unreadMap[t.id] || 0,
+                thread_status: t.status,
             };
         });
 

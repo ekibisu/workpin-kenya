@@ -99,6 +99,14 @@ const ConversationList = ({ highlightThreadId }: ConversationListProps) => {
                                         {conv.service_name}
                                     </p>
                                 )}
+                                {conv.thread_status && conv.thread_status !== "active" && (
+                                    <Badge
+                                        variant={conv.thread_status === "inquiry" ? "secondary" : "outline"}
+                                        className="mb-0.5 h-4 text-[9px] px-1.5"
+                                    >
+                                        {conv.thread_status === "inquiry" ? "Inquiry" : conv.thread_status}
+                                    </Badge>
+                                )}
 
                                 <div className="flex items-center justify-between gap-2">
                                     <p className="truncate text-xs text-muted-foreground">
