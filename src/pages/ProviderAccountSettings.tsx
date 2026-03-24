@@ -1,6 +1,7 @@
 import { useAuth } from "@/contexts/AuthContext";
 import ProviderProfileSettings from "@/components/provider/settings/ProviderProfileSettings";
 import NotificationSettings from "@/components/provider/settings/NotificationSettings";
+import ChangePasswordCard from "@/components/settings/ChangePasswordCard";
 
 const ProviderAccountSettings: React.FC = () => {
   const { user } = useAuth(); // get userId from your auth context
@@ -13,6 +14,7 @@ const ProviderAccountSettings: React.FC = () => {
         initialSettings={{ email: true, sms: false, push: true }}
         onSave={(settings) => console.log("Saved settings:", settings)}
       />
+      <ChangePasswordCard />
       {/* Add provider-specific settings here */}
     </div>
   );
