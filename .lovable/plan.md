@@ -1,37 +1,43 @@
 
 
-# Fix: Providers See Only Requests Matching Their Services
+## Show Quotes Inline With Their Requests
 
-## Problem
+### Current state
+The client dashboard has two separate sections: "Your Requests" (lines 462-630) and "Quotes Received" (lines 632-720). The user must mentally match quotes to requests.
 
-In `ProviderDashboard.tsx` (lines 112-114), when a provider has no matching categories or the category-to-service name lookup returns zero matches, the filter is skipped entirely — showing **all** open requests instead of **none**.
+### Plan
+Remove the standalone "Quotes Received" section and instead show quotes **inline beneath each request card** that has received them.
 
-```typescript
-// Current: skips filter when no matches → shows everything
-if (matchingServiceIds.length > 0) {
-  openReqQuery.in("service_id", matchingServiceIds);
-}
+### Changes — `src/pages/Dashboard.tsx`
+
+1. **Add inline quotes beneath each request card** (inside the `requests.map` loop, after the images/edit/delete block, before the closing `</div>` of each card):
+   - Filter `quotes` array for the current `req.id`
+   - If any exist, render a collapsible sub-section (or always-visible list) showing each quote with:
+     - Provider name, price (KES), date, message
+     - Status badge (pending/accepted/declined)
+     - "Start Job" / "Decline" buttons for pending quotes on open requests (reuse existing handlers)
+     - "Job Started" badge for accepted quotes
+
+2. **Remove the standalone "Quotes Received" section** (lines 632-720) entirely, since all quote info will now live under each request.
+
+3. **Layout**: Use a two-column grid within each request card — request details on the left, quotes stacked on the right — at `md` breakpoint and above. On mobile, quotes stack below the request.
+
+```text
+┌─────────────────────────────────────────────────┐
+│  Request Card                                   │
+│  ┌──────────────────┐  ┌──────────────────────┐ │
+│  │ Service name     │  │ Quote 1              │ │
+│  │ Description      │  │  Provider · KES 5000 │ │
+│  │ Location · Date  │  │  [Start] [Decline]   │ │
+│  │ Photos           │  ├──────────────────────┤ │
+│  │ Edit · Delete    │  │ Quote 2              │ │
+│  │                  │  │  Provider · KES 4500 │ │
+│  │                  │  │  [Start] [Decline]   │ │
+│  └──────────────────┘  └──────────────────────┘ │
+└─────────────────────────────────────────────────┘
 ```
 
-## Fix
+4. **Quote count badge** on each request header row — e.g. "2 quotes" next to the status badge, only when quotes exist.
 
-When `matchingServiceIds` is empty, the provider should see zero open requests — not all of them. Change the logic so that if the provider has categories but none matched, or has no categories at all, the query returns nothing.
-
-### File: `src/pages/ProviderDashboard.tsx`
-
-Replace the conditional filter block (lines 111-114) with:
-
-```typescript
-// If provider has no matching services, return empty results
-if (matchingServiceIds.length === 0) {
-  setRequests([]);
-  // still fetch pending jobs and quotes below
-} else {
-  openReqQuery.in("service_id", matchingServiceIds);
-}
-```
-
-Then wrap the open requests result assignment so it only processes `reqRes.data` when `matchingServiceIds.length > 0`, otherwise keeps the empty array.
-
-This is a single-line logic change — no schema or migration needed.
+### No other files or migrations needed.
 
