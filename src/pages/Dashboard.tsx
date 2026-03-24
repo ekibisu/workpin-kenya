@@ -150,26 +150,39 @@ const Dashboard = () => {
     if (otherQuoteIds.length > 0) {
       await supabase.from("quotes").update({ status: "declined" }).in("id", otherQuoteIds);
     }
-    // Create work_thread linking client, provider, and job request
-    const { data: threadData, error: threadErr } = await supabase
-      .from("work_threads")
-      .insert({
-        client_id: user!.id,
-        provider_id: acceptedQuote!.provider_id,
-        job_request_id: jobRequestId,
-        status: "active",
-      })
-      .select("id")
-      .single();
-    if (threadErr) {
-      console.error("Failed to create work thread:", threadErr);
-      // Continue anyway — don't block the hire flow
-    }
-    const threadId = threadData?.id;
-    // Update accepted quote with work_thread_id
+
+    // Reuse existing inquiry thread or create a new one
+    let threadId = acceptedQuote?.work_thread_id;
     if (threadId) {
-      await supabase.from("quotes").update({ work_thread_id: threadId }).eq("id", selectedQuoteId);
-      setWorkThreadMap(prev => ({ ...prev, [jobRequestId]: threadId }));
+      // Upgrade inquiry thread to active
+      await supabase
+        .from("work_threads")
+        .update({ status: "active" })
+        .eq("id", threadId);
+    } else {
+      // Fallback: create work_thread linking client, provider, and job request
+      const { data: threadData, error: threadErr } = await supabase
+        .from("work_threads")
+        .insert({
+          client_id: user!.id,
+          provider_id: acceptedQuote!.provider_id,
+          job_request_id: jobRequestId,
+          status: "active",
+        })
+        .select("id")
+        .single();
+      if (threadErr) {
+        console.error("Failed to create work thread:", threadErr);
+      }
+      threadId = threadData?.id ?? null;
+    }
+
+    // Update accepted quote with work_thread_id if needed
+    if (threadId) {
+      if (!acceptedQuote?.work_thread_id) {
+        await supabase.from("quotes").update({ work_thread_id: threadId }).eq("id", selectedQuoteId);
+      }
+      setWorkThreadMap(prev => ({ ...prev, [jobRequestId]: threadId! }));
     }
     // Update job request status
     const { error } = await supabase
@@ -185,7 +198,7 @@ const Dashboard = () => {
     setRequests(prev => prev.map(r => r.id === jobRequestId ? { ...r, status: "pending" } : r));
     setQuotes(prev => prev.map(q => {
       if (q.request_id !== jobRequestId) return q;
-      if (q.id === selectedQuoteId) return { ...q, status: "accepted" };
+      if (q.id === selectedQuoteId) return { ...q, status: "accepted", work_thread_id: threadId };
       return { ...q, status: "declined" };
     }));
     toast({ title: "Job started!", description: "The provider has been hired." });
