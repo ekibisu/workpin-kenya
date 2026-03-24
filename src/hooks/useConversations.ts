@@ -36,12 +36,7 @@ export function useConversations() {
         // 1. Fetch all work_threads where this user is either client or provider
         const { data: threads, error } = await supabase
             .from("work_threads")
-            .select(
-                `id, job_request_id, client_id, provider_id, status, created_at, updated_at,
-         job_requests!work_threads_job_request_id_fkey(
-           services!job_requests_service_id_fkey(name)
-         )`
-            )
+            .select("id, job_request_id, client_id, provider_id, status, created_at, updated_at")
             .or(`client_id.eq.${user.id},provider_id.eq.${user.id}`)
             .order("updated_at", { ascending: false });
 
