@@ -631,98 +631,80 @@ const Dashboard = () => {
                             </div>
                           )}
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
 
-              {/* Quotes Received Section */}
-              <div className="mt-8 rounded-2xl border border-border bg-card p-6">
-                <h2 className="mb-4 font-heading text-lg font-bold text-foreground">Quotes Received</h2>
-                {loading ? (
-                  <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
-                ) : quotes.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-10 text-center">
-                    <TrendingUp className="mb-3 h-10 w-10 text-muted-foreground/30" />
-                    <p className="text-sm text-muted-foreground">No quotes received yet</p>
-                    <p className="mt-1 text-xs text-muted-foreground">Providers will send quotes once you post a request</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {quotes.map((quote) => (
-                      <div key={quote.id} className="flex items-start justify-between rounded-xl border border-border p-4 transition-colors hover:bg-accent/30">
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold text-foreground">
-                              {quote.job_requests?.services?.name || "Service"}
-                            </span>
-                            <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${quote.status === "pending" ? "bg-primary/10 text-primary" :
-                              quote.status === "accepted" ? "bg-accent text-accent-foreground" :
-                                "bg-muted text-muted-foreground"
-                              }`}>
-                              {quote.status === "declined" ? "Declined" : quote.status}
-                            </span>
-                          </div>
-                          <p className="mt-1 line-clamp-1 text-sm text-muted-foreground">
-                            {quote.job_requests?.description ? parseDescriptionSummary(quote.job_requests.description) : ""}
-                          </p>
-                          <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
-                            <span className="flex items-center gap-1">
-                              <User className="h-3 w-3" />
-                              {quote.profiles?.full_name || "Provider"}
-                            </span>
-                            <span className="font-semibold text-foreground">
-                              KES {Number(quote.price_kes).toLocaleString()}
-                            </span>
-                            <span>{format(new Date(quote.created_at), "MMM d, yyyy")}</span>
-                          </div>
-                          {quote.message && (
-                            <p className="mt-2 line-clamp-2 text-sm italic text-muted-foreground">
-                              "{quote.message}"
-                            </p>
-                          )}
-                        </div>
-                        {quote.status === "pending" && (() => {
-                          const req = requests.find(r => r.id === quote.request_id);
-                          if (!req || req.status !== "open") return null;
-                          return (
-                            <div className="ml-4 flex shrink-0 flex-col gap-2">
-                              <Button
-                                size="sm"
-                                disabled={startingJobId === req.id}
-                                onClick={() => handleStartJob(req.id, quote.id)}
-                              >
-                                {startingJobId === req.id ? (
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                  <CheckCircle className="h-4 w-4" />
+                        {/* Inline Quotes */}
+                        {reqQuotes.length > 0 && (
+                          <div className="space-y-2">
+                            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Quotes</h3>
+                            {reqQuotes.map((quote) => (
+                              <div key={quote.id} className="flex items-start justify-between rounded-lg border border-border bg-background p-3">
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="flex items-center gap-1 text-sm font-medium text-foreground">
+                                      <User className="h-3 w-3" />
+                                      {quote.profiles?.full_name || "Provider"}
+                                    </span>
+                                    <span className="text-sm font-semibold text-primary">
+                                      KES {Number(quote.price_kes).toLocaleString()}
+                                    </span>
+                                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                                      quote.status === "pending" ? "bg-primary/10 text-primary" :
+                                      quote.status === "accepted" ? "bg-accent text-accent-foreground" :
+                                      "bg-muted text-muted-foreground"
+                                    }`}>
+                                      {quote.status === "declined" ? "Declined" : quote.status}
+                                    </span>
+                                  </div>
+                                  <div className="mt-1 text-xs text-muted-foreground">
+                                    {format(new Date(quote.created_at), "MMM d, yyyy")}
+                                  </div>
+                                  {quote.message && (
+                                    <p className="mt-1 line-clamp-2 text-xs italic text-muted-foreground">
+                                      "{quote.message}"
+                                    </p>
+                                  )}
+                                </div>
+                                {quote.status === "pending" && req.status === "open" && (
+                                  <div className="ml-3 flex shrink-0 flex-col gap-1.5">
+                                    <Button
+                                      size="sm"
+                                      className="h-7 text-xs"
+                                      disabled={startingJobId === req.id}
+                                      onClick={() => handleStartJob(req.id, quote.id)}
+                                    >
+                                      {startingJobId === req.id ? (
+                                        <Loader2 className="h-3 w-3 animate-spin" />
+                                      ) : (
+                                        <CheckCircle className="h-3 w-3" />
+                                      )}
+                                      Start Job
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-7 text-xs text-muted-foreground hover:text-destructive"
+                                      disabled={decliningQuoteId === quote.id}
+                                      onClick={() => handleDeclineQuote(quote.id)}
+                                    >
+                                      {decliningQuoteId === quote.id ? (
+                                        <Loader2 className="h-3 w-3 animate-spin" />
+                                      ) : "Decline"}
+                                    </Button>
+                                  </div>
                                 )}
-                                Start Job
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="text-muted-foreground hover:text-destructive"
-                                disabled={decliningQuoteId === quote.id}
-                                onClick={() => handleDeclineQuote(quote.id)}
-                              >
-                                {decliningQuoteId === quote.id ? (
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                  "Decline"
+                                {quote.status === "accepted" && (
+                                  <span className="ml-3 shrink-0 rounded-full bg-muted px-2.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                                    Job Started
+                                  </span>
                                 )}
-                              </Button>
-                            </div>
-                          );
-                        })()}
-                        {quote.status === "accepted" && (
-                          <span className="ml-4 shrink-0 rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
-                            Job Started
-                          </span>
+                              </div>
+                            ))}
+                          </div>
                         )}
+                        </div>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
