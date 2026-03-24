@@ -87,6 +87,7 @@ interface Quote {
   created_at: string;
   request_id: string;
   provider_id: string;
+  work_thread_id: string | null;
   profiles: { full_name: string | null } | null;
   job_requests: { description: string; services: { name: string } | null } | null;
 }
@@ -149,26 +150,39 @@ const Dashboard = () => {
     if (otherQuoteIds.length > 0) {
       await supabase.from("quotes").update({ status: "declined" }).in("id", otherQuoteIds);
     }
-    // Create work_thread linking client, provider, and job request
-    const { data: threadData, error: threadErr } = await supabase
-      .from("work_threads")
-      .insert({
-        client_id: user!.id,
-        provider_id: acceptedQuote!.provider_id,
-        job_request_id: jobRequestId,
-        status: "active",
-      })
-      .select("id")
-      .single();
-    if (threadErr) {
-      console.error("Failed to create work thread:", threadErr);
-      // Continue anyway — don't block the hire flow
-    }
-    const threadId = threadData?.id;
-    // Update accepted quote with work_thread_id
+
+    // Reuse existing inquiry thread or create a new one
+    let threadId = acceptedQuote?.work_thread_id;
     if (threadId) {
-      await supabase.from("quotes").update({ work_thread_id: threadId }).eq("id", selectedQuoteId);
-      setWorkThreadMap(prev => ({ ...prev, [jobRequestId]: threadId }));
+      // Upgrade inquiry thread to active
+      await supabase
+        .from("work_threads")
+        .update({ status: "active" })
+        .eq("id", threadId);
+    } else {
+      // Fallback: create work_thread linking client, provider, and job request
+      const { data: threadData, error: threadErr } = await supabase
+        .from("work_threads")
+        .insert({
+          client_id: user!.id,
+          provider_id: acceptedQuote!.provider_id,
+          job_request_id: jobRequestId,
+          status: "active",
+        })
+        .select("id")
+        .single();
+      if (threadErr) {
+        console.error("Failed to create work thread:", threadErr);
+      }
+      threadId = threadData?.id ?? null;
+    }
+
+    // Update accepted quote with work_thread_id if needed
+    if (threadId) {
+      if (!acceptedQuote?.work_thread_id) {
+        await supabase.from("quotes").update({ work_thread_id: threadId }).eq("id", selectedQuoteId);
+      }
+      setWorkThreadMap(prev => ({ ...prev, [jobRequestId]: threadId! }));
     }
     // Update job request status
     const { error } = await supabase
@@ -184,7 +198,7 @@ const Dashboard = () => {
     setRequests(prev => prev.map(r => r.id === jobRequestId ? { ...r, status: "pending" } : r));
     setQuotes(prev => prev.map(q => {
       if (q.request_id !== jobRequestId) return q;
-      if (q.id === selectedQuoteId) return { ...q, status: "accepted" };
+      if (q.id === selectedQuoteId) return { ...q, status: "accepted", work_thread_id: threadId };
       return { ...q, status: "declined" };
     }));
     toast({ title: "Job started!", description: "The provider has been hired." });
@@ -351,7 +365,7 @@ const Dashboard = () => {
         if (ids.length > 0) {
           supabase
             .from("quotes")
-            .select("id, price_kes, message, status, created_at, request_id, provider_id, profiles!quotes_provider_id_fkey(full_name), job_requests!quotes_request_id_fkey(description, services(name))")
+            .select("id, price_kes, message, status, created_at, request_id, provider_id, work_thread_id, profiles!quotes_provider_id_fkey(full_name), job_requests!quotes_request_id_fkey(description, services(name))")
             .in("request_id", ids)
             .order("created_at", { ascending: false })
             .then(({ data: qData }) => {
@@ -678,6 +692,21 @@ const Dashboard = () => {
                                         <CheckCircle className="h-3 w-3" />
                                       )}
                                       Start Job
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-7 text-xs"
+                                      onClick={() => {
+                                        if (quote.work_thread_id) {
+                                          setChatWorkThreadId(quote.work_thread_id);
+                                          setChatRecipientName(quote.profiles?.full_name || "Provider");
+                                        }
+                                      }}
+                                      disabled={!quote.work_thread_id}
+                                    >
+                                      <MessageCircle className="mr-1 h-3 w-3" />
+                                      Message
                                     </Button>
                                     <Button
                                       variant="ghost"
