@@ -263,9 +263,35 @@ const ProviderDashboard = () => {
                         </span>
                       </div>
 
-                      <p className="mb-3 line-clamp-3 text-sm text-muted-foreground">
-                        {req.description}
-                      </p>
+                      {(() => {
+                        try {
+                          const parsed = JSON.parse(req.description);
+                          if (typeof parsed === "object" && parsed !== null) {
+                            const entries = Object.entries(parsed).filter(
+                              ([, v]) => v !== null && v !== undefined && v !== ""
+                            );
+                            return (
+                              <div className="mb-3 space-y-1.5 text-sm text-muted-foreground">
+                                {entries.map(([key, value]) => (
+                                  <div key={key} className="flex gap-2">
+                                    <span className="font-medium capitalize text-foreground/70">
+                                      {key.replace(/_/g, " ")}:
+                                    </span>
+                                    <span className="line-clamp-2">{String(value)}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            );
+                          }
+                        } catch {
+                          // Not JSON, render as plain text
+                        }
+                        return (
+                          <p className="mb-3 line-clamp-3 text-sm text-muted-foreground">
+                            {req.description}
+                          </p>
+                        );
+                      })()}
 
                       {/* Image thumbnails */}
                       {(() => {
@@ -396,9 +422,35 @@ const ProviderDashboard = () => {
                             {req.status === "completion_pending" ? "awaiting confirmation" : "pending"}
                           </span>
                         </div>
-                        <p className="mb-3 line-clamp-3 text-sm text-muted-foreground">
-                          {req.description}
-                        </p>
+                        {(() => {
+                          try {
+                            const parsed = JSON.parse(req.description);
+                            if (typeof parsed === "object" && parsed !== null) {
+                              const entries = Object.entries(parsed).filter(
+                                ([, v]) => v !== null && v !== undefined && v !== ""
+                              );
+                              return (
+                                <div className="mb-3 space-y-1.5 text-sm text-muted-foreground">
+                                  {entries.map(([key, value]) => (
+                                    <div key={key} className="flex gap-2">
+                                      <span className="font-medium capitalize text-foreground/70">
+                                        {key.replace(/_/g, " ")}:
+                                      </span>
+                                      <span className="line-clamp-2">{String(value)}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              );
+                            }
+                          } catch {
+                            // Not JSON, render as plain text
+                          }
+                          return (
+                            <p className="mb-3 line-clamp-3 text-sm text-muted-foreground">
+                              {req.description}
+                            </p>
+                          );
+                        })()}
 
                         {req.image_urls && req.image_urls.length > 0 && (
                           <Dialog>
