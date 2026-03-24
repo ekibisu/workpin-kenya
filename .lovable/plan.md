@@ -1,84 +1,43 @@
 
 
-# Quotes Section Refactor — Price-First Cards with Sorting & Status Filters
+# Fix "Auth session missing" on Password Reset
 
-## Current State
+## Root Cause
 
-The quotes section is a flat list of small cards inside each request's right column. Each card shows provider name, price, status badge, date, message, and action buttons all crammed together. As quote count grows, this becomes hard to scan.
+When a user clicks the password reset link from their email, Supabase redirects to `/reset-password#access_token=...&type=recovery`. Two things go wrong:
 
-## Wireframe
+1. **Race condition**: The `AuthContext` has its own `onAuthStateChange` listener that processes the recovery session. The `ResetPassword` component registers a *second* listener, but by the time it mounts, the `PASSWORD_RECOVERY` event may have already fired and been consumed.
+
+2. **Session not restored before submit**: The user can submit the form before the recovery session is fully established. `supabase.auth.updateUser()` requires an active session — without one, it returns "Auth session missing."
+
+The auth logs confirm this: the `/verify` endpoint returns 303 (session created), but then immediately a "Refresh Token Not Found" error appears, meaning the session was lost or not properly picked up.
+
+## Fix
+
+### 1. Update `ResetPassword.tsx`
+
+- **Wait for session**: On mount, call `supabase.auth.getSession()` first to restore any existing session from the URL hash tokens, then set up `onAuthStateChange` to catch the `PASSWORD_RECOVERY` event.
+- **Track session readiness**: Add an `isReady` state that gates the form. Show a loading state until the session is confirmed.
+- **Verify session before submit**: Before calling `updateUser`, check that a session exists. If not, show a clear error message asking the user to request a new reset link.
+- **Handle edge case**: If no recovery session is detected after a timeout (e.g. 5 seconds), show a message with a link back to the login page to request a new reset email.
 
 ```text
-┌─────────────────────────────────────────────────────────────┐
-│  QUOTES  ┌───┐   Sort by: ┌──────────────┐                 │
-│           │ 3 │            │ Lowest Price ▼│                 │
-│           └───┘            └──────────────┘                 │
-│  ┌─────────┬──────────┬──────────┐                          │
-│  │ All (3) │Pending(2)│Declined(1│                          │
-│  └─────────┴──────────┴──────────┘                          │
-│                                                             │
-│  ┌─────────────────────────────────────────────────────────┐ │
-│  │  KES 4,500              ┌─────────┐  ┌──────────────┐  │ │
-│  │  ┌──┐ John Mwangi       │ Message │  │  Hire  ✓     │  │ │
-│  │  │AV│ ★ 4.8 · 12 jobs   └─────────┘  └──────────────┘  │ │
-│  │  └──┘                                                   │ │
-│  │  "I can fix this within 2 hours..."   ● Pending         │ │
-│  │  Quoted: Mar 22, 2026                                   │ │
-│  └─────────────────────────────────────────────────────────┘ │
-│                                                             │
-│  ┌─────────────────────────────────────────────────────────┐ │
-│  │  KES 6,000              ┌─────────┐  ┌──────────────┐  │ │
-│  │  ┌──┐ Jane Achieng      │ Message │  │  Hire  ✓     │  │ │
-│  │  │AV│ ★ 4.5 · 8 jobs    └─────────┘  └──────────────┘  │ │
-│  │  └──┘                                                   │ │
-│  │  "Available tomorrow morning..."      ● Pending         │ │
-│  │  Quoted: Mar 23, 2026                                   │ │
-│  └─────────────────────────────────────────────────────────┘ │
-│                                                             │
-│  ┌──────────────────────────────────────────────────────── ┐ │
-│  │  KES 3,200                                    Declined │ │
-│  │  ┌──┐ Peter Ochieng                                    │ │
-│  │  │AV│ ★ 3.9 · 3 jobs                                  │ │
-│  │  └──┘                                                  │ │
-│  │  "I have experience with this type..."                 │ │
-│  └────────────────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────────┘
+Mount flow:
+1. getSession() → restore tokens from URL hash
+2. onAuthStateChange → listen for PASSWORD_RECOVERY event
+3. If session exists → set isReady=true, show form
+4. If no session after timeout → show "link expired" message
 ```
 
-## Key Design Decisions
+### 2. Prevent AuthContext from interfering
 
-- **Price-first**: KES amount is the most prominent element (large, bold, primary color) — aligns with Kenya market behavior
-- **Pill badge count**: "QUOTES (3)" header with a colored pill badge
-- **Sort dropdown**: "Sort by: Lowest Price" / "Highest Price" / "Newest" — defaults to Lowest Price
-- **Status filter tabs**: All / Pending / Shortlisted / Declined — uses existing `TabsList` component
-- **Provider mini-profile**: Avatar + name + rating + job count on one line
-- **Action buttons right-aligned**: "Message" (outline) and "Hire" (primary) only for pending quotes
-- **Declined quotes muted**: Reduced opacity, no action buttons, status shown as text badge
+The `AuthContext` currently doesn't redirect on its own (it just stores session state), so no changes needed there. The `ResetPassword` route is public (not behind `ProtectedRoute`), which is correct.
 
-## Technical Plan
+## Files Changed
 
-### 1. Extract `QuotesPanel` component
-**New file:** `src/components/dashboard/QuotesPanel.tsx`
+| File | Change |
+|------|--------|
+| `src/pages/ResetPassword.tsx` | Add session-aware gating with `getSession()` + timeout fallback |
 
-- Accepts `quotes[]`, `requestStatus`, action handlers (`onHire`, `onDecline`, `onMessage`)
-- Internal state: `sortBy` ("price_asc" | "price_desc" | "newest"), `filterStatus` ("all" | "pending" | "declined")
-- Sorts and filters quotes before rendering
-- Uses existing `Tabs`, `TabsList`, `TabsTrigger`, `Select`, `Badge`, `Avatar`, `Button` components
-
-### 2. Quote card sub-component
-Inside `QuotesPanel`, each quote card renders:
-- **Row 1**: Price (large bold) + action buttons (right-aligned)
-- **Row 2**: Avatar + provider name + rating/jobs count
-- **Row 3**: Quote message (italic, truncated)
-- **Row 4**: Date + status dot
-
-### 3. Update Dashboard.tsx
-**File:** `src/pages/Dashboard.tsx` (lines 649-732)
-
-- Replace the inline quotes `<div>` block with `<QuotesPanel>`
-- Pass through existing quote data and handler functions
-- Remove the old quotes rendering code
-
-### 4. No database or migration changes needed
-All data (`quotes.price_kes`, `quotes.status`, `quotes.message`, `profiles.full_name`) already exists.
+No database or migration changes needed.
 
