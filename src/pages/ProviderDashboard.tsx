@@ -108,13 +108,13 @@ const ProviderDashboard = () => {
         .select("id, description, location_name, status, created_at, image_urls, services(name)")
         .eq("status", "open")
         .order("created_at", { ascending: false });
-      // Only filter by service if provider has categories set
+      // Only show requests matching provider's service categories
       if (matchingServiceIds.length > 0) {
         openReqQuery.in("service_id", matchingServiceIds);
       }
 
       const [reqRes, pendingRes, quoteRes] = await Promise.all([
-        openReqQuery,
+        matchingServiceIds.length > 0 ? openReqQuery : Promise.resolve({ data: [] }),
         supabase
           .from("job_requests")
           .select("id, description, location_name, status, created_at, image_urls, client_id, services(name)")
