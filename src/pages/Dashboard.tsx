@@ -696,6 +696,21 @@ const Dashboard = () => {
                                     <Button
                                       variant="ghost"
                                       size="sm"
+                                      className="h-7 text-xs"
+                                      onClick={() => {
+                                        if (quote.work_thread_id) {
+                                          setChatWorkThreadId(quote.work_thread_id);
+                                          setChatRecipientName(quote.profiles?.full_name || "Provider");
+                                        }
+                                      }}
+                                      disabled={!quote.work_thread_id}
+                                    >
+                                      <MessageCircle className="mr-1 h-3 w-3" />
+                                      Message
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
                                       className="h-7 text-xs text-muted-foreground hover:text-destructive"
                                       disabled={decliningQuoteId === quote.id}
                                       onClick={() => handleDeclineQuote(quote.id)}
