@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { Lock, Eye, EyeOff, Loader2, MapPin } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import { Lock, Eye, EyeOff, Loader2, MapPin, AlertCircle } from "lucide-react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,17 +14,48 @@ const ResetPassword = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [isRecovery, setIsRecovery] = useState(false);
+  const [isReady, setIsReady] = useState(false);
+  const [expired, setExpired] = useState(false);
+  const isReadyRef = useRef(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "PASSWORD_RECOVERY") {
-        setIsRecovery(true);
+    let timeoutId: ReturnType<typeof setTimeout>;
+
+    const init = async () => {
+      // Restore session from URL hash tokens
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        isReadyRef.current = true;
+        setIsReady(true);
       }
-    });
-    return () => subscription.unsubscribe();
+
+      // Listen for PASSWORD_RECOVERY event in case it fires after getSession
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+        if (event === "PASSWORD_RECOVERY" && session) {
+          isReadyRef.current = true;
+          setIsReady(true);
+        }
+      });
+
+      // Timeout fallback — if no session after 5s, link is likely expired
+      timeoutId = setTimeout(() => {
+        if (!isReadyRef.current) {
+          setExpired(true);
+        }
+      }, 5000);
+
+      return () => {
+        subscription.unsubscribe();
+        clearTimeout(timeoutId);
+      };
+    };
+
+    const cleanup = init();
+    return () => {
+      cleanup.then((fn) => fn?.());
+    };
   }, []);
 
   const isValid = password.length >= 6 && password === confirmPassword;
@@ -32,6 +63,13 @@ const ResetPassword = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isValid) return;
+
+    // Double-check session exists before calling updateUser
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      toast({ title: "Session expired", description: "Please request a new password reset link.", variant: "destructive" });
+      return;
+    }
 
     setLoading(true);
     try {
@@ -47,6 +85,38 @@ const ResetPassword = () => {
     }
   };
 
+  // Expired / invalid link state
+  if (expired && !isReady) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background px-6 py-12">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-sm text-center">
+          <div className="mx-auto mb-6 flex h-12 w-12 items-center justify-center rounded-xl bg-destructive/10">
+            <AlertCircle className="h-6 w-6 text-destructive" />
+          </div>
+          <h1 className="mb-2 text-2xl font-extrabold text-foreground">Link Expired</h1>
+          <p className="mb-6 text-sm text-muted-foreground">
+            This password reset link has expired or is invalid. Please request a new one.
+          </p>
+          <Button asChild className="w-full" size="lg">
+            <Link to="/auth">Back to Login</Link>
+          </Button>
+        </motion.div>
+      </div>
+    );
+  }
+
+  // Loading state while waiting for session
+  if (!isReady) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background px-6 py-12">
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center gap-3">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">Verifying reset link...</p>
+        </motion.div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-6 py-12">
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-sm">
@@ -55,9 +125,7 @@ const ResetPassword = () => {
         </div>
 
         <h1 className="mb-2 text-center text-2xl font-extrabold text-foreground">Set New Password</h1>
-        <p className="mb-8 text-center text-sm text-muted-foreground">
-          {isRecovery ? "Enter your new password below." : "Waiting for recovery session..."}
-        </p>
+        <p className="mb-8 text-center text-sm text-muted-foreground">Enter your new password below.</p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
