@@ -10,6 +10,7 @@ import {
   LayoutDashboard, FileText, MessageCircle, Settings, Plus,
   TrendingUp, Clock, CheckCircle, DollarSign, MapPin, Loader2, User, Star, Pencil, Trash2,
 } from "lucide-react";
+import QuotesPanel from "@/components/dashboard/QuotesPanel";
 import {
   AlertDialog,
   AlertDialogAction,
