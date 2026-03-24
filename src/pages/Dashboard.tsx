@@ -471,14 +471,22 @@ const Dashboard = () => {
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {requests.map((req) => (
-                      <div key={req.id} className="flex items-start justify-between rounded-xl border border-border p-4 transition-colors hover:bg-accent/30">
+                    {requests.map((req) => {
+                      const reqQuotes = quotes.filter(q => q.request_id === req.id);
+                      return (
+                      <div key={req.id} className="rounded-xl border border-border p-4 transition-colors hover:bg-accent/30">
+                        <div className="grid gap-4 md:grid-cols-2">
                         <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-semibold text-foreground">{req.services?.name || "Service"}</span>
                             <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusColor[req.status] || "bg-muted text-muted-foreground"}`}>
                               {req.status === "completion_pending" ? "awaiting confirmation" : req.status}
                             </span>
+                            {reqQuotes.length > 0 && (
+                              <Badge variant="secondary" className="text-[10px] h-5">
+                                {reqQuotes.length} quote{reqQuotes.length !== 1 ? "s" : ""}
+                              </Badge>
+                            )}
                           </div>
                           <p className="mt-1 line-clamp-1 text-sm text-muted-foreground">{parseDescriptionSummary(req.description)}</p>
                           <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
