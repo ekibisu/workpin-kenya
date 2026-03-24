@@ -10,6 +10,7 @@ import {
   LayoutDashboard, FileText, MessageCircle, Settings, Plus,
   TrendingUp, Clock, CheckCircle, DollarSign, MapPin, Loader2, User, Star, Pencil, Trash2,
 } from "lucide-react";
+import QuotesPanel from "@/components/dashboard/QuotesPanel";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -87,6 +88,7 @@ interface Quote {
   created_at: string;
   request_id: string;
   provider_id: string;
+  work_thread_id: string | null;
   profiles: { full_name: string | null } | null;
   job_requests: { description: string; services: { name: string } | null } | null;
 }
@@ -149,26 +151,39 @@ const Dashboard = () => {
     if (otherQuoteIds.length > 0) {
       await supabase.from("quotes").update({ status: "declined" }).in("id", otherQuoteIds);
     }
-    // Create work_thread linking client, provider, and job request
-    const { data: threadData, error: threadErr } = await supabase
-      .from("work_threads")
-      .insert({
-        client_id: user!.id,
-        provider_id: acceptedQuote!.provider_id,
-        job_request_id: jobRequestId,
-        status: "active",
-      })
-      .select("id")
-      .single();
-    if (threadErr) {
-      console.error("Failed to create work thread:", threadErr);
-      // Continue anyway — don't block the hire flow
-    }
-    const threadId = threadData?.id;
-    // Update accepted quote with work_thread_id
+
+    // Reuse existing inquiry thread or create a new one
+    let threadId = acceptedQuote?.work_thread_id;
     if (threadId) {
-      await supabase.from("quotes").update({ work_thread_id: threadId }).eq("id", selectedQuoteId);
-      setWorkThreadMap(prev => ({ ...prev, [jobRequestId]: threadId }));
+      // Upgrade inquiry thread to active
+      await supabase
+        .from("work_threads")
+        .update({ status: "active" })
+        .eq("id", threadId);
+    } else {
+      // Fallback: create work_thread linking client, provider, and job request
+      const { data: threadData, error: threadErr } = await supabase
+        .from("work_threads")
+        .insert({
+          client_id: user!.id,
+          provider_id: acceptedQuote!.provider_id,
+          job_request_id: jobRequestId,
+          status: "active",
+        })
+        .select("id")
+        .single();
+      if (threadErr) {
+        console.error("Failed to create work thread:", threadErr);
+      }
+      threadId = threadData?.id ?? null;
+    }
+
+    // Update accepted quote with work_thread_id if needed
+    if (threadId) {
+      if (!acceptedQuote?.work_thread_id) {
+        await supabase.from("quotes").update({ work_thread_id: threadId }).eq("id", selectedQuoteId);
+      }
+      setWorkThreadMap(prev => ({ ...prev, [jobRequestId]: threadId! }));
     }
     // Update job request status
     const { error } = await supabase
@@ -184,7 +199,7 @@ const Dashboard = () => {
     setRequests(prev => prev.map(r => r.id === jobRequestId ? { ...r, status: "pending" } : r));
     setQuotes(prev => prev.map(q => {
       if (q.request_id !== jobRequestId) return q;
-      if (q.id === selectedQuoteId) return { ...q, status: "accepted" };
+      if (q.id === selectedQuoteId) return { ...q, status: "accepted", work_thread_id: threadId };
       return { ...q, status: "declined" };
     }));
     toast({ title: "Job started!", description: "The provider has been hired." });
@@ -351,7 +366,7 @@ const Dashboard = () => {
         if (ids.length > 0) {
           supabase
             .from("quotes")
-            .select("id, price_kes, message, status, created_at, request_id, provider_id, profiles!quotes_provider_id_fkey(full_name), job_requests!quotes_request_id_fkey(description, services(name))")
+            .select("id, price_kes, message, status, created_at, request_id, provider_id, work_thread_id, profiles!quotes_provider_id_fkey(full_name), job_requests!quotes_request_id_fkey(description, services(name))")
             .in("request_id", ids)
             .order("created_at", { ascending: false })
             .then(({ data: qData }) => {
@@ -471,14 +486,22 @@ const Dashboard = () => {
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {requests.map((req) => (
-                      <div key={req.id} className="flex items-start justify-between rounded-xl border border-border p-4 transition-colors hover:bg-accent/30">
+                    {requests.map((req) => {
+                      const reqQuotes = quotes.filter(q => q.request_id === req.id);
+                      return (
+                      <div key={req.id} className="rounded-xl border border-border p-4 transition-colors hover:bg-accent/30">
+                        <div className="grid gap-4 md:grid-cols-2">
                         <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-semibold text-foreground">{req.services?.name || "Service"}</span>
                             <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusColor[req.status] || "bg-muted text-muted-foreground"}`}>
                               {req.status === "completion_pending" ? "awaiting confirmation" : req.status}
                             </span>
+                            {reqQuotes.length > 0 && (
+                              <Badge variant="secondary" className="text-[10px] h-5">
+                                {reqQuotes.length} quote{reqQuotes.length !== 1 ? "s" : ""}
+                              </Badge>
+                            )}
                           </div>
                           <p className="mt-1 line-clamp-1 text-sm text-muted-foreground">{parseDescriptionSummary(req.description)}</p>
                           <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
@@ -623,98 +646,25 @@ const Dashboard = () => {
                             </div>
                           )}
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
 
-              {/* Quotes Received Section */}
-              <div className="mt-8 rounded-2xl border border-border bg-card p-6">
-                <h2 className="mb-4 font-heading text-lg font-bold text-foreground">Quotes Received</h2>
-                {loading ? (
-                  <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
-                ) : quotes.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-10 text-center">
-                    <TrendingUp className="mb-3 h-10 w-10 text-muted-foreground/30" />
-                    <p className="text-sm text-muted-foreground">No quotes received yet</p>
-                    <p className="mt-1 text-xs text-muted-foreground">Providers will send quotes once you post a request</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {quotes.map((quote) => (
-                      <div key={quote.id} className="flex items-start justify-between rounded-xl border border-border p-4 transition-colors hover:bg-accent/30">
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold text-foreground">
-                              {quote.job_requests?.services?.name || "Service"}
-                            </span>
-                            <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${quote.status === "pending" ? "bg-primary/10 text-primary" :
-                              quote.status === "accepted" ? "bg-accent text-accent-foreground" :
-                                "bg-muted text-muted-foreground"
-                              }`}>
-                              {quote.status === "declined" ? "Declined" : quote.status}
-                            </span>
-                          </div>
-                          <p className="mt-1 line-clamp-1 text-sm text-muted-foreground">
-                            {quote.job_requests?.description ? parseDescriptionSummary(quote.job_requests.description) : ""}
-                          </p>
-                          <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
-                            <span className="flex items-center gap-1">
-                              <User className="h-3 w-3" />
-                              {quote.profiles?.full_name || "Provider"}
-                            </span>
-                            <span className="font-semibold text-foreground">
-                              KES {Number(quote.price_kes).toLocaleString()}
-                            </span>
-                            <span>{format(new Date(quote.created_at), "MMM d, yyyy")}</span>
-                          </div>
-                          {quote.message && (
-                            <p className="mt-2 line-clamp-2 text-sm italic text-muted-foreground">
-                              "{quote.message}"
-                            </p>
-                          )}
+                        {/* Quotes Panel */}
+                        <QuotesPanel
+                          quotes={reqQuotes}
+                          requestStatus={req.status}
+                          startingJobId={startingJobId}
+                          decliningQuoteId={decliningQuoteId}
+                          requestId={req.id}
+                          onHire={handleStartJob}
+                          onDecline={handleDeclineQuote}
+                          onMessage={(threadId, name) => {
+                            setChatWorkThreadId(threadId);
+                            setChatRecipientName(name);
+                          }}
+                        />
                         </div>
-                        {quote.status === "pending" && (() => {
-                          const req = requests.find(r => r.id === quote.request_id);
-                          if (!req || req.status !== "open") return null;
-                          return (
-                            <div className="ml-4 flex shrink-0 flex-col gap-2">
-                              <Button
-                                size="sm"
-                                disabled={startingJobId === req.id}
-                                onClick={() => handleStartJob(req.id, quote.id)}
-                              >
-                                {startingJobId === req.id ? (
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                  <CheckCircle className="h-4 w-4" />
-                                )}
-                                Start Job
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="text-muted-foreground hover:text-destructive"
-                                disabled={decliningQuoteId === quote.id}
-                                onClick={() => handleDeclineQuote(quote.id)}
-                              >
-                                {decliningQuoteId === quote.id ? (
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                  "Decline"
-                                )}
-                              </Button>
-                            </div>
-                          );
-                        })()}
-                        {quote.status === "accepted" && (
-                          <span className="ml-4 shrink-0 rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
-                            Job Started
-                          </span>
-                        )}
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>

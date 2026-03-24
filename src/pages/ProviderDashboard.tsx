@@ -105,16 +105,16 @@ const ProviderDashboard = () => {
       // 3. Fetch open requests filtered by matching services, pending jobs, and provider's quotes
       const openReqQuery = supabase
         .from("job_requests")
-        .select("id, description, location_name, status, created_at, image_urls, services(name)")
+        .select("id, description, location_name, status, created_at, image_urls, client_id, services(name)")
         .eq("status", "open")
         .order("created_at", { ascending: false });
-      // Only filter by service if provider has categories set
+      // Only show requests matching provider's service categories
       if (matchingServiceIds.length > 0) {
         openReqQuery.in("service_id", matchingServiceIds);
       }
 
       const [reqRes, pendingRes, quoteRes] = await Promise.all([
-        openReqQuery,
+        matchingServiceIds.length > 0 ? openReqQuery : Promise.resolve({ data: [] }),
         supabase
           .from("job_requests")
           .select("id, description, location_name, status, created_at, image_urls, client_id, services(name)")
@@ -156,14 +156,40 @@ const ProviderDashboard = () => {
     fetchData();
   }, [user]);
 
+  // Map of request_id → work_thread_id for messaging after quoting
+  const [quoteThreadMap, setQuoteThreadMap] = useState<Record<string, string>>({});
+
   const handleSubmitQuote = async () => {
     if (!user || !quoteDialogRequestId || !quotePrice) return;
     setSubmittingQuote(true);
+
+    // Find the request to get the client_id
+    const targetReq = requests.find((r) => r.id === quoteDialogRequestId);
+    const clientId = (targetReq as any)?.client_id;
+
+    // 1. Create an inquiry work_thread so both parties can message
+    let threadId: string | null = null;
+    if (clientId) {
+      const { data: threadData } = await supabase
+        .from("work_threads")
+        .insert({
+          client_id: clientId,
+          provider_id: user.id,
+          job_request_id: quoteDialogRequestId,
+          status: "inquiry",
+        })
+        .select("id")
+        .single();
+      threadId = threadData?.id ?? null;
+    }
+
+    // 2. Insert quote with work_thread_id
     const { error } = await supabase.from("quotes").insert({
       provider_id: user.id,
       request_id: quoteDialogRequestId,
       price_kes: Number(quotePrice),
       message: quoteMessage || null,
+      work_thread_id: threadId,
     });
     setSubmittingQuote(false);
     if (error) {
@@ -171,6 +197,9 @@ const ProviderDashboard = () => {
       return;
     }
     setQuotedRequestIds((prev) => new Set(prev).add(quoteDialogRequestId));
+    if (threadId) {
+      setQuoteThreadMap((prev) => ({ ...prev, [quoteDialogRequestId]: threadId! }));
+    }
     setQuoteDialogRequestId(null);
     setQuotePrice("");
     setQuoteMessage("");
@@ -263,9 +292,35 @@ const ProviderDashboard = () => {
                         </span>
                       </div>
 
-                      <p className="mb-3 line-clamp-3 text-sm text-muted-foreground">
-                        {req.description}
-                      </p>
+                      {(() => {
+                        try {
+                          const parsed = JSON.parse(req.description);
+                          if (typeof parsed === "object" && parsed !== null) {
+                            const entries = Object.entries(parsed).filter(
+                              ([, v]) => v !== null && v !== undefined && v !== ""
+                            );
+                            return (
+                              <div className="mb-3 space-y-1.5 text-sm text-muted-foreground">
+                                {entries.map(([key, value]) => (
+                                  <div key={key} className="flex gap-2">
+                                    <span className="font-medium capitalize text-foreground/70">
+                                      {key.replace(/_/g, " ")}:
+                                    </span>
+                                    <span className="line-clamp-2">{String(value)}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            );
+                          }
+                        } catch {
+                          // Not JSON, render as plain text
+                        }
+                        return (
+                          <p className="mb-3 line-clamp-3 text-sm text-muted-foreground">
+                            {req.description}
+                          </p>
+                        );
+                      })()}
 
                       {/* Image thumbnails */}
                       {(() => {
@@ -333,9 +388,36 @@ const ProviderDashboard = () => {
                             Quote Declined
                           </div>
                         ) : (
-                          <Button variant="outline" size="sm" className="mt-3 w-full" disabled>
-                            <CheckCircle className="mr-1.5 h-3.5 w-3.5" /> Quote Sent
-                          </Button>
+                          <div className="mt-3 flex gap-2">
+                            <Button variant="outline" size="sm" className="flex-1" disabled>
+                              <CheckCircle className="mr-1.5 h-3.5 w-3.5" /> Quote Sent
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-xs"
+                              onClick={async () => {
+                                let threadId = quoteThreadMap[req.id];
+                                if (!threadId) {
+                                  const { data: wt } = await supabase
+                                    .from("work_threads")
+                                    .select("id")
+                                    .eq("job_request_id", req.id)
+                                    .eq("provider_id", user!.id)
+                                    .maybeSingle();
+                                  threadId = wt?.id || "";
+                                  if (wt?.id) setQuoteThreadMap((prev) => ({ ...prev, [req.id]: wt.id }));
+                                }
+                                if (threadId) {
+                                  setChatWorkThreadId(threadId);
+                                  setChatRecipientName("Client");
+                                }
+                              }}
+                            >
+                              <MessageCircle className="mr-1 h-3.5 w-3.5" />
+                              Message
+                            </Button>
+                          </div>
                         )
                       ) : (
                         <div className="mt-3 flex gap-2">
@@ -396,9 +478,35 @@ const ProviderDashboard = () => {
                             {req.status === "completion_pending" ? "awaiting confirmation" : "pending"}
                           </span>
                         </div>
-                        <p className="mb-3 line-clamp-3 text-sm text-muted-foreground">
-                          {req.description}
-                        </p>
+                        {(() => {
+                          try {
+                            const parsed = JSON.parse(req.description);
+                            if (typeof parsed === "object" && parsed !== null) {
+                              const entries = Object.entries(parsed).filter(
+                                ([, v]) => v !== null && v !== undefined && v !== ""
+                              );
+                              return (
+                                <div className="mb-3 space-y-1.5 text-sm text-muted-foreground">
+                                  {entries.map(([key, value]) => (
+                                    <div key={key} className="flex gap-2">
+                                      <span className="font-medium capitalize text-foreground/70">
+                                        {key.replace(/_/g, " ")}:
+                                      </span>
+                                      <span className="line-clamp-2">{String(value)}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              );
+                            }
+                          } catch {
+                            // Not JSON, render as plain text
+                          }
+                          return (
+                            <p className="mb-3 line-clamp-3 text-sm text-muted-foreground">
+                              {req.description}
+                            </p>
+                          );
+                        })()}
 
                         {req.image_urls && req.image_urls.length > 0 && (
                           <Dialog>

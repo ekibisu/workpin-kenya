@@ -17,6 +17,7 @@ export interface Conversation {
     last_message_body: string | null;
     last_message_at: string | null;
     unread_count: number;
+    thread_status: string;
 }
 
 /**
@@ -36,12 +37,7 @@ export function useConversations() {
         // 1. Fetch all work_threads where this user is either client or provider
         const { data: threads, error } = await supabase
             .from("work_threads")
-            .select(
-                `id, job_request_id, client_id, provider_id, status, created_at, updated_at,
-         job_requests!work_threads_job_request_id_fkey(
-           services!job_requests_service_id_fkey(name)
-         )`
-            )
+            .select("id, job_request_id, client_id, provider_id, status, created_at, updated_at")
             .or(`client_id.eq.${user.id},provider_id.eq.${user.id}`)
             .order("updated_at", { ascending: false });
 
@@ -65,7 +61,20 @@ export function useConversations() {
             (profiles || []).map((p) => [p.id, p])
         );
 
-        // 4. Fetch latest message + unread count for each thread
+        // 4. Fetch job_requests with service names for threads that have a job_request_id
+        const jobRequestIds = threads.map((t) => t.job_request_id).filter(Boolean) as string[];
+        const serviceNameMap: Record<string, string> = {};
+        if (jobRequestIds.length > 0) {
+            const { data: jobReqs } = await supabase
+                .from("job_requests")
+                .select("id, service_id, services!service_requests_service_id_fkey(name)")
+                .in("id", jobRequestIds);
+            for (const jr of (jobReqs as any[]) || []) {
+                serviceNameMap[jr.id] = jr.services?.name ?? null;
+            }
+        }
+
+        // 5. Fetch latest message + unread count for each thread
         const threadIds = threads.map((t) => t.id);
 
         const [latestMsgsRes, unreadRes] = await Promise.all([
@@ -74,7 +83,6 @@ export function useConversations() {
                 .select("work_thread_id, content, created_at")
                 .in("work_thread_id", threadIds)
                 .order("created_at", { ascending: false }),
-            // For unread count, compare against conversation_read_status
             supabase
                 .from("conversation_read_status")
                 .select("request_id, last_read_at")
@@ -90,16 +98,14 @@ export function useConversations() {
         }
 
         // Build unread count: messages after last_read_at per thread
-        // For simplicity, set unread to 0 (accurate tracking requires per-thread message counting)
         const unreadMap: Record<string, number> = {};
 
-        // 5. Assemble final list
+        // 6. Assemble final list
         const enriched: Conversation[] = threads.map((t) => {
             const otherId = t.client_id === user.id ? t.provider_id : t.client_id;
             const profile = profileMap[otherId];
             const latest = latestMap[t.id];
-            const jr = (t as any).job_requests;
-            const service = jr?.services?.name ?? null;
+            const service = t.job_request_id ? serviceNameMap[t.job_request_id] ?? null : null;
 
             return {
                 id: t.id,
@@ -115,6 +121,7 @@ export function useConversations() {
                 last_message_body: latest?.content ?? null,
                 last_message_at: latest?.created_at ?? null,
                 unread_count: unreadMap[t.id] || 0,
+                thread_status: t.status,
             };
         });
 
