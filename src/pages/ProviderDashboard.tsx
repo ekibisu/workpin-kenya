@@ -156,14 +156,40 @@ const ProviderDashboard = () => {
     fetchData();
   }, [user]);
 
+  // Map of request_id → work_thread_id for messaging after quoting
+  const [quoteThreadMap, setQuoteThreadMap] = useState<Record<string, string>>({});
+
   const handleSubmitQuote = async () => {
     if (!user || !quoteDialogRequestId || !quotePrice) return;
     setSubmittingQuote(true);
+
+    // Find the request to get the client_id
+    const targetReq = requests.find((r) => r.id === quoteDialogRequestId);
+    const clientId = (targetReq as any)?.client_id;
+
+    // 1. Create an inquiry work_thread so both parties can message
+    let threadId: string | null = null;
+    if (clientId) {
+      const { data: threadData } = await supabase
+        .from("work_threads")
+        .insert({
+          client_id: clientId,
+          provider_id: user.id,
+          job_request_id: quoteDialogRequestId,
+          status: "inquiry",
+        })
+        .select("id")
+        .single();
+      threadId = threadData?.id ?? null;
+    }
+
+    // 2. Insert quote with work_thread_id
     const { error } = await supabase.from("quotes").insert({
       provider_id: user.id,
       request_id: quoteDialogRequestId,
       price_kes: Number(quotePrice),
       message: quoteMessage || null,
+      work_thread_id: threadId,
     });
     setSubmittingQuote(false);
     if (error) {
@@ -171,6 +197,9 @@ const ProviderDashboard = () => {
       return;
     }
     setQuotedRequestIds((prev) => new Set(prev).add(quoteDialogRequestId));
+    if (threadId) {
+      setQuoteThreadMap((prev) => ({ ...prev, [quoteDialogRequestId]: threadId! }));
+    }
     setQuoteDialogRequestId(null);
     setQuotePrice("");
     setQuoteMessage("");
