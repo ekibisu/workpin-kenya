@@ -87,6 +87,7 @@ interface Quote {
   created_at: string;
   request_id: string;
   provider_id: string;
+  work_thread_id: string | null;
   profiles: { full_name: string | null } | null;
   job_requests: { description: string; services: { name: string } | null } | null;
 }

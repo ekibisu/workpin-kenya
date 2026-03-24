@@ -388,9 +388,36 @@ const ProviderDashboard = () => {
                             Quote Declined
                           </div>
                         ) : (
-                          <Button variant="outline" size="sm" className="mt-3 w-full" disabled>
-                            <CheckCircle className="mr-1.5 h-3.5 w-3.5" /> Quote Sent
-                          </Button>
+                          <div className="mt-3 flex gap-2">
+                            <Button variant="outline" size="sm" className="flex-1" disabled>
+                              <CheckCircle className="mr-1.5 h-3.5 w-3.5" /> Quote Sent
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-xs"
+                              onClick={async () => {
+                                let threadId = quoteThreadMap[req.id];
+                                if (!threadId) {
+                                  const { data: wt } = await supabase
+                                    .from("work_threads")
+                                    .select("id")
+                                    .eq("job_request_id", req.id)
+                                    .eq("provider_id", user!.id)
+                                    .maybeSingle();
+                                  threadId = wt?.id || "";
+                                  if (wt?.id) setQuoteThreadMap((prev) => ({ ...prev, [req.id]: wt.id }));
+                                }
+                                if (threadId) {
+                                  setChatWorkThreadId(threadId);
+                                  setChatRecipientName("Client");
+                                }
+                              }}
+                            >
+                              <MessageCircle className="mr-1 h-3.5 w-3.5" />
+                              Message
+                            </Button>
+                          </div>
                         )
                       ) : (
                         <div className="mt-3 flex gap-2">
