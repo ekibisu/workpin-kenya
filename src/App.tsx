@@ -19,6 +19,7 @@ import ClientProfile from "./pages/ClientProfile";
 import Onboarding from "./pages/Onboarding";
 import NotFound from "./pages/NotFound";
 import Register from "./pages/Register";
+import ResetPassword from "./pages/ResetPassword";
 import SettingsRedirect from "./components/dashboard/SettingsRedirect";
 
 const queryClient = new QueryClient();
@@ -34,6 +35,7 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/services" element={<Services />} />
             <Route path="/providers" element={<Providers />} />
             <Route path="/pro/:slug" element={<ProviderLanding />} />

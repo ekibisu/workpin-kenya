@@ -23,6 +23,9 @@ const Auth = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [resetEmail, setResetEmail] = useState("");
+  const [resetLoading, setResetLoading] = useState(false);
   const [role, setRole] = useState<"client" | "provider">(
     searchParams.get("role") === "provider" ? "provider" : "client"
   );
@@ -219,7 +222,57 @@ const Auth = () => {
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Sign in
               </Button>
+
+              <button
+                type="button"
+                onClick={() => { setShowForgotPassword(true); setResetEmail(email); }}
+                className="w-full text-center text-sm text-primary hover:underline mt-2"
+              >
+                Forgot password?
+              </button>
             </form>
+          )}
+
+          {showForgotPassword && (
+            <div className="mt-4 rounded-xl border border-border bg-secondary/50 p-4 space-y-3">
+              <p className="text-sm font-medium text-foreground">Reset your password</p>
+              <p className="text-xs text-muted-foreground">We'll send a reset link to your email.</p>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  type="email"
+                  placeholder="you@example.com"
+                  className="pl-9"
+                  value={resetEmail}
+                  onChange={(e) => setResetEmail(e.target.value)}
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  disabled={!resetEmail.trim() || resetLoading}
+                  onClick={async () => {
+                    setResetLoading(true);
+                    try {
+                      const { error } = await supabase.auth.resetPasswordForEmail(resetEmail.trim(), {
+                        redirectTo: `${window.location.origin}/reset-password`,
+                      });
+                      if (error) throw error;
+                      toast({ title: "Check your email", description: "We sent you a password reset link." });
+                      setShowForgotPassword(false);
+                    } catch (err: any) {
+                      toast({ title: "Error", description: err.message, variant: "destructive" });
+                    } finally {
+                      setResetLoading(false);
+                    }
+                  }}
+                >
+                  {resetLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Send Reset Link
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setShowForgotPassword(false)}>Cancel</Button>
+              </div>
+            </div>
           )}
 
           {tab === "signup" && (
