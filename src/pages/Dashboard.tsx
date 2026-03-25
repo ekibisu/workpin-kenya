@@ -367,7 +367,7 @@ const Dashboard = () => {
         if (ids.length > 0) {
           supabase
             .from("quotes")
-            .select("id, price_kes, message, status, created_at, request_id, provider_id, work_thread_id, profiles!quotes_provider_id_fkey(full_name), job_requests!quotes_request_id_fkey(description, services(name))")
+            .select("id, price_kes, message, status, created_at, request_id, provider_id, work_thread_id, profiles!quotes_provider_id_fkey(full_name), provider_profiles!quotes_provider_id_fkey(avg_rating, total_reviews), job_requests!quotes_request_id_fkey(description, services(name))")
             .in("request_id", ids)
             .order("created_at", { ascending: false })
             .then(({ data: qData }) => {
