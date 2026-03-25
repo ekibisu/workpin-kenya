@@ -1,43 +1,68 @@
 
 
-# Fix "Auth session missing" on Password Reset
+# Fix: Signup 500 Error — Duplicate `user_roles` Insert
 
 ## Root Cause
 
-When a user clicks the password reset link from their email, Supabase redirects to `/reset-password#access_token=...&type=recovery`. Two things go wrong:
+Two triggers race to insert the same row into `user_roles`:
 
-1. **Race condition**: The `AuthContext` has its own `onAuthStateChange` listener that processes the recovery session. The `ResetPassword` component registers a *second* listener, but by the time it mounts, the `PASSWORD_RECOVERY` event may have already fired and been consumed.
+1. **`handle_new_user`** (on `auth.users` INSERT):
+   - Inserts into `profiles` → this fires trigger #2 below
+   - Then inserts into `user_roles` (NO conflict handling)
 
-2. **Session not restored before submit**: The user can submit the form before the recovery session is fully established. `supabase.auth.updateUser()` requires an active session — without one, it returns "Auth session missing."
+2. **`trg_sync_user_role`** (on `profiles` INSERT/UPDATE):
+   - Also inserts into `user_roles` (has `ON CONFLICT DO NOTHING`)
 
-The auth logs confirm this: the `/verify` endpoint returns 303 (session created), but then immediately a "Refresh Token Not Found" error appears, meaning the session was lost or not properly picked up.
+The sequence: `handle_new_user` inserts profile → `sync_user_role` fires and inserts into `user_roles` first → `handle_new_user` continues and tries the same insert → **unique constraint violation → 500 error**.
 
 ## Fix
 
-### 1. Update `ResetPassword.tsx`
+Add `ON CONFLICT (user_id, role) DO NOTHING` to the `handle_new_user` function's `user_roles` insert. This makes both triggers safe regardless of execution order.
 
-- **Wait for session**: On mount, call `supabase.auth.getSession()` first to restore any existing session from the URL hash tokens, then set up `onAuthStateChange` to catch the `PASSWORD_RECOVERY` event.
-- **Track session readiness**: Add an `isReady` state that gates the form. Show a loading state until the session is confirmed.
-- **Verify session before submit**: Before calling `updateUser`, check that a session exists. If not, show a clear error message asking the user to request a new reset link.
-- **Handle edge case**: If no recovery session is detected after a timeout (e.g. 5 seconds), show a message with a link back to the login page to request a new reset email.
+### Migration SQL
 
-```text
-Mount flow:
-1. getSession() → restore tokens from URL hash
-2. onAuthStateChange → listen for PASSWORD_RECOVERY event
-3. If session exists → set isReady=true, show form
-4. If no session after timeout → show "link expired" message
+```sql
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  _role app_role;
+BEGIN
+  INSERT INTO public.profiles (id, phone, email, full_name, role)
+  VALUES (
+    NEW.id,
+    NEW.phone,
+    NEW.email,
+    COALESCE(NEW.raw_user_meta_data->>'full_name', ''),
+    COALESCE(NEW.raw_user_meta_data->>'role', 'client')
+  );
+
+  IF NEW.raw_user_meta_data->>'role' = 'provider' THEN
+    _role := 'provider';
+  ELSE
+    _role := 'customer';
+  END IF;
+
+  INSERT INTO public.user_roles (user_id, role)
+  VALUES (NEW.id, _role)
+  ON CONFLICT (user_id, role) DO NOTHING;
+
+  RETURN NEW;
+END;
+$$;
 ```
 
-### 2. Prevent AuthContext from interfering
+### Changes from current version
+- Added `ON CONFLICT (user_id, role) DO NOTHING` to the `user_roles` insert
+- Also sets `profiles.role` from metadata (currently defaults to `'client'` even for providers)
 
-The `AuthContext` currently doesn't redirect on its own (it just stores session state), so no changes needed there. The `ResetPassword` route is public (not behind `ProtectedRoute`), which is correct.
+### Files changed
+| Action | File |
+|--------|------|
+| Migration | Update `handle_new_user` function |
 
-## Files Changed
-
-| File | Change |
-|------|--------|
-| `src/pages/ResetPassword.tsx` | Add session-aware gating with `getSession()` + timeout fallback |
-
-No database or migration changes needed.
+No frontend code changes needed.
 
