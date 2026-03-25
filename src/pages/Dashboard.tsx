@@ -90,6 +90,7 @@ interface Quote {
   provider_id: string;
   work_thread_id: string | null;
   profiles: { full_name: string | null } | null;
+  provider_profiles?: { avg_rating: number | null; total_reviews: number | null } | null;
   job_requests: { description: string; services: { name: string } | null } | null;
 }
 
@@ -366,7 +367,7 @@ const Dashboard = () => {
         if (ids.length > 0) {
           supabase
             .from("quotes")
-            .select("id, price_kes, message, status, created_at, request_id, provider_id, work_thread_id, profiles!quotes_provider_id_fkey(full_name), job_requests!quotes_request_id_fkey(description, services(name))")
+            .select("id, price_kes, message, status, created_at, request_id, provider_id, work_thread_id, profiles!quotes_provider_id_fkey(full_name), provider_profiles!quotes_provider_id_fkey(avg_rating, total_reviews), job_requests!quotes_request_id_fkey(description, services(name))")
             .in("request_id", ids)
             .order("created_at", { ascending: false })
             .then(({ data: qData }) => {
@@ -380,6 +381,36 @@ const Dashboard = () => {
       });
   }, [user]);
 
+  // Real-time subscription for new quotes
+  useEffect(() => {
+    if (!user || requests.length === 0) return;
+    const requestIds = requests.map((r) => r.id);
+    const channel = supabase
+      .channel("quotes-realtime")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "quotes" },
+        async (payload) => {
+          const newQuote = payload.new as any;
+          if (!requestIds.includes(newQuote.request_id)) return;
+          // Fetch full quote with joins
+          const { data } = await supabase
+            .from("quotes")
+            .select("id, price_kes, message, status, created_at, request_id, provider_id, work_thread_id, profiles!quotes_provider_id_fkey(full_name), provider_profiles!quotes_provider_id_fkey(avg_rating, total_reviews), job_requests!quotes_request_id_fkey(description, services(name))")
+            .eq("id", newQuote.id)
+            .single();
+          if (data) {
+            setQuotes((prev) => {
+              if (prev.some((q) => q.id === data.id)) return prev;
+              return [data as unknown as Quote, ...prev];
+            });
+            toast({ title: "New quote received", description: "A provider submitted a new quote." });
+          }
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [user, requests]);
   const activeCount = requests.filter((r) => r.status === "open").length;
   const completedCount = requests.filter((r) => r.status === "completed").length;
 
