@@ -367,11 +367,25 @@ const Dashboard = () => {
         if (ids.length > 0) {
           supabase
             .from("quotes")
-            .select("id, price_kes, message, status, created_at, request_id, provider_id, work_thread_id, profiles!quotes_provider_id_fkey(full_name), provider_profiles!quotes_provider_id_fkey(avg_rating, total_reviews), job_requests!quotes_request_id_fkey(description, services(name))")
+            .select("id, price_kes, message, status, created_at, request_id, provider_id, work_thread_id, profiles!quotes_provider_id_fkey(full_name), job_requests!quotes_request_id_fkey(description, services(name))")
             .in("request_id", ids)
             .order("created_at", { ascending: false })
-            .then(({ data: qData }) => {
-              setQuotes((qData as unknown as Quote[]) || []);
+            .then(async ({ data: qData }) => {
+              const quotesData = (qData as unknown as Quote[]) || [];
+              if (quotesData.length > 0) {
+                const providerIds = [...new Set(quotesData.map(q => q.provider_id))];
+                const { data: providerRatings } = await supabase
+                  .from("provider_profiles")
+                  .select("user_id, avg_rating, total_reviews")
+                  .in("user_id", providerIds);
+                const enriched = quotesData.map(q => ({
+                  ...q,
+                  provider_profiles: providerRatings?.find(p => p.user_id === q.provider_id) ?? null,
+                }));
+                setQuotes(enriched);
+              } else {
+                setQuotes([]);
+              }
               setLoading(false);
             });
         } else {
@@ -396,13 +410,19 @@ const Dashboard = () => {
           // Fetch full quote with joins
           const { data } = await supabase
             .from("quotes")
-            .select("id, price_kes, message, status, created_at, request_id, provider_id, work_thread_id, profiles!quotes_provider_id_fkey(full_name), provider_profiles!quotes_provider_id_fkey(avg_rating, total_reviews), job_requests!quotes_request_id_fkey(description, services(name))")
+            .select("id, price_kes, message, status, created_at, request_id, provider_id, work_thread_id, profiles!quotes_provider_id_fkey(full_name), job_requests!quotes_request_id_fkey(description, services(name))")
             .eq("id", newQuote.id)
             .single();
           if (data) {
+            const { data: ratings } = await supabase
+              .from("provider_profiles")
+              .select("user_id, avg_rating, total_reviews")
+              .eq("user_id", (data as any).provider_id)
+              .single();
+            const enriched = { ...(data as unknown as Quote), provider_profiles: ratings ?? null };
             setQuotes((prev) => {
-              if (prev.some((q) => q.id === data.id)) return prev;
-              return [data as unknown as Quote, ...prev];
+              if (prev.some((q) => q.id === enriched.id)) return prev;
+              return [enriched, ...prev];
             });
             toast({ title: "New quote received", description: "A provider submitted a new quote." });
           }
