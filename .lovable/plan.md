@@ -1,68 +1,81 @@
 
 
-# Fix: Signup 500 Error — Duplicate `user_roles` Insert
+# Redesign QuotesPanel to Compact Collapsible Accordion
 
-## Root Cause
+## Overview
+Replace the current card-based quotes display with a compact accordion system. Each quote becomes a thin ~56px row that expands on click to reveal details and actions. Only one quote expands at a time.
 
-Two triggers race to insert the same row into `user_roles`:
+## Changes
 
-1. **`handle_new_user`** (on `auth.users` INSERT):
-   - Inserts into `profiles` → this fires trigger #2 below
-   - Then inserts into `user_roles` (NO conflict handling)
+### 1. Rewrite `src/components/dashboard/QuotesPanel.tsx`
 
-2. **`trg_sync_user_role`** (on `profiles` INSERT/UPDATE):
-   - Also inserts into `user_roles` (has `ON CONFLICT DO NOTHING`)
+**Header section:**
+- "QUOTES" label with green circular badge showing count
+- Filter row: "All" / "Pending" toggle tabs
+- Sort dropdown: Lowest Price, Highest Price, Highest Rating, Most Recent
+- View toggle icons: compact (list) vs card (grid) — compact is default
 
-The sequence: `handle_new_user` inserts profile → `sync_user_role` fires and inserts into `user_roles` first → `handle_new_user` continues and tries the same insert → **unique constraint violation → 500 error**.
+**Compact row (collapsed, ~56px):**
+- Left: colored avatar circle with initials, provider name, star rating + job count (e.g. "★4.8 · 87 jobs")
+- Right: bold green price (KES X,XXX), small ChevronDown arrow
+- Declined quotes shown with reduced opacity
 
-## Fix
+**Expanded state (accordion content):**
+- Provider message in a light box with green left border
+- Relative timestamp ("Quoted: 2 hours ago") using `formatDistanceToNow` from date-fns
+- Action buttons: Message (ghost), Hire (primary green), Decline (text link)
+- On mobile (<640px): stack Message and Hire buttons vertically, min-h 44px for tap targets
 
-Add `ON CONFLICT (user_id, role) DO NOTHING` to the `handle_new_user` function's `user_roles` insert. This makes both triggers safe regardless of execution order.
+**Accordion behavior:**
+- Use Radix Accordion with `type="single"` + `collapsible` so only one quote opens at a time
+- Smooth CSS transition via existing `animate-accordion-down` / `animate-accordion-up`
 
-### Migration SQL
+**Empty filter state:**
+- Mailbox icon + "No quotes match your filter" message when filtered results are empty
 
-```sql
-CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS trigger
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-DECLARE
-  _role app_role;
-BEGIN
-  INSERT INTO public.profiles (id, phone, email, full_name, role)
-  VALUES (
-    NEW.id,
-    NEW.phone,
-    NEW.email,
-    COALESCE(NEW.raw_user_meta_data->>'full_name', ''),
-    COALESCE(NEW.raw_user_meta_data->>'role', 'client')
-  );
+**Card view toggle:**
+- When "card" view is selected, render the current card layout (preserve existing markup)
+- Store view preference in component state (no persistence needed)
 
-  IF NEW.raw_user_meta_data->>'role' = 'provider' THEN
-    _role := 'provider';
-  ELSE
-    _role := 'customer';
-  END IF;
+### 2. Extend `QuoteData` interface
 
-  INSERT INTO public.user_roles (user_id, role)
-  VALUES (NEW.id, _role)
-  ON CONFLICT (user_id, role) DO NOTHING;
-
-  RETURN NEW;
-END;
-$$;
+Add optional fields to support rating display:
+```typescript
+interface QuoteData {
+  // ...existing fields
+  provider_profiles?: {
+    avg_rating: number | null;
+    total_reviews: number | null;
+  } | null;
+}
 ```
 
-### Changes from current version
-- Added `ON CONFLICT (user_id, role) DO NOTHING` to the `user_roles` insert
-- Also sets `profiles.role` from metadata (currently defaults to `'client'` even for providers)
+### 3. Update quote fetching in `src/pages/Dashboard.tsx`
+
+Extend the quotes query to join `provider_profiles`:
+```typescript
+.select("..., provider_profiles!quotes_provider_id_fkey(avg_rating, total_reviews)")
+```
+
+This provides rating data for the compact row display. Update the `Quote` interface to include the new fields.
+
+### 4. Add "highest_rating" sort option
+
+Add `"rating"` to the `SortOption` type and sorting logic, sorting by `provider_profiles.avg_rating` descending.
+
+### 5. Real-time quote subscription
+
+In `Dashboard.tsx`, add a Supabase Realtime subscription on the `quotes` table filtered by the user's request IDs. When a new quote INSERT event fires:
+- Fetch the full quote row (with joins)
+- Append to local `quotes` state
+- Show a toast: "New quote received"
 
 ### Files changed
+
 | Action | File |
 |--------|------|
-| Migration | Update `handle_new_user` function |
+| Rewrite | `src/components/dashboard/QuotesPanel.tsx` |
+| Edit | `src/pages/Dashboard.tsx` — extend query + add realtime subscription |
 
-No frontend code changes needed.
+No database migrations needed. The `provider_profiles` table already has `avg_rating` and `total_reviews` columns, and the foreign key relationship exists via `provider_id`.
 
