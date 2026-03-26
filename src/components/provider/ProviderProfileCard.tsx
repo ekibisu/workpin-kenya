@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from "react";
-import { Star, MapPin, CheckCircle2, Loader2, XCircle, Check, Camera, Upload } from "lucide-react";
+import { Star, MapPin, CheckCircle2, Loader2, XCircle, Check, Camera, Upload, Settings } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
