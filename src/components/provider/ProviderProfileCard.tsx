@@ -169,6 +169,26 @@ const ProviderProfileCard = ({ userId }: ProviderProfileCardProps) => {
   if (!data) return <div className="p-8 text-center">Provider not found.</div>;
 
   const prov = data.provider_profiles;
+
+  if (!prov) {
+    return (
+      <div className="max-w-md mx-auto text-center py-16 px-6">
+        <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
+          <Settings className="h-8 w-8 text-primary" />
+        </div>
+        <h2 className="text-xl font-bold text-foreground mb-2">Complete Your Professional Profile</h2>
+        <p className="text-muted-foreground mb-6">
+          Set up your business details, services, and availability so clients can find and hire you.
+        </p>
+        <Button
+          className="bg-primary text-primary-foreground px-8 py-5 font-bold uppercase text-xs tracking-widest"
+          onClick={() => window.location.href = "/onboarding"}
+        >
+          Set Up Profile
+        </Button>
+      </div>
+    );
+  }
   const availability = prov?.availability_json || {};
 
   return (
