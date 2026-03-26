@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Bell, ShieldAlert, UserX, CheckCircle, Mail, MessageSquare, Smartphone } from 'lucide-react';
+import ChangePasswordCard from '@/components/settings/ChangePasswordCard';
 
 interface NotificationSetting {
   id: string;
@@ -60,6 +61,9 @@ const ClientAccountSettings: React.FC = () => {
             ))}
           </div>
         </div>
+
+        {/* Change Password Card */}
+        <ChangePasswordCard />
 
         {/* Account Status Card */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
