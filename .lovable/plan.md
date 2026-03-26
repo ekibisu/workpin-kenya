@@ -1,45 +1,34 @@
 
 
-# Fix: Quotes Not Loading — Invalid Foreign Key Join
+# Fix: Handle Missing Provider Profile Gracefully
 
-## Root Cause
-
-The quotes query uses `provider_profiles!quotes_provider_id_fkey(avg_rating, total_reviews)` but the FK `quotes_provider_id_fkey` points to the `profiles` table, not `provider_profiles`. There is no direct FK between `quotes` and `provider_profiles` — the `provider_profiles` table links via `user_id`, not through the quotes table.
-
-The API returns 400: "Could not find a relationship between 'quotes' and 'provider_profiles' in the schema cache."
+## Problem
+When a user with role "provider" visits `/profile`, the `ProviderProfileCard` fetches their `profiles` row (which exists) but their `provider_profiles` row may not exist yet (e.g., they haven't completed onboarding, or the row was never created). The code checks `if (!data)` but not `if (!data.provider_profiles)`, so it proceeds to access `prov.business_name` on `null`, crashing the app.
 
 ## Fix
 
-In `src/pages/Dashboard.tsx`, remove the `provider_profiles` join from the quotes query. Instead, fetch provider ratings in a separate step by querying `provider_profiles` using the `provider_id` values from the quotes results, then merge the data.
+### In `src/components/provider/ProviderProfileCard.tsx`
 
-### Changes to `src/pages/Dashboard.tsx`
+**1. Add an "empty profile" state after line 169:**
+After the `if (!data)` check, add a check for `if (!data.provider_profiles)`. When triggered, render a friendly setup card instead of crashing:
+- Heading: "Complete Your Professional Profile"
+- Message explaining they need to set up their provider profile
+- A "Set Up Profile" button that either navigates to `/onboarding` or shows inline form fields
 
-**Step 1 — Fix the quotes select query** (lines ~370 and ~399):
-Remove `provider_profiles!quotes_provider_id_fkey(avg_rating, total_reviews)` from the select string. Keep the rest unchanged.
+**2. Add null-safe access throughout the component:**
+Change all `prov.business_name`, `prov.bio`, `prov.categories`, etc. to use optional chaining (`prov?.business_name`) as a safety net, even though the empty-state guard should prevent reaching that code.
 
-**Step 2 — After fetching quotes, fetch provider ratings separately**:
-```typescript
-// Get unique provider IDs from quotes
-const providerIds = [...new Set(quotesData.map(q => q.provider_id))];
-// Fetch their ratings
-const { data: providerRatings } = await supabase
-  .from("provider_profiles")
-  .select("user_id, avg_rating, total_reviews")
-  .in("user_id", providerIds);
-// Merge into quotes
-const enrichedQuotes = quotesData.map(q => ({
-  ...q,
-  provider_profiles: providerRatings?.find(p => p.user_id === q.provider_id) ?? null
-}));
-```
+### In `src/pages/Profile.tsx`
 
-Apply the same pattern to both the initial fetch (~line 370) and the realtime fetch (~line 399).
+**3. Add a fallback in the Profile page:**
+If the provider profile doesn't exist, show a prompt within the "Public Profile" tab directing the user to complete setup, rather than rendering a broken `ProviderProfileCard`.
 
-### Files changed
+## Files Changed
 
 | File | Change |
 |------|--------|
-| `src/pages/Dashboard.tsx` | Remove invalid FK join, fetch provider ratings separately and merge |
+| `src/components/provider/ProviderProfileCard.tsx` | Add null guard for missing `provider_profiles`, render setup prompt, add optional chaining throughout |
+| `src/pages/Profile.tsx` | No structural changes needed — the fix lives in the child component |
 
 No database changes needed.
 
