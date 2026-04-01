@@ -1,8 +1,11 @@
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
-const CTASection = () => (
+const CTASection = () => {
+  const { user } = useAuth();
+  return (
   <section className="relative overflow-hidden gradient-hero py-16 md:py-24">
     <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_50%,hsl(155_80%_30%/0.3),transparent_60%)]" />
     <div className="container relative z-10 text-center">
