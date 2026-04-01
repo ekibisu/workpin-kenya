@@ -92,11 +92,6 @@ const Navbar = () => {
                 }`}
             >
               {userRole === "provider" ? "Pro Dashboard" : "Dashboard"}
-            </Link>
-          )}
-        </div>
-
-        <div className="hidden items-center gap-3 md:flex">
           {user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
