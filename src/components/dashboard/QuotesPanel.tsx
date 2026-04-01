@@ -26,7 +26,7 @@ interface QuoteData {
   provider_id: string;
   work_thread_id: string | null;
   profiles: { full_name: string | null } | null;
-  provider_profiles?: {
+  business_ratings?: {
     avg_rating: number | null;
     total_reviews: number | null;
   } | null;
