@@ -49,7 +49,7 @@ const Navbar = () => {
     fetchProfileAndRole();
   }, [user]);
 
-  const isProviderDashboard = location.pathname.startsWith("/provider-dashboard");
+  const isProviderDashboard = location.pathname.startsWith("/provider-dashboard") || hasBusiness;
 
   const handleSignOut = async () => {
     await signOut();
