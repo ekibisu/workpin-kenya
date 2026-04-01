@@ -19,6 +19,7 @@ import NotFound from "./pages/NotFound";
 import Register from "./pages/Register";
 import ResetPassword from "./pages/ResetPassword";
 import BusinessManage from "./pages/BusinessManage";
+import BusinessProfileWizard from "./pages/BusinessProfileWizard";
 
 const queryClient = new QueryClient();
 
