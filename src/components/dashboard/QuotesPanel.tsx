@@ -77,8 +77,8 @@ export default function QuotesPanel({
       if (sortBy === "price_asc") return a.price_kes - b.price_kes;
       if (sortBy === "price_desc") return b.price_kes - a.price_kes;
       if (sortBy === "rating") {
-        const ra = a.provider_profiles?.avg_rating ?? 0;
-        const rb = b.provider_profiles?.avg_rating ?? 0;
+        const ra = a.business_ratings?.avg_rating ?? 0;
+        const rb = b.business_ratings?.avg_rating ?? 0;
         return rb - ra;
       }
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
