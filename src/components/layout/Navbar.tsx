@@ -176,15 +176,9 @@ const Navbar = () => {
               <div className="mt-3 flex flex-col gap-2">
                 {user ? (
                   <>
-                    {isProviderDashboard ? (
-                      <Link to="/profile" onClick={() => setIsOpen(false)} className="flex items-center gap-2 rounded-lg px-4 py-3 text-sm font-medium text-muted-foreground hover:bg-accent">
-                        <User className="h-4 w-4" /> Professional Profile
-                      </Link>
-                    ) : (
-                      <Link to="/client-profile" onClick={() => setIsOpen(false)} className="flex items-center gap-2 rounded-lg px-4 py-3 text-sm font-medium text-muted-foreground hover:bg-accent">
-                        <User className="h-4 w-4" /> Client Profile
-                      </Link>
-                    )}
+                    <Link to="/profile" onClick={() => setIsOpen(false)} className="flex items-center gap-2 rounded-lg px-4 py-3 text-sm font-medium text-muted-foreground hover:bg-accent">
+                      <User className="h-4 w-4" /> My Profile
+                    </Link>
                     <Link to="/dashboard" onClick={() => setIsOpen(false)} className="flex items-center gap-2 rounded-lg px-4 py-3 text-sm font-medium text-muted-foreground hover:bg-accent">
                       <LayoutDashboard className="h-4 w-4" /> Dashboard
                     </Link>
