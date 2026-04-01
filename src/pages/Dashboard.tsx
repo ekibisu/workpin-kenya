@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Link, useLocation } from "react-router-dom";
 import {
-  LayoutDashboard, FileText, MessageCircle, Settings, Plus,
+  LayoutDashboard, FileText, MessageCircle, Settings, Plus, Briefcase,
   TrendingUp, Clock, CheckCircle, DollarSign, MapPin, Loader2, User, Star, Pencil, Trash2,
 } from "lucide-react";
 import QuotesPanel from "@/components/dashboard/QuotesPanel";
