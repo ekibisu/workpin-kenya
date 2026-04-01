@@ -29,7 +29,7 @@ const CTASection = () => (
           className="text-primary-foreground/80 hover:text-primary-foreground hover:bg-primary-foreground/10"
           asChild
         >
-          <Link to="/auth?tab=signup&role=provider">Become a Pro</Link>
+          <Link to="/register">Become a Pro</Link>
         </Button>
       </div>
     </div>

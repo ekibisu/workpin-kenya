@@ -52,7 +52,7 @@ const HeroSection = () => {
               className="text-primary-foreground/80 hover:text-primary-foreground hover:bg-primary-foreground/10"
               asChild
             >
-              <Link to="/auth?tab=signup&role=provider">
+              <Link to="/register">
                 Join as a Pro
                 <ArrowRight className="h-4 w-4" />
               </Link>

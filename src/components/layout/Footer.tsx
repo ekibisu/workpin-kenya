@@ -29,7 +29,7 @@ const Footer = () => (
         <div>
           <h4 className="mb-3 text-sm font-semibold text-foreground">For Professionals</h4>
           <div className="flex flex-col gap-2 text-sm text-muted-foreground">
-            <Link to="/auth?tab=signup&role=provider" className="hover:text-primary transition-colors">Join as Pro</Link>
+            <Link to="/register" className="hover:text-primary transition-colors">Join as Pro</Link>
             <Link to="/dashboard" className="hover:text-primary transition-colors">Dashboard</Link>
           </div>
         </div>
