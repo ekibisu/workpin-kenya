@@ -375,12 +375,12 @@ const Dashboard = () => {
               if (quotesData.length > 0) {
                 const providerIds = [...new Set(quotesData.map(q => q.provider_id))];
                 const { data: providerRatings } = await supabase
-                  .from("provider_profiles")
-                  .select("user_id, avg_rating, total_reviews")
-                  .in("user_id", providerIds);
+                  .from("businesses")
+                  .select("id, avg_rating, total_reviews")
+                  .in("id", providerIds);
                 const enriched = quotesData.map(q => ({
                   ...q,
-                  provider_profiles: providerRatings?.find(p => p.user_id === q.provider_id) ?? null,
+                  provider_profiles: providerRatings?.find(p => p.id === q.provider_id) ?? null,
                 }));
                 setQuotes(enriched);
               } else {
