@@ -25,6 +25,7 @@ interface CreateBusinessFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCreated: (business: any) => void;
+  redirectToWizard?: boolean;
 }
 
 interface ServiceOption {
