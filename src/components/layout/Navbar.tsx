@@ -33,15 +33,18 @@ const Navbar = () => {
   useEffect(() => {
     const fetchProfileAndRole = async () => {
       if (!user) return;
-      // Fetch avatar, name, and role from profiles in a single query
       const { data: profile } = await supabase
         .from("profiles")
-        .select("avatar_url, full_name, role")
+        .select("avatar_url, full_name")
         .eq("id", user.id)
         .maybeSingle();
       setAvatarUrl(profile?.avatar_url ?? null);
       setFullName(profile?.full_name ?? null);
-      setUserRole(profile?.role ?? null);
+      const { count } = await supabase
+        .from("businesses")
+        .select("id", { count: "exact", head: true })
+        .eq("owner_id", user.id);
+      setHasBusiness((count ?? 0) > 0);
     };
     fetchProfileAndRole();
   }, [user]);
