@@ -13,14 +13,12 @@ import ProviderLanding from "./pages/ProviderLanding";
 import HowItWorks from "./pages/HowItWorks";
 import RequestService from "./pages/RequestService";
 import Dashboard from "./pages/Dashboard";
-import ProviderDashboard from "./pages/ProviderDashboard";
 import Profile from "./pages/Profile";
-import ClientProfile from "./pages/ClientProfile";
 import Onboarding from "./pages/Onboarding";
 import NotFound from "./pages/NotFound";
 import Register from "./pages/Register";
 import ResetPassword from "./pages/ResetPassword";
-import SettingsRedirect from "./components/dashboard/SettingsRedirect";
+import BusinessManage from "./pages/BusinessManage";
 
 const queryClient = new QueryClient();
 
@@ -50,27 +48,10 @@ const App = () => (
               }
             />
             <Route
-              path="/dashboard"
-              element={
-                <ProtectedRoute>
-                  <Dashboard />
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
               path="/dashboard/*"
               element={
                 <ProtectedRoute>
                   <Dashboard />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/settings"
-              element={
-                <ProtectedRoute>
-                  <SettingsRedirect />
                 </ProtectedRoute>
               }
             />
@@ -83,30 +64,13 @@ const App = () => (
               }
             />
             <Route
-              path="/client-profile"
+              path="/business/:id"
               element={
                 <ProtectedRoute>
-                  <ClientProfile />
+                  <BusinessManage />
                 </ProtectedRoute>
               }
             />
-            <Route
-              path="/provider-dashboard"
-              element={
-                <ProtectedRoute>
-                  <ProviderDashboard />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/provider-dashboard/*"
-              element={
-                <ProtectedRoute>
-                  <ProviderDashboard />
-                </ProtectedRoute>
-              }
-            />
-
             <Route
               path="/onboarding"
               element={
