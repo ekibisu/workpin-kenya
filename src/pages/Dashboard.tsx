@@ -38,8 +38,8 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import ClientAccountSettings from "./ClientAccountSettings";
-import ProviderAccountSettings from "./ProviderAccountSettings";
+import UnifiedSettings from "@/components/dashboard/UnifiedSettings";
+import BusinessesPanel from "@/components/dashboard/BusinessesPanel";
 import questionsData from "@/data/questions.json";
 
 // Normalize image_urls: filter nulls, empty strings, and obviously broken URLs
