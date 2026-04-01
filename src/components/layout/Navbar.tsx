@@ -28,7 +28,7 @@ const Navbar = () => {
   const { user, signOut } = useAuth();
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [fullName, setFullName] = useState<string | null>(null);
-  const [userRole, setUserRole] = useState<string | null>(null);
+  const [hasBusiness, setHasBusiness] = useState(false);
 
   useEffect(() => {
     const fetchProfileAndRole = async () => {
