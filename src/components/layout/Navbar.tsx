@@ -31,7 +31,7 @@ const Navbar = () => {
   
 
   useEffect(() => {
-    const fetchProfileAndRole = async () => {
+    const fetchProfile = async () => {
       if (!user) return;
       const { data: profile } = await supabase
         .from("profiles")
@@ -40,16 +40,9 @@ const Navbar = () => {
         .maybeSingle();
       setAvatarUrl(profile?.avatar_url ?? null);
       setFullName(profile?.full_name ?? null);
-      const { count } = await supabase
-        .from("businesses")
-        .select("id", { count: "exact", head: true })
-        .eq("owner_id", user.id);
-      setHasBusiness((count ?? 0) > 0);
     };
-    fetchProfileAndRole();
+    fetchProfile();
   }, [user]);
-
-  const isProviderDashboard = location.pathname.startsWith("/provider-dashboard") || hasBusiness;
 
   const handleSignOut = async () => {
     await signOut();
