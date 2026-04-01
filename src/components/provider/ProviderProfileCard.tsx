@@ -21,7 +21,8 @@ interface ProviderProfileCardProps {
   userId: string;
 }
 
-interface ProviderProfile {
+interface BusinessProfile {
+  id: string;
   business_name: string;
   bio: string;
   avg_rating: number;
@@ -39,7 +40,7 @@ interface ProfileData {
   full_name: string;
   phone: string;
   email: string;
-  provider_profiles: ProviderProfile;
+  businesses: BusinessProfile[];
 }
 
 const ProviderProfileCard = ({ userId }: ProviderProfileCardProps) => {
@@ -48,16 +49,6 @@ const ProviderProfileCard = ({ userId }: ProviderProfileCardProps) => {
   const servicesRef = useRef<HTMLDivElement | null>(null);
   const reviewsRef = useRef<HTMLDivElement | null>(null);
   const portfolioRef = useRef<HTMLDivElement | null>(null);
-
-  const scrollToServices = useCallback(() => {
-    servicesRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, []);
-  const scrollToReviews = useCallback(() => {
-    reviewsRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, []);
-  const scrollToPortfolio = useCallback(() => {
-    portfolioRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, []);
 
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<ProfileData | null>(null);
@@ -80,8 +71,8 @@ const ProviderProfileCard = ({ userId }: ProviderProfileCardProps) => {
       .from("profiles")
       .select(`
         full_name, phone, email,
-        provider_profiles (
-          business_name, bio, avg_rating, total_reviews,
+        businesses (
+          id, business_name, bio, avg_rating, total_reviews,
           is_verified, categories, availability_json,
           portfolio_photos, response_time_minutes, location_name, username
         )
@@ -90,23 +81,30 @@ const ProviderProfileCard = ({ userId }: ProviderProfileCardProps) => {
       .maybeSingle();
 
     if (profileData) {
-      if (profileData.provider_profiles) {
-        if (!Array.isArray(profileData.provider_profiles.portfolio_photos)) {
-          profileData.provider_profiles.portfolio_photos = [];
-        }
+      const typed = profileData as unknown as ProfileData;
+      // Ensure businesses is an array
+      if (!Array.isArray(typed.businesses)) {
+        typed.businesses = [];
       }
-      setData(profileData as unknown as ProfileData);
+      setData(typed);
 
-      const avail = profileData.provider_profiles?.availability_json;
-      if (
-        avail &&
-        typeof avail === "object" &&
-        !Array.isArray(avail) &&
-        Object.values(avail).every((v) => typeof v === "string")
-      ) {
-        setHours(avail as Record<string, string>);
-      } else {
-        setHours({});
+      // Use first business for display
+      const biz = typed.businesses[0];
+      if (biz) {
+        if (!Array.isArray(biz.portfolio_photos)) {
+          biz.portfolio_photos = [];
+        }
+        const avail = biz.availability_json;
+        if (
+          avail &&
+          typeof avail === "object" &&
+          !Array.isArray(avail) &&
+          Object.values(avail).every((v) => typeof v === "string")
+        ) {
+          setHours(avail as Record<string, string>);
+        } else {
+          setHours({});
+        }
       }
     }
     setLoading(false);
@@ -116,11 +114,14 @@ const ProviderProfileCard = ({ userId }: ProviderProfileCardProps) => {
     fetchFullProfile();
   }, [userId]);
 
+  const prov = data?.businesses?.[0];
+
   const handleSaveHours = async () => {
+    if (!prov) return;
     const { error } = await supabase
-      .from("provider_profiles")
+      .from("businesses")
       .update({ availability_json: hours })
-      .eq("user_id", userId);
+      .eq("id", prov.id);
 
     if (!error) {
       toast({ title: "Business hours saved" });
@@ -130,14 +131,13 @@ const ProviderProfileCard = ({ userId }: ProviderProfileCardProps) => {
 
   const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file) return;
+    if (!file || !prov) return;
 
-    const prov = data?.provider_profiles;
     const result = await upload({
       file,
-      providerId: userId,
-      providerSlug: prov?.username || userId,
-      providerName: prov?.business_name,
+      providerId: prov.id,
+      providerSlug: prov.username || userId,
+      providerName: prov.business_name,
       context: 'profile-photo',
       tags: ['profile-photo'],
     });
@@ -147,13 +147,13 @@ const ProviderProfileCard = ({ userId }: ProviderProfileCardProps) => {
       return;
     }
 
-    const currentPhotos = prov?.portfolio_photos || [];
+    const currentPhotos = prov.portfolio_photos || [];
     const updatedPhotos = [result.public_url, ...currentPhotos.slice(1)].slice(0, 4);
 
     await supabase
-      .from("provider_profiles")
+      .from("businesses")
       .update({ portfolio_photos: updatedPhotos })
-      .eq("user_id", userId);
+      .eq("id", prov.id);
 
     toast({ title: "Photo uploaded" });
     fetchFullProfile();
@@ -166,9 +166,7 @@ const ProviderProfileCard = ({ userId }: ProviderProfileCardProps) => {
       </div>
     );
 
-  if (!data) return <div className="p-8 text-center">Provider not found.</div>;
-
-  const prov = data.provider_profiles;
+  if (!data) return <div className="p-8 text-center">Profile not found.</div>;
 
   if (!prov) {
     return (
@@ -176,20 +174,21 @@ const ProviderProfileCard = ({ userId }: ProviderProfileCardProps) => {
         <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
           <Settings className="h-8 w-8 text-primary" />
         </div>
-        <h2 className="text-xl font-bold text-foreground mb-2">Complete Your Professional Profile</h2>
+        <h2 className="text-xl font-bold text-foreground mb-2">Create Your First Business</h2>
         <p className="text-muted-foreground mb-6">
-          Set up your business details, services, and availability so clients can find and hire you.
+          Set up a business profile to start offering services to clients.
         </p>
         <Button
           className="bg-primary text-primary-foreground px-8 py-5 font-bold uppercase text-xs tracking-widest"
           onClick={() => window.location.href = "/onboarding"}
         >
-          Set Up Profile
+          Create Business
         </Button>
       </div>
     );
   }
-  const availability = prov?.availability_json || {};
+
+  const availability = prov.availability_json || {};
 
   return (
     <div className="max-w-5xl mx-auto bg-card text-foreground">
@@ -202,7 +201,7 @@ const ProviderProfileCard = ({ userId }: ProviderProfileCardProps) => {
           <p className="text-xl text-muted-foreground">{data.full_name}</p>
           <div className="flex items-center gap-2">
             <MapPin size={16} />
-            <span>{prov?.location_name || "Location not set"}</span>
+            <span>{prov.location_name || "Location not set"}</span>
           </div>
           <p className="text-muted-foreground italic">{prov.bio || "No description provided."}</p>
 
@@ -277,7 +276,7 @@ const ProviderProfileCard = ({ userId }: ProviderProfileCardProps) => {
         {/* Right: Profile Photo Box */}
         <div className="relative group w-64 h-72 bg-muted rounded-sm overflow-hidden border shadow-sm self-start">
           <Image
-            src={prov?.portfolio_photos?.[0]}
+            src={prov.portfolio_photos?.[0]}
             alt={`${prov.business_name} profile photo`}
             className="w-full h-full object-cover"
           />
@@ -301,7 +300,7 @@ const ProviderProfileCard = ({ userId }: ProviderProfileCardProps) => {
                 ) : (
                   <Camera className="h-4 w-4 inline mr-1" />
                 )}
-                {uploading ? "Uploading..." : prov?.portfolio_photos?.[0] ? "Change Photo" : "Upload Photo"}
+                {uploading ? "Uploading..." : prov.portfolio_photos?.[0] ? "Change Photo" : "Upload Photo"}
               </button>
             </>
           )}
@@ -333,7 +332,7 @@ const ProviderProfileCard = ({ userId }: ProviderProfileCardProps) => {
       <div ref={servicesRef} className="p-10 bg-primary text-primary-foreground text-center">
         <h2 className="text-xl font-bold mb-6">Services</h2>
         <div className="flex flex-wrap justify-center gap-3">
-          {prov?.categories?.map((cat: string) => (
+          {prov.categories?.map((cat: string) => (
             <Badge key={cat} className="bg-card text-primary">
               <Check size={14} /> {cat}
             </Badge>
@@ -345,7 +344,7 @@ const ProviderProfileCard = ({ userId }: ProviderProfileCardProps) => {
       <section ref={portfolioRef} className="px-4 py-12">
         <h2 className="text-xl font-bold mb-8">Portfolio Photos</h2>
         <div className="grid md:grid-cols-3 gap-4">
-          {prov?.portfolio_photos?.slice(1, 4).map((url: string, index: number) => (
+          {prov.portfolio_photos?.slice(1, 4).map((url: string, index: number) => (
             <Image
               key={index}
               src={url}

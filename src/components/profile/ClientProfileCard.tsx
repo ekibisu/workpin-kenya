@@ -32,19 +32,15 @@ const ClientProfileCard = ({ userId }: ClientProfileCardProps) => {
     phone: string | null;
     created_at: string;
     avatar_url: string | null;
-  };
-  type ClientProfileType = {
     lat: number | null;
     lng: number | null;
     location_name: string | null;
     mpesa_phone: string | null;
   };
   const [profile, setProfile] = useState<ProfileType | null>(null);
-  const [clientProfile, setClientProfile] = useState<ClientProfileType | null>(null);
   const [uploading, setUploading] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [editProfile, setEditProfile] = useState<ProfileType | null>(null);
-  const [editClientProfile, setEditClientProfile] = useState<ClientProfileType | null>(null);
   const [saving, setSaving] = useState(false);
   const [jobCount, setJobCount] = useState<number>(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -55,19 +51,11 @@ const ClientProfileCard = ({ userId }: ClientProfileCardProps) => {
 
     const { data: profileData } = await supabase
       .from("profiles")
-      .select("full_name, email, phone, avatar_url, created_at")
+      .select("full_name, email, phone, avatar_url, created_at, lat, lng, location_name, mpesa_phone")
       .eq("id", userId)
       .maybeSingle();
 
     setProfile(profileData as ProfileType | null);
-
-    const { data: clientProfileData } = await supabase
-      .from("client_profiles")
-      .select("lat, lng, location_name, mpesa_phone")
-      .eq("user_id", userId)
-      .maybeSingle();
-
-    setClientProfile(clientProfileData as ClientProfileType | null);
 
     const { count, error } = await supabase
       .from("job_requests")
@@ -91,9 +79,6 @@ const ClientProfileCard = ({ userId }: ClientProfileCardProps) => {
   useEffect(() => {
     if (profile) setEditProfile(profile);
   }, [profile]);
-  useEffect(() => {
-    if (clientProfile) setEditClientProfile(clientProfile);
-  }, [clientProfile]);
 
   const handleAvatarClick = () => {
     if (!uploading && fileInputRef.current) {
@@ -147,17 +132,9 @@ const ClientProfileCard = ({ userId }: ClientProfileCardProps) => {
 
   const handleEditChange = (
     field: keyof ProfileType,
-    value: string | number,
-  ) => {
-    setEditProfile((prev) => (prev ? { ...prev, [field]: value } : prev));
-  };
-  const handleEditClientChange = (
-    field: keyof ClientProfileType,
     value: string | number | null,
   ) => {
-    setEditClientProfile((prev) =>
-      prev ? { ...prev, [field]: value } : { lat: null, lng: null, location_name: null, mpesa_phone: null, [field]: value },
-    );
+    setEditProfile((prev) => (prev ? { ...prev, [field]: value } : prev));
   };
 
   const handleSave = async () => {
@@ -170,23 +147,14 @@ const ClientProfileCard = ({ userId }: ClientProfileCardProps) => {
           full_name: editProfile.full_name,
           email: editProfile.email,
           phone: editProfile.phone,
+          lat: editProfile.lat,
+          lng: editProfile.lng,
+          location_name: editProfile.location_name,
+          mpesa_phone: editProfile.mpesa_phone,
         })
         .eq("id", userId);
 
       if (profileError) throw profileError;
-
-      if (editClientProfile) {
-        const { error: clientError } = await supabase
-          .from("client_profiles")
-          .upsert({
-            user_id: userId,
-            lat: editClientProfile.lat,
-            lng: editClientProfile.lng,
-            location_name: editClientProfile.location_name,
-            mpesa_phone: editClientProfile.mpesa_phone,
-          }, { onConflict: "user_id" });
-        if (clientError) throw clientError;
-      }
 
       toast({ title: "Profile updated!" });
       setEditMode(false);
@@ -206,7 +174,6 @@ const ClientProfileCard = ({ userId }: ClientProfileCardProps) => {
 
   const handleCancel = () => {
     setEditProfile(profile);
-    setEditClientProfile(clientProfile);
     setEditMode(false);
   };
 
@@ -225,7 +192,6 @@ const ClientProfileCard = ({ userId }: ClientProfileCardProps) => {
     label: string;
     value: string;
     field?: string;
-    isClient?: boolean;
   };
 
   const details: DetailItem[] = [
@@ -251,7 +217,7 @@ const ClientProfileCard = ({ userId }: ClientProfileCardProps) => {
     <div className="rounded-xl border border-border bg-card p-6 space-y-5 shadow-sm">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-foreground">
-          Client Profile
+          My Profile
         </h3>
         {!editMode ? (
           <Button size="sm" variant="outline" onClick={() => setEditMode(true)}>
@@ -352,7 +318,7 @@ const ClientProfileCard = ({ userId }: ClientProfileCardProps) => {
       <Separator />
 
       <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-        Client Details
+        Details
       </p>
 
       {/* Location field with map picker */}
@@ -364,37 +330,37 @@ const ClientProfileCard = ({ userId }: ClientProfileCardProps) => {
             {editMode ? (
               <>
                 <MapPicker
-                  lat={editClientProfile?.lat ?? null}
-                  lng={editClientProfile?.lng ?? null}
+                  lat={editProfile?.lat ?? null}
+                  lng={editProfile?.lng ?? null}
                   onChange={(lat, lng, locationName) => {
-                    handleEditClientChange("lat", lat);
-                    handleEditClientChange("lng", lng);
+                    handleEditChange("lat", lat);
+                    handleEditChange("lng", lng);
                     if (locationName !== undefined) {
-                      handleEditClientChange("location_name", locationName);
+                      handleEditChange("location_name", locationName);
                     }
                   }}
                 />
-                {typeof editClientProfile?.lat === "number" &&
-                  typeof editClientProfile?.lng === "number" && (
+                {typeof editProfile?.lat === "number" &&
+                  typeof editProfile?.lng === "number" && (
                     <div className="text-xs text-muted-foreground mt-1">
-                      Lat: {editClientProfile.lat}, Lng: {editClientProfile.lng}
+                      Lat: {editProfile.lat}, Lng: {editProfile.lng}
                     </div>
                   )}
-                {editClientProfile?.location_name && (
+                {editProfile?.location_name && (
                   <div className="text-xs text-primary mt-1">
-                    {editClientProfile.location_name}
+                    {editProfile.location_name}
                   </div>
                 )}
               </>
             ) : (
               <>
                 <p className="text-sm font-medium text-foreground">
-                  {clientProfile?.location_name ?? "Nairobi, Kenya"}
+                  {profile?.location_name ?? "Nairobi, Kenya"}
                 </p>
-                {typeof clientProfile?.lat === "number" &&
-                  typeof clientProfile?.lng === "number" && (
+                {typeof profile?.lat === "number" &&
+                  typeof profile?.lng === "number" && (
                     <div className="text-xs text-muted-foreground mt-1">
-                      Lat: {clientProfile.lat}, Lng: {clientProfile.lng}
+                      Lat: {profile.lat}, Lng: {profile.lng}
                     </div>
                   )}
               </>

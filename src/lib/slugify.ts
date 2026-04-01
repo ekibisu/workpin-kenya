@@ -7,7 +7,6 @@ import { supabase } from "@/integrations/supabase/client";
 export function generateSlug(businessName: string, location?: string): string {
   const parts = [businessName];
   if (location) {
-    // Take just the first part of the location (before the comma)
     const area = location.split(",")[0].trim();
     if (area) parts.push(area);
   }
@@ -15,11 +14,11 @@ export function generateSlug(businessName: string, location?: string): string {
   return parts
     .join(" ")
     .toLowerCase()
-    .replace(/['']/g, "") // Remove apostrophes
-    .replace(/[^a-z0-9\s-]/g, "") // Strip non-alphanumeric
-    .replace(/\s+/g, "-") // Spaces → hyphens
-    .replace(/-+/g, "-") // Dedupe hyphens
-    .replace(/^-|-$/g, ""); // Trim leading/trailing
+    .replace(/['']/g, "")
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
 }
 
 /**
@@ -27,15 +26,15 @@ export function generateSlug(businessName: string, location?: string): string {
  */
 export async function isSlugAvailable(
   slug: string,
-  excludeUserId?: string
+  excludeOwnerId?: string
 ): Promise<boolean> {
   let query = supabase
-    .from("provider_profiles")
-    .select("user_id")
+    .from("businesses")
+    .select("owner_id")
     .eq("username", slug);
 
-  if (excludeUserId) {
-    query = query.neq("user_id", excludeUserId);
+  if (excludeOwnerId) {
+    query = query.neq("owner_id", excludeOwnerId);
   }
 
   const { data } = await query.maybeSingle();
@@ -48,18 +47,17 @@ export async function isSlugAvailable(
 export async function generateUniqueSlug(
   businessName: string,
   location?: string,
-  excludeUserId?: string
+  excludeOwnerId?: string
 ): Promise<string> {
   const base = generateSlug(businessName, location);
   if (!base) return "";
 
-  if (await isSlugAvailable(base, excludeUserId)) return base;
+  if (await isSlugAvailable(base, excludeOwnerId)) return base;
 
   for (let i = 2; i <= 50; i++) {
     const candidate = `${base}-${i}`;
-    if (await isSlugAvailable(candidate, excludeUserId)) return candidate;
+    if (await isSlugAvailable(candidate, excludeOwnerId)) return candidate;
   }
 
-  // Fallback: append random suffix
   return `${base}-${Date.now().toString(36).slice(-4)}`;
 }

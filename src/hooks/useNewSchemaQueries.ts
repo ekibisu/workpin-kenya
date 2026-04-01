@@ -3,13 +3,13 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 
 type WorkThread = Tables<"work_threads">;
-type ClientProfile = Tables<"client_profiles">;
 type Booking = Tables<"bookings">;
 type Dispute = Tables<"disputes">;
 type ProviderTemplate = Tables<"provider_templates">;
 type ProviderWallet = Tables<"provider_wallets">;
 type WalletTransaction = Tables<"wallet_transactions">;
 type FixedPriceService = Tables<"fixed_price_services">;
+type Business = Tables<"businesses">;
 
 // ============================================
 // WORK THREADS
@@ -27,27 +27,6 @@ export function useWorkThreads(userId: string) {
 
             if (error) throw error;
             return data as WorkThread[];
-        },
-        enabled: !!userId,
-    });
-}
-
-// ============================================
-// CLIENT PROFILES
-// ============================================
-
-export function useClientProfile(userId: string) {
-    return useQuery({
-        queryKey: ["client_profiles", userId],
-        queryFn: async () => {
-            const { data, error } = await supabase
-                .from("client_profiles")
-                .select("*")
-                .eq("user_id", userId)
-                .single();
-
-            if (error && error.code !== "PGRST116") throw error; // Allow null for not found
-            return data as ClientProfile | null;
         },
         enabled: !!userId,
     });
@@ -159,23 +138,44 @@ export function useWalletTransactions(providerId: string) {
 }
 
 // ============================================
-// FIXED PRICE SERVICES
+// FIXED PRICE SERVICES (by business id)
 // ============================================
 
-export function useProviderFixedPriceServices(providerId: string) {
+export function useProviderFixedPriceServices(businessId: string) {
     return useQuery({
-        queryKey: ["fixed_price_services", providerId],
+        queryKey: ["fixed_price_services", businessId],
         queryFn: async () => {
             const { data, error } = await supabase
                 .from("fixed_price_services")
                 .select("*")
-                .eq("provider_id", providerId)
+                .eq("provider_id", businessId)
                 .eq("is_active", true)
                 .order("created_at", { ascending: false });
 
             if (error) throw error;
             return data as FixedPriceService[];
         },
-        enabled: !!providerId,
+        enabled: !!businessId,
+    });
+}
+
+// ============================================
+// BUSINESSES (replaces provider_profiles)
+// ============================================
+
+export function useUserBusinesses(userId: string) {
+    return useQuery({
+        queryKey: ["businesses", userId],
+        queryFn: async () => {
+            const { data, error } = await supabase
+                .from("businesses")
+                .select("*")
+                .eq("owner_id", userId)
+                .order("created_at", { ascending: false });
+
+            if (error) throw error;
+            return data as Business[];
+        },
+        enabled: !!userId,
     });
 }
