@@ -21,7 +21,7 @@ const CTASection = () => {
           className="bg-primary-foreground text-primary hover:bg-primary-foreground/90 shadow-lg"
           asChild
         >
-          <Link to="/register">
+          <Link to={user ? "/request" : "/register"}>
             Get Started
             <ArrowRight className="h-5 w-5" />
           </Link>
@@ -32,11 +32,12 @@ const CTASection = () => {
           className="text-primary-foreground/80 hover:text-primary-foreground hover:bg-primary-foreground/10"
           asChild
         >
-          <Link to="/register">Become a Pro</Link>
+          <Link to={user ? "/dashboard/businesses" : "/register"}>Become a Pro</Link>
         </Button>
       </div>
     </div>
   </section>
-);
+  );
+};
 
 export default CTASection;
