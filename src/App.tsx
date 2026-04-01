@@ -73,6 +73,14 @@ const App = () => (
               }
             />
             <Route
+              path="/business/:id/setup"
+              element={
+                <ProtectedRoute>
+                  <BusinessProfileWizard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/onboarding"
               element={
                 <ProtectedRoute>

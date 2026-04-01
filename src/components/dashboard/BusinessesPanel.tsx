@@ -183,15 +183,45 @@ const BusinessesPanel = () => {
                 )}
               </div>
 
+              {/* Completeness */}
+              {(() => {
+                const score = computeCompleteness({
+                  business_name: biz.business_name,
+                  bio: biz.bio,
+                  location_name: biz.location_name,
+                  ...(bizMeta[biz.id] || { galleryCount: 0, servicesCount: 0, faqCount: 0 }),
+                });
+                return (
+                  <div className="mt-3 space-y-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-muted-foreground">Profile: {score}%</span>
+                      {score < 60 && (
+                        <Button size="sm" variant="ghost" className="h-auto py-0 px-1 text-xs text-primary" onClick={() => navigate(`/business/${biz.id}/setup`)}>
+                          <Wand2 className="mr-1 h-3 w-3" /> Set Up
+                        </Button>
+                      )}
+                    </div>
+                    <Progress value={score} className="h-1.5" />
+                  </div>
+                );
+              })()}
+
               <div className="mt-3 flex gap-2">
                 <Button
                   variant="outline"
                   size="sm"
                   className="flex-1"
+                  onClick={() => navigate(`/business/${biz.id}/setup`)}
+                >
+                  <Wand2 className="mr-1.5 h-3.5 w-3.5" />
+                  Edit Profile
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={() => navigate(`/business/${biz.id}`)}
                 >
-                  <Settings className="mr-1.5 h-3.5 w-3.5" />
-                  Manage
+                  <Settings className="h-3.5 w-3.5" />
                 </Button>
                 <Button
                   variant="ghost"
