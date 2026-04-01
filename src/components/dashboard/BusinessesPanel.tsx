@@ -33,6 +33,7 @@ const BusinessesPanel = () => {
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [subscriptionTier, setSubscriptionTier] = useState("free");
+  const [bizMeta, setBizMeta] = useState<Record<string, { galleryCount: number; servicesCount: number; faqCount: number }>>({});
 
   useEffect(() => {
     if (!user) return;
