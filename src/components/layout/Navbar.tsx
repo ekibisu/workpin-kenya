@@ -116,21 +116,13 @@ const Navbar = () => {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
                 <DropdownMenuItem asChild>
-                  <Link
-                    to={userRole === "provider" ? "/profile" : "/client-profile"}
-                    className="flex items-center gap-2"
-                  >
-                    <User className="h-4 w-4" />
-                    {userRole === "provider" ? "Professional Profile" : "Client Profile"}
+                  <Link to="/profile" className="flex items-center gap-2">
+                    <User className="h-4 w-4" /> My Profile
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link
-                    to={userRole === "provider" ? "/provider-dashboard" : "/dashboard"}
-                    className="flex items-center gap-2"
-                  >
-                    <LayoutDashboard className="h-4 w-4" />
-                    {userRole === "provider" ? "Pro Dashboard" : "Dashboard"}
+                  <Link to="/dashboard" className="flex items-center gap-2">
+                    <LayoutDashboard className="h-4 w-4" /> Dashboard
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
