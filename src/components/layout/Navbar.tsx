@@ -28,10 +28,10 @@ const Navbar = () => {
   const { user, signOut } = useAuth();
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [fullName, setFullName] = useState<string | null>(null);
-  const [hasBusiness, setHasBusiness] = useState(false);
+  
 
   useEffect(() => {
-    const fetchProfileAndRole = async () => {
+    const fetchProfile = async () => {
       if (!user) return;
       const { data: profile } = await supabase
         .from("profiles")
@@ -40,16 +40,9 @@ const Navbar = () => {
         .maybeSingle();
       setAvatarUrl(profile?.avatar_url ?? null);
       setFullName(profile?.full_name ?? null);
-      const { count } = await supabase
-        .from("businesses")
-        .select("id", { count: "exact", head: true })
-        .eq("owner_id", user.id);
-      setHasBusiness((count ?? 0) > 0);
     };
-    fetchProfileAndRole();
+    fetchProfile();
   }, [user]);
-
-  const isProviderDashboard = location.pathname.startsWith("/provider-dashboard") || hasBusiness;
 
   const handleSignOut = async () => {
     await signOut();
@@ -183,15 +176,9 @@ const Navbar = () => {
               <div className="mt-3 flex flex-col gap-2">
                 {user ? (
                   <>
-                    {isProviderDashboard ? (
-                      <Link to="/profile" onClick={() => setIsOpen(false)} className="flex items-center gap-2 rounded-lg px-4 py-3 text-sm font-medium text-muted-foreground hover:bg-accent">
-                        <User className="h-4 w-4" /> Professional Profile
-                      </Link>
-                    ) : (
-                      <Link to="/client-profile" onClick={() => setIsOpen(false)} className="flex items-center gap-2 rounded-lg px-4 py-3 text-sm font-medium text-muted-foreground hover:bg-accent">
-                        <User className="h-4 w-4" /> Client Profile
-                      </Link>
-                    )}
+                    <Link to="/profile" onClick={() => setIsOpen(false)} className="flex items-center gap-2 rounded-lg px-4 py-3 text-sm font-medium text-muted-foreground hover:bg-accent">
+                      <User className="h-4 w-4" /> My Profile
+                    </Link>
                     <Link to="/dashboard" onClick={() => setIsOpen(false)} className="flex items-center gap-2 rounded-lg px-4 py-3 text-sm font-medium text-muted-foreground hover:bg-accent">
                       <LayoutDashboard className="h-4 w-4" /> Dashboard
                     </Link>

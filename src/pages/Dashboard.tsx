@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Link, useLocation } from "react-router-dom";
 import {
-  LayoutDashboard, FileText, MessageCircle, Settings, Plus,
+  LayoutDashboard, FileText, MessageCircle, Settings, Plus, Briefcase,
   TrendingUp, Clock, CheckCircle, DollarSign, MapPin, Loader2, User, Star, Pencil, Trash2,
 } from "lucide-react";
 import QuotesPanel from "@/components/dashboard/QuotesPanel";
@@ -38,8 +38,8 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import ClientAccountSettings from "./ClientAccountSettings";
-import ProviderAccountSettings from "./ProviderAccountSettings";
+import UnifiedSettings from "@/components/dashboard/UnifiedSettings";
+import BusinessesPanel from "@/components/dashboard/BusinessesPanel";
 import questionsData from "@/data/questions.json";
 
 // Normalize image_urls: filter nulls, empty strings, and obviously broken URLs
@@ -97,6 +97,7 @@ interface Quote {
 const sideLinks = [
   { label: "Overview", icon: LayoutDashboard, href: "/dashboard" },
   { label: "My Requests", icon: FileText, href: "/dashboard/requests" },
+  { label: "My Businesses", icon: Briefcase, href: "/dashboard/businesses" },
   { label: "Messages", icon: MessageCircle, href: "/dashboard/messages" },
   { label: "Settings", icon: Settings, href: "/dashboard/settings" },
 ];
@@ -107,6 +108,7 @@ const Dashboard = () => {
   const location = useLocation();
   const isMessagesTab = location.pathname.includes("/dashboard/messages");
   const isSettingsTab = location.pathname.includes("/dashboard/settings");
+  const isBusinessesTab = location.pathname.includes("/dashboard/businesses");
   const { unreadCount, resetCount } = useUnreadMessageCount();
   const [requests, setRequests] = useState<JobRequest[]>([]);
   const [quotes, setQuotes] = useState<Quote[]>([]);
@@ -475,17 +477,19 @@ const Dashboard = () => {
           <div className="mb-8 flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-extrabold text-foreground">
-                {isMessagesTab ? "Messages" : isSettingsTab ? "Account Settings" : "Dashboard"}
+                {isMessagesTab ? "Messages" : isSettingsTab ? "Account Settings" : isBusinessesTab ? "My Businesses" : "Dashboard"}
               </h1>
               <p className="text-sm text-muted-foreground">
                 {isMessagesTab 
                   ? "Chat directly with your service pros." 
                   : isSettingsTab 
                     ? "Manage your account and payment settings." 
-                    : "Welcome back! Here's your activity overview."}
+                    : isBusinessesTab
+                      ? "Manage your businesses and services."
+                      : "Welcome back! Here's your activity overview."}
               </p>
             </div>
-            {!isMessagesTab && !isSettingsTab && (
+            {!isMessagesTab && !isSettingsTab && !isBusinessesTab && (
               <Button asChild>
                 <Link to="/request">
                   <Plus className="h-4 w-4" />New Request
@@ -500,14 +504,9 @@ const Dashboard = () => {
               <ConversationList />
             </div>
           ) : isSettingsTab ? (
-            /* DYNAMIC SETTINGS COMPONENT BASED ON ROLE */
-            <div className="rounded-2xl border border-border bg-card p-6">
-              {user?.user_metadata?.role === "provider" ? (
-                <ProviderAccountSettings />
-              ) : (
-                <ClientAccountSettings />
-              )}
-            </div>
+            <UnifiedSettings />
+          ) : isBusinessesTab ? (
+            <BusinessesPanel />
           ) : (
             <>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
