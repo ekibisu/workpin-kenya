@@ -84,13 +84,12 @@ const ProviderDashboard = () => {
 
     const fetchData = async () => {
       // 1. Fetch provider's categories to filter open requests
-      const { data: providerProfile } = await supabase
-        .from("provider_profiles")
+      const { data: bizRows } = await supabase
+        .from("businesses")
         .select("categories")
-        .eq("user_id", user.id)
-        .maybeSingle();
+        .eq("owner_id", user.id);
 
-      const providerCategories: string[] = providerProfile?.categories || [];
+      const providerCategories: string[] = (bizRows || []).flatMap(b => b.categories || []);
 
       // 2. Fetch matching service IDs for the provider's categories (which store service names)
       let matchingServiceIds: string[] = [];

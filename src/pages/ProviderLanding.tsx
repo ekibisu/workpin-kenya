@@ -22,7 +22,8 @@ import {
 import { motion } from "framer-motion";
 
 interface ProviderData {
-  user_id: string;
+  id: string;
+  owner_id: string;
   business_name: string;
   bio: string | null;
   categories: string[] | null;
@@ -62,14 +63,14 @@ const ProviderLanding = () => {
     if (!slug) return;
 
     const fetchProvider = async () => {
-      // Try username first, then user_id
+      // Try username first, then id
       let query = supabase
-        .from("provider_profiles")
+        .from("businesses")
         .select(`
-          user_id, business_name, bio, categories, avg_rating, total_reviews,
+          id, owner_id, business_name, bio, categories, avg_rating, total_reviews,
           is_verified, portfolio_photos, location_name, rate_kes, rate_type,
           response_time_minutes, top_skills, username,
-          profiles:profiles!providers_user_id_fkey ( full_name, avatar_url )
+          profiles:profiles!businesses_owner_id_fkey ( full_name, avatar_url )
         `)
         .eq("username", slug)
         .maybeSingle();
@@ -79,14 +80,14 @@ const ProviderLanding = () => {
       // Fallback: try as UUID
       if (!data && /^[0-9a-f-]{36}$/i.test(slug)) {
         const res = await supabase
-          .from("provider_profiles")
+          .from("businesses")
           .select(`
-            user_id, business_name, bio, categories, avg_rating, total_reviews,
+            id, owner_id, business_name, bio, categories, avg_rating, total_reviews,
             is_verified, portfolio_photos, location_name, rate_kes, rate_type,
             response_time_minutes, top_skills, username,
-            profiles:profiles!providers_user_id_fkey ( full_name, avatar_url )
+            profiles:profiles!businesses_owner_id_fkey ( full_name, avatar_url )
           `)
-          .eq("user_id", slug)
+          .eq("id", slug)
           .maybeSingle();
         data = res.data as unknown as ProviderData | null;
       }
@@ -99,11 +100,11 @@ const ProviderLanding = () => {
 
       setProvider(data as ProviderData);
 
-      // Fetch reviews
+      // Fetch reviews — provider_id in reviews references the business id
       const { data: reviewData } = await supabase
         .from("reviews")
         .select("id, rating, body, created_at, profiles:profiles!reviews_customer_id_fkey ( full_name )")
-        .eq("provider_id", data.user_id)
+        .eq("provider_id", data.id)
         .order("created_at", { ascending: false })
         .limit(10);
 
@@ -222,13 +223,13 @@ const ProviderLanding = () => {
               {/* CTA buttons */}
               <div className="flex flex-col gap-2 md:min-w-[200px]">
                 <Button size="lg" asChild>
-                  <Link to={`/request?provider=${provider.user_id}`}>
+                  <Link to={`/request?provider=${provider.id}`}>
                     <MessageCircle className="mr-2 h-4 w-4" />
                     Request a Quote
                   </Link>
                 </Button>
                 <Button variant="outline" size="lg" asChild>
-                  <Link to={`/request?provider=${provider.user_id}`}>
+                  <Link to={`/request?provider=${provider.id}`}>
                     <CalendarCheck className="mr-2 h-4 w-4" />
                     Book Now
                   </Link>
@@ -402,7 +403,7 @@ const ProviderLanding = () => {
             </p>
             <div className="flex gap-3">
               <Button asChild>
-                <Link to={`/request?provider=${provider.user_id}`}>
+                <Link to={`/request?provider=${provider.id}`}>
                   Request a Quote
                 </Link>
               </Button>

@@ -22,7 +22,8 @@ interface ProviderProfileSettingsProps {
   userId: string;
 }
 
-interface ProviderProfile {
+interface BusinessProfile {
+  id: string;
   business_name: string;
   bio: string;
   avg_rating: number;
@@ -40,7 +41,7 @@ interface ProfileData {
   full_name: string;
   phone: string;
   email: string;
-  provider_profiles: ProviderProfile;
+  businesses: BusinessProfile[];
 }
 
 const ProviderProfileSettings = ({ userId }: ProviderProfileSettingsProps) => {
@@ -64,8 +65,8 @@ const ProviderProfileSettings = ({ userId }: ProviderProfileSettingsProps) => {
       .from("profiles")
       .select(`
         full_name, phone, email,
-        provider_profiles (
-          business_name, bio, avg_rating, total_reviews,
+        businesses (
+          id, business_name, bio, avg_rating, total_reviews,
           is_verified, categories, availability_json,
           portfolio_photos, response_time_minutes, location_name, username
         )
@@ -75,15 +76,19 @@ const ProviderProfileSettings = ({ userId }: ProviderProfileSettingsProps) => {
 
     if (profileData) {
       const typedData = profileData as unknown as ProfileData;
-      if (!Array.isArray(typedData.provider_profiles?.portfolio_photos)) {
-        typedData.provider_profiles.portfolio_photos = [];
+      if (!Array.isArray(typedData.businesses)) {
+        typedData.businesses = [];
+      }
+      const biz = typedData.businesses[0];
+      if (biz && !Array.isArray(biz.portfolio_photos)) {
+        biz.portfolio_photos = [];
       }
       setData(typedData);
-      setBusinessName(typedData.provider_profiles?.business_name || "");
-      setBio(typedData.provider_profiles?.bio || "");
-      setLocation(typedData.provider_profiles?.location_name || "");
+      setBusinessName(biz?.business_name || "");
+      setBio(biz?.bio || "");
+      setLocation(biz?.location_name || "");
 
-      const avail = typedData.provider_profiles?.availability_json;
+      const avail = biz?.availability_json;
       if (
         avail &&
         typeof avail === "object" &&
@@ -102,16 +107,17 @@ const ProviderProfileSettings = ({ userId }: ProviderProfileSettingsProps) => {
     fetchProfile();
   }, [userId]);
 
+  const biz = data?.businesses?.[0];
+
   const handleProfilePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file) return;
+    if (!file || !biz) return;
 
-    const prov = data?.provider_profiles;
     const result = await upload({
       file,
-      providerId: userId,
-      providerSlug: prov?.username || userId,
-      providerName: prov?.business_name,
+      providerId: biz.id,
+      providerSlug: biz.username || userId,
+      providerName: biz.business_name,
       context: 'profile-photo',
       tags: ['profile-photo'],
     });
@@ -121,13 +127,13 @@ const ProviderProfileSettings = ({ userId }: ProviderProfileSettingsProps) => {
       return;
     }
 
-    const currentPhotos = prov?.portfolio_photos || [];
+    const currentPhotos = biz.portfolio_photos || [];
     const updatedPhotos = [result.public_url, ...currentPhotos.slice(1)].slice(0, 4);
 
     await supabase
-      .from("provider_profiles")
+      .from("businesses")
       .update({ portfolio_photos: updatedPhotos })
-      .eq("user_id", userId);
+      .eq("id", biz.id);
 
     toast({ title: "Profile photo updated" });
     fetchProfile();
@@ -135,14 +141,13 @@ const ProviderProfileSettings = ({ userId }: ProviderProfileSettingsProps) => {
 
   const handlePortfolioUpload = async (event: React.ChangeEvent<HTMLInputElement>, index: number) => {
     const file = event.target.files?.[0];
-    if (!file) return;
+    if (!file || !biz) return;
 
-    const prov = data?.provider_profiles;
     const result = await upload({
       file,
-      providerId: userId,
-      providerSlug: prov?.username || userId,
-      providerName: prov?.business_name,
+      providerId: biz.id,
+      providerSlug: biz.username || userId,
+      providerName: biz.business_name,
       context: 'portfolio',
       tags: ['portfolio'],
     });
@@ -152,29 +157,29 @@ const ProviderProfileSettings = ({ userId }: ProviderProfileSettingsProps) => {
       return;
     }
 
-    const currentPhotos = [...(prov?.portfolio_photos || [])];
-    // index+1 because slot 0 is profile photo
+    const currentPhotos = [...(biz.portfolio_photos || [])];
     currentPhotos[index + 1] = result.public_url;
 
     await supabase
-      .from("provider_profiles")
+      .from("businesses")
       .update({ portfolio_photos: currentPhotos })
-      .eq("user_id", userId);
+      .eq("id", biz.id);
 
     toast({ title: "Portfolio photo updated" });
     fetchProfile();
   };
 
   const handleSave = async () => {
+    if (!biz) return;
     setLoading(true);
     const { error } = await supabase
-      .from("provider_profiles")
+      .from("businesses")
       .update({
         business_name: businessName,
         bio: bio,
         availability_json: hours,
       })
-      .eq("user_id", userId);
+      .eq("id", biz.id);
 
     if (!error) {
       toast({ title: "Profile updated" });
@@ -191,7 +196,8 @@ const ProviderProfileSettings = ({ userId }: ProviderProfileSettingsProps) => {
       </div>
     );
 
-  if (!data) return <div className="p-8 text-center">Provider not found.</div>;
+  if (!data) return <div className="p-8 text-center">Profile not found.</div>;
+  if (!biz) return <div className="p-8 text-center">No business profile found. Create one from your dashboard.</div>;
 
   return (
     <div className="max-w-5xl mx-auto bg-card text-foreground">
@@ -249,8 +255,8 @@ const ProviderProfileSettings = ({ userId }: ProviderProfileSettingsProps) => {
         {/* Profile Photo */}
         <div className="relative group w-64 h-72 bg-muted rounded-sm overflow-hidden border shadow-sm self-start">
           <Image
-            src={data?.provider_profiles?.portfolio_photos?.[0]}
-            alt="Provider Profile"
+            src={biz.portfolio_photos?.[0]}
+            alt="Business Profile"
             className="w-full h-full object-cover"
           />
           <input
@@ -324,7 +330,7 @@ const ProviderProfileSettings = ({ userId }: ProviderProfileSettingsProps) => {
         <h2 className="text-xl font-bold mb-8">Portfolio Photos</h2>
         <div className="grid md:grid-cols-3 gap-4">
           {[0, 1, 2].map((index) => {
-            const url = data?.provider_profiles?.portfolio_photos?.[index + 1];
+            const url = biz.portfolio_photos?.[index + 1];
             return (
               <div
                 key={index}

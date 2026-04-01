@@ -146,14 +146,9 @@ const ClientForm = ({ userId, initialName }: { userId: string; initialName: stri
     }
     setSaving(true);
     try {
-      const { error: cpErr } = await supabase
-        .from("client_profiles")
-        .upsert({ user_id: userId, location_name: location.trim(), mpesa_phone: digits }, { onConflict: "user_id" });
-      if (cpErr) throw cpErr;
-
       const { error: pErr } = await supabase
         .from("profiles")
-        .update({ full_name: fullName.trim(), onboarding_complete: true })
+        .update({ full_name: fullName.trim(), onboarding_complete: true, location_name: location.trim(), mpesa_phone: digits })
         .eq("id", userId);
       if (pErr) throw pErr;
 
@@ -346,10 +341,9 @@ const ProviderForm = ({ userId, initialName }: { userId: string; initialName: st
       }
 
       const { error: ppErr } = await supabase
-        .from("provider_profiles")
-        .upsert(
-          {
-            user_id: userId,
+        .from("businesses")
+        .insert({
+            owner_id: userId,
             business_name: businessName.trim(),
             bio: bio.trim() || null,
             categories: selectedCategories,
@@ -358,9 +352,7 @@ const ProviderForm = ({ userId, initialName }: { userId: string; initialName: st
             rate_type: rateType,
             mpesa_phone: digits,
             username: finalSlug || null,
-          },
-          { onConflict: "user_id" }
-        );
+          });
       if (ppErr) throw ppErr;
 
       const { error: pErr } = await supabase

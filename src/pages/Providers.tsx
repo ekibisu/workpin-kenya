@@ -18,7 +18,8 @@ import {
 } from "lucide-react";
 
 interface Provider {
-  user_id: string;
+  id: string;
+  owner_id: string;
   business_name: string;
   bio: string | null;
   avg_rating: number | null;
@@ -41,12 +42,13 @@ const Providers = () => {
 
   useEffect(() => {
     supabase
-      .from("provider_profiles")
+      .from("businesses")
       .select(`
-        user_id, business_name, bio, avg_rating, total_reviews,
+        id, owner_id, business_name, bio, avg_rating, total_reviews,
         is_verified, categories, location_name, rate_kes, rate_type, username,
-        profiles:profiles!providers_user_id_fkey ( full_name, avatar_url )
+        profiles:profiles!businesses_owner_id_fkey ( full_name, avatar_url )
       `)
+      .eq("is_active", true)
       .order("avg_rating", { ascending: false })
       .then(({ data }) => {
         setProviders((data as unknown as Provider[]) ?? []);
@@ -174,12 +176,11 @@ const Providers = () => {
                   .join("")
                   .toUpperCase()
                   .slice(0, 2);
-                const slug =
-                  provider.username || provider.user_id;
+                const slug = provider.username || provider.id;
 
                 return (
                   <motion.div
-                    key={provider.user_id}
+                    key={provider.id}
                     initial={{ opacity: 0, y: 15 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.05 }}
