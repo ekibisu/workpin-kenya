@@ -90,7 +90,7 @@ interface Quote {
   provider_id: string;
   work_thread_id: string | null;
   profiles: { full_name: string | null } | null;
-  provider_profiles?: { avg_rating: number | null; total_reviews: number | null } | null;
+  business_ratings?: { avg_rating: number | null; total_reviews: number | null } | null;
   job_requests: { description: string; services: { name: string } | null } | null;
 }
 
@@ -382,7 +382,7 @@ const Dashboard = () => {
                   .in("id", providerIds);
                 const enriched = quotesData.map(q => ({
                   ...q,
-                  provider_profiles: providerRatings?.find(p => p.id === q.provider_id) ?? null,
+                  business_ratings: providerRatings?.find(p => p.id === q.provider_id) ?? null,
                 }));
                 setQuotes(enriched);
               } else {
@@ -421,7 +421,7 @@ const Dashboard = () => {
               .select("id, avg_rating, total_reviews")
               .eq("id", (data as any).provider_id)
               .single();
-            const enriched = { ...(data as unknown as Quote), provider_profiles: ratings ?? null };
+            const enriched = { ...(data as unknown as Quote), business_ratings: ratings ?? null };
             setQuotes((prev) => {
               if (prev.some((q) => q.id === enriched.id)) return prev;
               return [enriched, ...prev];

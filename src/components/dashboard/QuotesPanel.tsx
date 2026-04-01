@@ -26,7 +26,7 @@ interface QuoteData {
   provider_id: string;
   work_thread_id: string | null;
   profiles: { full_name: string | null } | null;
-  provider_profiles?: {
+  business_ratings?: {
     avg_rating: number | null;
     total_reviews: number | null;
   } | null;
@@ -77,8 +77,8 @@ export default function QuotesPanel({
       if (sortBy === "price_asc") return a.price_kes - b.price_kes;
       if (sortBy === "price_desc") return b.price_kes - a.price_kes;
       if (sortBy === "rating") {
-        const ra = a.provider_profiles?.avg_rating ?? 0;
-        const rb = b.provider_profiles?.avg_rating ?? 0;
+        const ra = a.business_ratings?.avg_rating ?? 0;
+        const rb = b.business_ratings?.avg_rating ?? 0;
         return rb - ra;
       }
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
@@ -164,8 +164,8 @@ export default function QuotesPanel({
             const name = quote.profiles?.full_name || "Provider";
             const initials = getInitials(name);
             const color = getAvatarColor(name);
-            const rating = quote.provider_profiles?.avg_rating;
-            const jobs = quote.provider_profiles?.total_reviews ?? 0;
+            const rating = quote.business_ratings?.avg_rating;
+            const jobs = quote.business_ratings?.total_reviews ?? 0;
 
             return (
               <AccordionItem

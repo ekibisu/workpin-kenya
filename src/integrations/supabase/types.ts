@@ -170,38 +170,6 @@ export type Database = {
           },
         ]
       }
-      direct_messages: {
-        Row: {
-          content: string
-          created_at: string
-          id: string
-          request_id: string
-          sender_id: string
-        }
-        Insert: {
-          content: string
-          created_at?: string
-          id?: string
-          request_id: string
-          sender_id: string
-        }
-        Update: {
-          content?: string
-          created_at?: string
-          id?: string
-          request_id?: string
-          sender_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "direct_messages_request_id_fkey"
-            columns: ["request_id"]
-            isOneToOne: false
-            referencedRelation: "job_requests"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       disputes: {
         Row: {
           created_at: string
@@ -540,7 +508,6 @@ export type Database = {
           mpesa_phone: string | null
           onboarding_complete: boolean
           phone: string | null
-          role: string | null
           subscription_tier: string
           updated_at: string
         }
@@ -556,7 +523,6 @@ export type Database = {
           mpesa_phone?: string | null
           onboarding_complete?: boolean
           phone?: string | null
-          role?: string | null
           subscription_tier?: string
           updated_at?: string
         }
@@ -572,7 +538,6 @@ export type Database = {
           mpesa_phone?: string | null
           onboarding_complete?: boolean
           phone?: string | null
-          role?: string | null
           subscription_tier?: string
           updated_at?: string
         }
