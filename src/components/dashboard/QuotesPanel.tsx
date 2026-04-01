@@ -164,8 +164,8 @@ export default function QuotesPanel({
             const name = quote.profiles?.full_name || "Provider";
             const initials = getInitials(name);
             const color = getAvatarColor(name);
-            const rating = quote.provider_profiles?.avg_rating;
-            const jobs = quote.provider_profiles?.total_reviews ?? 0;
+            const rating = quote.business_ratings?.avg_rating;
+            const jobs = quote.business_ratings?.total_reviews ?? 0;
 
             return (
               <AccordionItem

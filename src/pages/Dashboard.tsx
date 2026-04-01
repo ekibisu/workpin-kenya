@@ -421,7 +421,7 @@ const Dashboard = () => {
               .select("id, avg_rating, total_reviews")
               .eq("id", (data as any).provider_id)
               .single();
-            const enriched = { ...(data as unknown as Quote), provider_profiles: ratings ?? null };
+            const enriched = { ...(data as unknown as Quote), business_ratings: ratings ?? null };
             setQuotes((prev) => {
               if (prev.some((q) => q.id === enriched.id)) return prev;
               return [enriched, ...prev];
