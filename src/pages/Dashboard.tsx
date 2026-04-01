@@ -108,6 +108,7 @@ const Dashboard = () => {
   const location = useLocation();
   const isMessagesTab = location.pathname.includes("/dashboard/messages");
   const isSettingsTab = location.pathname.includes("/dashboard/settings");
+  const isBusinessesTab = location.pathname.includes("/dashboard/businesses");
   const { unreadCount, resetCount } = useUnreadMessageCount();
   const [requests, setRequests] = useState<JobRequest[]>([]);
   const [quotes, setQuotes] = useState<Quote[]>([]);
