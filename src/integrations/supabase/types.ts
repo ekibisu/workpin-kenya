@@ -49,39 +49,96 @@ export type Database = {
           },
         ]
       }
-      client_profiles: {
+      businesses: {
         Row: {
+          availability_json: Json | null
+          avg_rating: number | null
+          bio: string | null
+          business_name: string
+          categories: string[] | null
           created_at: string
+          geom: unknown
           id: string
-          lat: number | null
-          lng: number | null
+          is_active: boolean
+          is_verified: boolean | null
+          location_lat: number | null
+          location_lng: number | null
           location_name: string | null
           mpesa_phone: string | null
-          user_id: string
+          owner_id: string
+          portfolio_photos: string[] | null
+          rate_kes: number | null
+          rate_type: string | null
+          response_time_minutes: number | null
+          service_radius_km: number | null
+          social_links: Json | null
+          subscription_status: string | null
+          top_skills: string[] | null
+          total_reviews: number | null
+          updated_at: string
+          username: string | null
         }
         Insert: {
+          availability_json?: Json | null
+          avg_rating?: number | null
+          bio?: string | null
+          business_name: string
+          categories?: string[] | null
           created_at?: string
+          geom?: unknown
           id?: string
-          lat?: number | null
-          lng?: number | null
+          is_active?: boolean
+          is_verified?: boolean | null
+          location_lat?: number | null
+          location_lng?: number | null
           location_name?: string | null
           mpesa_phone?: string | null
-          user_id: string
+          owner_id: string
+          portfolio_photos?: string[] | null
+          rate_kes?: number | null
+          rate_type?: string | null
+          response_time_minutes?: number | null
+          service_radius_km?: number | null
+          social_links?: Json | null
+          subscription_status?: string | null
+          top_skills?: string[] | null
+          total_reviews?: number | null
+          updated_at?: string
+          username?: string | null
         }
         Update: {
+          availability_json?: Json | null
+          avg_rating?: number | null
+          bio?: string | null
+          business_name?: string
+          categories?: string[] | null
           created_at?: string
+          geom?: unknown
           id?: string
-          lat?: number | null
-          lng?: number | null
+          is_active?: boolean
+          is_verified?: boolean | null
+          location_lat?: number | null
+          location_lng?: number | null
           location_name?: string | null
           mpesa_phone?: string | null
-          user_id?: string
+          owner_id?: string
+          portfolio_photos?: string[] | null
+          rate_kes?: number | null
+          rate_type?: string | null
+          response_time_minutes?: number | null
+          service_radius_km?: number | null
+          social_links?: Json | null
+          subscription_status?: string | null
+          top_skills?: string[] | null
+          total_reviews?: number | null
+          updated_at?: string
+          username?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "client_profiles_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: true
+            foreignKeyName: "businesses_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -477,9 +534,14 @@ export type Database = {
           email: string | null
           full_name: string | null
           id: string
+          lat: number | null
+          lng: number | null
+          location_name: string | null
+          mpesa_phone: string | null
           onboarding_complete: boolean
           phone: string | null
-          role: string
+          role: string | null
+          subscription_tier: string
           updated_at: string
         }
         Insert: {
@@ -488,9 +550,14 @@ export type Database = {
           email?: string | null
           full_name?: string | null
           id: string
+          lat?: number | null
+          lng?: number | null
+          location_name?: string | null
+          mpesa_phone?: string | null
           onboarding_complete?: boolean
           phone?: string | null
-          role?: string
+          role?: string | null
+          subscription_tier?: string
           updated_at?: string
         }
         Update: {
@@ -499,104 +566,17 @@ export type Database = {
           email?: string | null
           full_name?: string | null
           id?: string
+          lat?: number | null
+          lng?: number | null
+          location_name?: string | null
+          mpesa_phone?: string | null
           onboarding_complete?: boolean
           phone?: string | null
-          role?: string
+          role?: string | null
+          subscription_tier?: string
           updated_at?: string
         }
         Relationships: []
-      }
-      provider_profiles: {
-        Row: {
-          availability_json: Json | null
-          avg_rating: number | null
-          bio: string | null
-          business_name: string
-          categories: string[] | null
-          created_at: string
-          geom: unknown
-          id: string
-          is_verified: boolean | null
-          location_lat: number | null
-          location_lng: number | null
-          location_name: string | null
-          mpesa_phone: string | null
-          portfolio_photos: string[] | null
-          rate_kes: number | null
-          rate_type: string | null
-          response_time_minutes: number | null
-          service_radius_km: number | null
-          social_links: Json | null
-          subscription_status: string | null
-          top_skills: string[] | null
-          total_reviews: number | null
-          updated_at: string
-          user_id: string
-          username: string | null
-        }
-        Insert: {
-          availability_json?: Json | null
-          avg_rating?: number | null
-          bio?: string | null
-          business_name: string
-          categories?: string[] | null
-          created_at?: string
-          geom?: unknown
-          id?: string
-          is_verified?: boolean | null
-          location_lat?: number | null
-          location_lng?: number | null
-          location_name?: string | null
-          mpesa_phone?: string | null
-          portfolio_photos?: string[] | null
-          rate_kes?: number | null
-          rate_type?: string | null
-          response_time_minutes?: number | null
-          service_radius_km?: number | null
-          social_links?: Json | null
-          subscription_status?: string | null
-          top_skills?: string[] | null
-          total_reviews?: number | null
-          updated_at?: string
-          user_id: string
-          username?: string | null
-        }
-        Update: {
-          availability_json?: Json | null
-          avg_rating?: number | null
-          bio?: string | null
-          business_name?: string
-          categories?: string[] | null
-          created_at?: string
-          geom?: unknown
-          id?: string
-          is_verified?: boolean | null
-          location_lat?: number | null
-          location_lng?: number | null
-          location_name?: string | null
-          mpesa_phone?: string | null
-          portfolio_photos?: string[] | null
-          rate_kes?: number | null
-          rate_type?: string | null
-          response_time_minutes?: number | null
-          service_radius_km?: number | null
-          social_links?: Json | null
-          subscription_status?: string | null
-          top_skills?: string[] | null
-          total_reviews?: number | null
-          updated_at?: string
-          user_id?: string
-          username?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "providers_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: true
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       provider_templates: {
         Row: {
