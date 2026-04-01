@@ -100,6 +100,9 @@ const CreateBusinessForm = ({ open, onOpenChange, onCreated, redirectToWizard = 
     setMpesaPhone("");
     setLocationName("");
     onCreated(data);
+    if (redirectToWizard && data?.id) {
+      navigate(`/business/${data.id}/setup`);
+    }
   };
 
   return (
