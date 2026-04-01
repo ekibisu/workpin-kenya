@@ -36,7 +36,7 @@ interface ServiceOption {
 }
 
 const CreateBusinessForm = ({ open, onOpenChange, onCreated, redirectToWizard = true }: CreateBusinessFormProps) => {
-  const navigate = (await import("react-router-dom")).useNavigate();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
   const [services, setServices] = useState<ServiceOption[]>([]);
