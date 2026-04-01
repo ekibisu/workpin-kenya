@@ -146,11 +146,6 @@ const ClientForm = ({ userId, initialName }: { userId: string; initialName: stri
     }
     setSaving(true);
     try {
-      const { error: cpErr } = await supabase
-        .from("client_profiles")
-        .upsert({ user_id: userId, location_name: location.trim(), mpesa_phone: digits }, { onConflict: "user_id" });
-      if (cpErr) throw cpErr;
-
       const { error: pErr } = await supabase
         .from("profiles")
         .update({ full_name: fullName.trim(), onboarding_complete: true })
