@@ -341,10 +341,9 @@ const ProviderForm = ({ userId, initialName }: { userId: string; initialName: st
       }
 
       const { error: ppErr } = await supabase
-        .from("provider_profiles")
-        .upsert(
-          {
-            user_id: userId,
+        .from("businesses")
+        .insert({
+            owner_id: userId,
             business_name: businessName.trim(),
             bio: bio.trim() || null,
             categories: selectedCategories,
@@ -353,9 +352,7 @@ const ProviderForm = ({ userId, initialName }: { userId: string; initialName: st
             rate_type: rateType,
             mpesa_phone: digits,
             username: finalSlug || null,
-          },
-          { onConflict: "user_id" }
-        );
+          });
       if (ppErr) throw ppErr;
 
       const { error: pErr } = await supabase

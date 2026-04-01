@@ -415,9 +415,9 @@ const Dashboard = () => {
             .single();
           if (data) {
             const { data: ratings } = await supabase
-              .from("provider_profiles")
-              .select("user_id, avg_rating, total_reviews")
-              .eq("user_id", (data as any).provider_id)
+              .from("businesses")
+              .select("id, avg_rating, total_reviews")
+              .eq("id", (data as any).provider_id)
               .single();
             const enriched = { ...(data as unknown as Quote), provider_profiles: ratings ?? null };
             setQuotes((prev) => {
