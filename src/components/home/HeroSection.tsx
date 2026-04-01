@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import heroImage from "@/assets/hero-image.jpg";
 
 const HeroSection = () => {
+  const { user } = useAuth();
   return (
     <section className="relative overflow-hidden">
       {/* Background image with overlay */}
