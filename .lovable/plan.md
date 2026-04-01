@@ -1,90 +1,135 @@
 
 
-# Phase B and Beyond: Remove Role Split, Unify Flows
+# Phase C & D: Unified Dashboard + Business CRUD
 
-## Status of Phase A (Completed)
-Phase A (database migration) is done: `provider_profiles` renamed to `businesses` with `owner_id`, `client_profiles` merged into `profiles`, RLS policies updated, triggers updated.
+## Phase C — Unified Dashboard
 
-## What Phase B Must Fix
+### Problem
+Two separate 900+ and 650+ line dashboard pages (`Dashboard.tsx` and `ProviderDashboard.tsx`) with duplicated sidebar patterns, messaging, and settings. The role-based settings rendering in `Dashboard.tsx` (line 505) still checks `user_metadata.role`.
 
-The role split is still deeply embedded in the frontend. Here is every place it persists:
+### Changes
 
-| Problem | File(s) |
-|---------|---------|
-| Signup has Client/Provider toggle + sends `role` in metadata | `Register.tsx`, `Auth.tsx` |
-| Login routes to `/provider-dashboard` vs `/dashboard` based on `profiles.role` | `Auth.tsx` (lines 73-76) |
-| Onboarding forks into `ClientForm` or `ProviderForm` based on `profiles.role` | `Onboarding.tsx` (line 632) |
-| Dashboard settings check `user?.user_metadata?.role` | `Dashboard.tsx` (line 505) |
-| `SettingsRedirect` checks `user?.role` (always undefined now) | `SettingsRedirect.tsx` (line 8) |
-| Navbar mobile menu shows different profile links based on `hasBusiness` | `Navbar.tsx` (lines 186-194) |
-| CTA/Footer link to `?role=provider` signup | `CTASection.tsx`, `HeroSection.tsx`, `Footer.tsx` |
-| `app_role` enum still has `customer` and `provider` values | Database |
-| ProviderDashboard is a separate 655-line page | `ProviderDashboard.tsx` |
+**1. Merge sidebar tabs in `Dashboard.tsx`**
 
----
+Add two new sidebar links between existing ones:
+```text
+Overview          (existing)
+My Requests       (existing — jobs user posted)
+My Businesses     (NEW — list user's businesses, open jobs, quotes received)
+Messages          (existing — unified inbox)
+Settings          (existing)
+```
 
-## Plan
+Route: `/dashboard/businesses` triggers the new "My Businesses" tab.
 
-### Phase B — Remove role from signup and login routing
+**2. Create `src/components/dashboard/BusinessesPanel.tsx`**
 
-**1. `Register.tsx`**: Remove the Client/Provider toggle and `role` state. Remove `role` from `signUp` metadata. All users sign up the same way (name, email, password, phone). After signup, navigate to `/dashboard`.
+A new component that:
+- Fetches `businesses` where `owner_id = user.id`
+- If none: shows a "Create a Business" CTA card with description and button
+- If businesses exist: lists each as a card showing business name, categories, rating, active status
+- Each card has actions: "View Open Jobs", "Edit", and a link to business management
+- "View Open Jobs" expands inline to show the open-requests logic currently in `ProviderDashboard.tsx` (filtered by that business's categories)
+- Quote submission (from `ProviderDashboard`) moves into this panel, scoped per business
+- "Create a Business" button (respects subscription tier limit)
 
-**2. `Auth.tsx`**: Remove the role toggle from the signup form (lines 278-305). Remove `role` from signup metadata (line 110). In login handler, remove role-based routing (lines 73-76) — always navigate to `/dashboard` (or `/onboarding` if incomplete).
+**3. Migrate `ProviderDashboard.tsx` logic into `BusinessesPanel.tsx`**
 
-**3. `Onboarding.tsx`**: Replace the `ClientForm`/`ProviderForm` fork with a single unified form:
-- Steps: "Personal Info" (name, location) → "Payment" (M-Pesa phone)
-- No business creation during onboarding — that moves to the dashboard
-- Save to `profiles` table only, set `onboarding_complete = true`
+Move the core data-fetching and quote-submission logic from `ProviderDashboard.tsx` into the new panel, parameterized by `businessId` instead of assuming a single provider profile.
 
-**4. `CTASection.tsx`, `HeroSection.tsx`, `Footer.tsx`**: Change `?role=provider` links to just go to `/register` or a future "Create a Business" page.
+**4. Merge settings in `Dashboard.tsx`**
 
-**5. Database migration**: Update `handle_new_user` trigger to stop reading `role` from metadata. Remove `trg_sync_user_role` trigger if still present.
+Replace the role check at line 505 with a single unified settings component that combines:
+- Notification preferences (from `ClientAccountSettings`)
+- Change password (shared `ChangePasswordCard`)
+- Account status controls
+- If user has businesses: link to per-business settings
 
-### Phase C — Unified Dashboard
+**5. Update `App.tsx`**
 
-**6. Merge `Dashboard.tsx` and `ProviderDashboard.tsx`** into a single `/dashboard` with sidebar tabs:
-- "My Requests" — jobs the user has posted (existing client dashboard content)
-- "My Businesses" — if user has businesses, show a list; each links to business management. If none, show "Create a Business" CTA.
-- "Messages" — unified inbox (already shared component)
-- "Settings" — single settings page (merge `ClientAccountSettings` + `ProviderAccountSettings`)
+- Remove `/provider-dashboard` and `/provider-dashboard/*` routes
+- Remove `/client-profile` route
+- Remove duplicate `/dashboard` route (lines 52-59)
+- Remove `/settings` route (settings lives inside `/dashboard/settings`)
+- Remove `SettingsRedirect` import
 
-**7. `SettingsRedirect.tsx`**: Remove role check. Render a single merged settings component.
+**6. Update `Navbar.tsx`**
 
-**8. `App.tsx`**: Remove `/provider-dashboard` routes. Remove `/client-profile` route. Keep `/dashboard` and `/dashboard/*`.
+- Remove `isProviderDashboard` variable and all conditional logic using it
+- Always show a single "Dashboard" link to `/dashboard`
+- Remove conditional profile link branching in mobile menu
 
-**9. `Navbar.tsx`**: Remove `isProviderDashboard` logic and the conditional profile links in mobile menu. Always show "My Profile" linking to `/profile`.
+**7. Update `Profile.tsx`**
 
-### Phase D — Business CRUD from Dashboard
+Currently renders `ProviderProfileCard` and `ProviderAccountSettings` in tabs. Refactor to show personal profile info for all users. If user has businesses, show them as a list below.
 
-**10. New component `CreateBusinessForm`**: A modal/page accessible from the "My Businesses" tab in the dashboard. Fields: business name, bio, slug, categories, rates, M-Pesa phone, portfolio. Check `profiles.subscription_tier` to enforce max business count (free = 1).
-
-**11. Business management page** at `/business/:id`: Edit business details, view quotes received by that business, manage fixed-price services, see earnings.
-
-**12. Update `ProviderDashboard` logic** (quote submission, open jobs view) to become a sub-view within business management — the provider sees open jobs filtered by their business's categories.
-
-### Phase E — Cleanup
-
-**13. Delete dead files**: `ProviderDashboard.tsx`, `ClientProfile.tsx`, `ClientAccountSettings.tsx`, `ProviderAccountSettings.tsx` (after merging).
-
-**14. Update `app_role` enum**: Remove `customer` and `provider`, keep only `admin`. (Requires migration since enum values in use may need data cleanup first.)
-
-**15. Drop `profiles.role` column** (or leave nullable, no code reads it anymore).
-
----
-
-## Implementation Priority
-
-I recommend implementing **Phase B first** (items 1-5) as a single pass. This is the most critical — it stops the broken role-based branching. Phases C-E can follow in subsequent passes.
-
-### Files changed in Phase B
+### Files changed in Phase C
 
 | Action | File |
 |--------|------|
-| Edit | `src/pages/Register.tsx` — remove role toggle, remove role from metadata |
-| Edit | `src/pages/Auth.tsx` — remove role toggle, remove role-based login routing |
-| Edit | `src/pages/Onboarding.tsx` — replace with single unified form |
-| Edit | `src/components/home/CTASection.tsx` — update link |
-| Edit | `src/components/home/HeroSection.tsx` — update link |
-| Edit | `src/components/layout/Footer.tsx` — update link |
-| Migration | Update `handle_new_user` trigger to not read role from metadata |
+| Create | `src/components/dashboard/BusinessesPanel.tsx` |
+| Create | `src/components/dashboard/UnifiedSettings.tsx` |
+| Edit | `src/pages/Dashboard.tsx` — add "My Businesses" tab, use unified settings |
+| Edit | `src/App.tsx` — remove provider-dashboard routes, client-profile, settings redirect |
+| Edit | `src/components/layout/Navbar.tsx` — remove role branching |
+| Edit | `src/pages/Profile.tsx` — show personal profile + business list |
+| Edit | `src/components/dashboard/SettingsRedirect.tsx` — delete or gut |
+
+---
+
+## Phase D — Business CRUD
+
+### Changes
+
+**8. Create `src/components/dashboard/CreateBusinessForm.tsx`**
+
+A dialog/modal with fields:
+- Business name (required)
+- Bio / description
+- Categories (multi-select from `services` table)
+- Rate (KES) and rate type (hourly/fixed/project)
+- M-Pesa phone for business payments
+- Location (reuse `MapPicker`)
+
+Before insert, check: `SELECT count(*) FROM businesses WHERE owner_id = user.id` against `profiles.subscription_tier` limits (free = 1, pro = 5).
+
+Insert into `businesses` table with `owner_id = user.id`.
+
+**9. Create `src/pages/BusinessManage.tsx`**
+
+Route: `/business/:id` — a management page for a single business:
+- Edit business details (name, bio, categories, rates, portfolio photos)
+- View quotes received by this business
+- View/manage fixed-price services
+- View earnings (wallet balance, transaction history)
+- Toggle business active/inactive
+
+Reuses logic from `ProviderProfileSettings.tsx` and `ProviderDashboard.tsx`.
+
+**10. Update `App.tsx`**
+
+Add route:
+```
+/business/:id → <ProtectedRoute><BusinessManage /></ProtectedRoute>
+```
+
+**11. Update `BusinessesPanel.tsx`**
+
+Wire "Edit" button on each business card to navigate to `/business/:id`.
+Wire "Create a Business" button to open `CreateBusinessForm` dialog.
+
+### Files changed in Phase D
+
+| Action | File |
+|--------|------|
+| Create | `src/components/dashboard/CreateBusinessForm.tsx` |
+| Create | `src/pages/BusinessManage.tsx` |
+| Edit | `src/App.tsx` — add `/business/:id` route |
+| Edit | `src/components/dashboard/BusinessesPanel.tsx` — wire create/edit actions |
+
+---
+
+## Implementation order
+
+Phase C first (items 1-7), then Phase D (items 8-11). Each is a single implementation pass. Phase E (cleanup: delete `ProviderDashboard.tsx`, `ClientProfile.tsx`, `ClientAccountSettings.tsx`, `ProviderAccountSettings.tsx`, drop `profiles.role` column) follows after both are stable.
 
