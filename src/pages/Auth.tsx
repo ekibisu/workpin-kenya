@@ -3,7 +3,7 @@ import { useSearchParams, Link, useNavigate, Navigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { MapPin, ArrowLeft, Mail, Lock, User, Loader2, Search, Briefcase, Eye, EyeOff } from "lucide-react";
+import { MapPin, ArrowLeft, Mail, Lock, User, Loader2, Eye, EyeOff } from "lucide-react";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -26,13 +26,9 @@ const Auth = () => {
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [resetEmail, setResetEmail] = useState("");
   const [resetLoading, setResetLoading] = useState(false);
-  const [role, setRole] = useState<"client" | "provider">(
-    searchParams.get("role") === "provider" ? "provider" : "client"
-  );
 
   if (authLoading) return null;
   
-  // Already authenticated — redirect based on role
   if (user) return <Navigate to="/dashboard" replace />;
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -40,7 +36,6 @@ const Auth = () => {
     setLoading(true);
 
     try {
-      // 1. Sanitize email to prevent trailing space errors
       const cleanEmail = email.trim();
       
       const { data, error: authError } = await supabase.auth.signInWithPassword({ 
@@ -49,33 +44,24 @@ const Auth = () => {
       });
 
       if (authError) throw authError;
-
       if (!data.user) throw new Error("Authentication failed: No user data.");
 
-      // 2. Fetch role and onboarding_complete from profiles
       const { data: profile, error: profileError } = await supabase
         .from("profiles")
-        .select("role, onboarding_complete")
+        .select("onboarding_complete")
         .eq("id", data.user.id)
         .maybeSingle();
 
       if (profileError) console.error("Profile fetch error:", profileError);
 
-      // 3. Success Notification
       toast({
         title: "Welcome back!",
         description: "Successfully signed in.",
       });
 
-      // 4. Routing Logic: If onboarding not complete, go to /onboarding
       if (profile?.onboarding_complete === false) {
         navigate("/onboarding");
-      } else if (profile?.role === "provider") {
-        navigate("/provider-dashboard");
-      } else if (profile?.role === "client") {
-        navigate("/dashboard");
       } else {
-        // fallback: go to dashboard
         navigate("/dashboard");
       }
     } catch (error: any) {
@@ -106,8 +92,7 @@ const Auth = () => {
         password,
         options: {
           data: { 
-            full_name: fullName, 
-            role: role 
+            full_name: fullName,
           },
           emailRedirectTo: globalThis.location.origin,
         },
@@ -164,22 +149,20 @@ const Auth = () => {
               {tab === "login" ? "Welcome back" : "Create your account"}
             </h1>
             <p className="text-sm text-muted-foreground">
-              {tab === "login" ? "Sign in to continue" : "Start finding or offering services"}
+              {tab === "login" ? "Sign in to continue" : "Find services or offer your own — one account does it all"}
             </p>
           </div>
 
           <div className="mb-6 flex rounded-xl bg-secondary p-1">
             <button
               onClick={() => setTab("login")}
-              className={`flex-1 rounded-lg py-2.5 text-sm font-semibold transition-all ${tab === "login" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"
-                }`}
+              className={`flex-1 rounded-lg py-2.5 text-sm font-semibold transition-all ${tab === "login" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"}`}
             >
               Log in
             </button>
             <a
               href="/register"
-              className={`flex-1 rounded-lg py-2.5 text-sm font-semibold transition-all ${tab === "signup" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"
-                }`}
+              className={`flex-1 rounded-lg py-2.5 text-sm font-semibold transition-all text-center ${tab === "signup" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"}`}
             >
               Sign up
             </a>
@@ -187,37 +170,35 @@ const Auth = () => {
 
           {tab === "login" && (
             <form onSubmit={handleLogin} className="space-y-4">
-              {/* Email Field  */}
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input id="email" type="email" placeholder="you@example.com" className="pl-9" value={email} onChange={(e) => setEmail(e.target.value)} required />
-              </div>
-            </div>
-            {/* Password Field  */}
               <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input 
-                  id="password" 
-                  type={showPassword ? "text" : "password"} // Dynamic type
-                  placeholder="••••••••" 
-                  className="pl-9 pr-10" // Added right padding for icon
-                  value={password} 
-                  onChange={(e) => setPassword(e.target.value)} 
-                  required 
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
+                <Label htmlFor="email">Email</Label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input id="email" type="email" placeholder="you@example.com" className="pl-9" value={email} onChange={(e) => setEmail(e.target.value)} required />
+                </div>
               </div>
-            </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input 
+                    id="password" 
+                    type={showPassword ? "text" : "password"}
+                    placeholder="••••••••" 
+                    className="pl-9 pr-10"
+                    value={password} 
+                    onChange={(e) => setPassword(e.target.value)} 
+                    required 
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
               <Button className="w-full" size="lg" type="submit" disabled={loading}>
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Sign in
@@ -277,34 +258,6 @@ const Auth = () => {
 
           {tab === "signup" && (
             <form onSubmit={handleSignup} className="space-y-4">
-              <div className="space-y-2">
-                <Label>I am a...</Label>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setRole("client")}
-                    className={`flex flex-col items-center gap-2 rounded-xl border-2 p-4 text-center transition-all ${role === "client"
-                      ? "border-primary bg-primary/5 text-foreground shadow-sm"
-                      : "border-border text-muted-foreground hover:border-primary/40"
-                      }`}
-                  >
-                    <Search className="h-5 w-5" />
-                    <span className="text-sm font-semibold">Client</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setRole("provider")}
-                    className={`flex flex-col items-center gap-2 rounded-xl border-2 p-4 text-center transition-all ${role === "provider"
-                      ? "border-primary bg-primary/5 text-foreground shadow-sm"
-                      : "border-border text-muted-foreground hover:border-primary/40"
-                      }`}
-                  >
-                    <Briefcase className="h-5 w-5" />
-                    <span className="text-sm font-semibold">Provider</span>
-                  </button>
-                </div>
-              </div>
-
               <div className="space-y-2">
                 <Label htmlFor="fullName">Full Name</Label>
                 <div className="relative">

@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { MapPin, ArrowLeft, Mail, Lock, User, Loader2, Search, Briefcase, Phone } from "lucide-react";
+import { MapPin, ArrowLeft, Mail, Lock, User, Loader2, Phone } from "lucide-react";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -13,7 +13,6 @@ export default function Register() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [phone, setPhone] = useState("");
-  const [role, setRole] = useState<"client" | "provider">("client");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -29,7 +28,6 @@ export default function Register() {
           data: {
             full_name: fullName,
             phone: phone,
-            role: role,
           },
           emailRedirectTo: `${window.location.origin}/dashboard`,
         },
@@ -40,7 +38,6 @@ export default function Register() {
         return;
       }
       setError("");
-      // If email confirmation is disabled, redirect immediately
       navigate("/dashboard");
     } catch (err: any) {
       setError(err.message || "Something went wrong.");
@@ -68,13 +65,9 @@ export default function Register() {
           </Link>
           <div className="mb-8">
             <h1 className="mb-2 text-2xl font-extrabold">Create your account</h1>
-            <p className="text-sm text-muted-foreground">Start finding or offering services</p>
+            <p className="text-sm text-muted-foreground">Find services or offer your own — one account does it all</p>
           </div>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-2 gap-3 mb-4">
-              <button type="button" onClick={() => setRole("client")} className={`flex flex-col items-center gap-2 rounded-xl border-2 p-4 ${role === "client" ? "border-primary bg-primary/5" : "border-border"}`}><Search className="h-5 w-5" /><span className="text-xs font-bold">Client</span></button>
-              <button type="button" onClick={() => setRole("provider")} className={`flex flex-col items-center gap-2 rounded-xl border-2 p-4 ${role === "provider" ? "border-primary bg-primary/5" : "border-border"}`}><Briefcase className="h-5 w-5" /><span className="text-xs font-bold">Provider</span></button>
-            </div>
             <div className="space-y-2">
               <Label>Full Name</Label>
               <div className="relative"><User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" /><Input placeholder="John Kamau" className="pl-9" value={fullName} onChange={(e) => setFullName(e.target.value)} required /></div>
@@ -97,6 +90,10 @@ export default function Register() {
               Create Account
             </Button>
           </form>
+          <p className="mt-4 text-center text-sm text-muted-foreground">
+            Already have an account?{" "}
+            <Link to="/auth" className="text-primary hover:underline font-medium">Sign in</Link>
+          </p>
         </motion.div>
       </div>
     </div>
