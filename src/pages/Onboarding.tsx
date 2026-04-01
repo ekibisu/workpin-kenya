@@ -148,7 +148,7 @@ const ClientForm = ({ userId, initialName }: { userId: string; initialName: stri
     try {
       const { error: pErr } = await supabase
         .from("profiles")
-        .update({ full_name: fullName.trim(), onboarding_complete: true })
+        .update({ full_name: fullName.trim(), onboarding_complete: true, location_name: location.trim(), mpesa_phone: digits })
         .eq("id", userId);
       if (pErr) throw pErr;
 
