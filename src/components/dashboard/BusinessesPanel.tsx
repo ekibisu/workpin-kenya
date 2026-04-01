@@ -5,10 +5,12 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { Progress } from "@/components/ui/progress";
 import {
-  Plus, Briefcase, MapPin, Star, Loader2, Settings, Eye, EyeOff,
+  Plus, Briefcase, MapPin, Star, Loader2, Settings, Eye, EyeOff, Wand2,
 } from "lucide-react";
 import CreateBusinessForm from "./CreateBusinessForm";
+import { computeCompleteness } from "@/lib/profileCompleteness";
 
 interface Business {
   id: string;
