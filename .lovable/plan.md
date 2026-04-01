@@ -1,160 +1,90 @@
 
 
-# Refactor: Unified User Model with Multi-Business Profiles
+# Phase B and Beyond: Remove Role Split, Unify Flows
 
-## Current Architecture (Problems)
+## Status of Phase A (Completed)
+Phase A (database migration) is done: `provider_profiles` renamed to `businesses` with `owner_id`, `client_profiles` merged into `profiles`, RLS policies updated, triggers updated.
 
-The system forces a binary choice at signup: **client OR provider**. This is baked deeply into:
+## What Phase B Must Fix
 
-| Layer | How role is used |
-|-------|-----------------|
-| **Signup** (`Register.tsx`, `Auth.tsx`) | User picks "Client" or "Provider", stored in `profiles.role` and `user_metadata` |
-| **Database triggers** | `handle_new_user` and `trg_sync_user_role` sync role to `user_roles` table |
-| **Onboarding** (`Onboarding.tsx`) | Forks into `ClientForm` or `ProviderForm` based on `profiles.role` |
-| **Routing** (`App.tsx`) | Separate `/dashboard` (client) and `/provider-dashboard` (provider) |
-| **Navbar** (`Navbar.tsx`) | Shows different links based on `profiles.role` |
-| **Settings** (`SettingsRedirect.tsx`, `Dashboard.tsx`) | Renders different settings components per role |
-| **Profile pages** | `/profile` = provider, `/client-profile` = client — completely separate |
-| **Tables** | `client_profiles` (1 per user) and `provider_profiles` (1 per user) — both keyed on `user_id` with unique constraint |
+The role split is still deeply embedded in the frontend. Here is every place it persists:
 
-**Key limitation**: A provider cannot request services. A client cannot offer services. The `provider_profiles` table allows only ONE business per user (`user_id` unique constraint).
+| Problem | File(s) |
+|---------|---------|
+| Signup has Client/Provider toggle + sends `role` in metadata | `Register.tsx`, `Auth.tsx` |
+| Login routes to `/provider-dashboard` vs `/dashboard` based on `profiles.role` | `Auth.tsx` (lines 73-76) |
+| Onboarding forks into `ClientForm` or `ProviderForm` based on `profiles.role` | `Onboarding.tsx` (line 632) |
+| Dashboard settings check `user?.user_metadata?.role` | `Dashboard.tsx` (line 505) |
+| `SettingsRedirect` checks `user?.role` (always undefined now) | `SettingsRedirect.tsx` (line 8) |
+| Navbar mobile menu shows different profile links based on `hasBusiness` | `Navbar.tsx` (lines 186-194) |
+| CTA/Footer link to `?role=provider` signup | `CTASection.tsx`, `HeroSection.tsx`, `Footer.tsx` |
+| `app_role` enum still has `customer` and `provider` values | Database |
+| ProviderDashboard is a separate 655-line page | `ProviderDashboard.tsx` |
 
 ---
 
-## Proposed Architecture
+## Plan
 
-### Core Concept
+### Phase B — Remove role from signup and login routing
 
-```text
-┌─────────────┐
-│    User      │  ← Every person. Has a personal profile.
-│  (profiles)  │     Can request services. Can create businesses.
-└──────┬───────┘
-       │ 1:N
-       ▼
-┌──────────────────┐
-│ Business Profile  │  ← A service-offering entity.
-│ (businesses)      │     Has its own name, categories, portfolio,
-│                   │     slug, ratings, wallet, etc.
-└──────────────────┘
-```
+**1. `Register.tsx`**: Remove the Client/Provider toggle and `role` state. Remove `role` from `signUp` metadata. All users sign up the same way (name, email, password, phone). After signup, navigate to `/dashboard`.
 
-- **No more client/provider role split.** Every user can request services AND create businesses.
-- **`businesses` table** replaces `provider_profiles`, with `owner_id` instead of `user_id`, and NO unique constraint on `owner_id` (allowing multiple businesses per user).
-- **`client_profiles`** merges into `profiles` (just add `mpesa_phone` and `location_name` columns to `profiles`).
-- **Admin** remains a role in `user_roles` for elevated privileges — not a profile type.
-- **Subscription tier** on `profiles` controls how many businesses a user can create.
+**2. `Auth.tsx`**: Remove the role toggle from the signup form (lines 278-305). Remove `role` from signup metadata (line 110). In login handler, remove role-based routing (lines 73-76) — always navigate to `/dashboard` (or `/onboarding` if incomplete).
 
-### Database Changes
+**3. `Onboarding.tsx`**: Replace the `ClientForm`/`ProviderForm` fork with a single unified form:
+- Steps: "Personal Info" (name, location) → "Payment" (M-Pesa phone)
+- No business creation during onboarding — that moves to the dashboard
+- Save to `profiles` table only, set `onboarding_complete = true`
 
-**Phase 1 — Schema migration:**
+**4. `CTASection.tsx`, `HeroSection.tsx`, `Footer.tsx`**: Change `?role=provider` links to just go to `/register` or a future "Create a Business" page.
 
-1. **Add columns to `profiles`:**
-   - `mpesa_phone text` (from `client_profiles`)
-   - `location_name text` (from `client_profiles`)
-   - `lat double precision`, `lng double precision`
-   - `subscription_tier text DEFAULT 'free'` (controls max businesses: free=1, pro=5, etc.)
-   - Remove the `role` column (or deprecate — keep as nullable for backward compat during migration)
+**5. Database migration**: Update `handle_new_user` trigger to stop reading `role` from metadata. Remove `trg_sync_user_role` trigger if still present.
 
-2. **Rename `provider_profiles` → `businesses`:**
-   - Rename `user_id` → `owner_id`
-   - Drop the unique constraint on `owner_id` (allow multiple businesses)
-   - Add `is_active boolean DEFAULT true`
-   - Keep all existing columns (business_name, bio, categories, portfolio_photos, etc.)
+### Phase C — Unified Dashboard
 
-3. **Drop `client_profiles` table** (after migrating data into `profiles`).
+**6. Merge `Dashboard.tsx` and `ProviderDashboard.tsx`** into a single `/dashboard` with sidebar tabs:
+- "My Requests" — jobs the user has posted (existing client dashboard content)
+- "My Businesses" — if user has businesses, show a list; each links to business management. If none, show "Create a Business" CTA.
+- "Messages" — unified inbox (already shared component)
+- "Settings" — single settings page (merge `ClientAccountSettings` + `ProviderAccountSettings`)
 
-4. **Update `user_roles` enum:**
-   - Remove `customer` and `provider` values
-   - Keep `admin` only (the only role that matters now)
-   - Or add `'user'` as default if needed, but every authenticated user is a "user"
+**7. `SettingsRedirect.tsx`**: Remove role check. Render a single merged settings component.
 
-5. **Update foreign keys across tables:**
-   - `quotes.provider_id` → rename concept to `business_id` (references `businesses.id` not `businesses.owner_id`)
-   - `work_threads.provider_id` → `business_id`
-   - `reviews.provider_id` → `business_id`
-   - `job_requests.client_id` stays as `user_id` (the person requesting)
-   - `wallet_transactions.provider_id` → `business_id`
-   - `provider_wallets.provider_id` → `business_id`
-   - `fixed_price_services.provider_id` → `business_id`
+**8. `App.tsx`**: Remove `/provider-dashboard` routes. Remove `/client-profile` route. Keep `/dashboard` and `/dashboard/*`.
 
-6. **Update triggers:**
-   - `handle_new_user`: Remove role logic. Just create a `profiles` row.
-   - `trg_sync_user_role`: Remove entirely (no more role syncing needed).
+**9. `Navbar.tsx`**: Remove `isProviderDashboard` logic and the conditional profile links in mobile menu. Always show "My Profile" linking to `/profile`.
 
-7. **Update RLS policies:**
-   - Policies currently checking `provider_id = auth.uid()` need to change to check `owner_id` via a join to `businesses`
-   - Example: `EXISTS (SELECT 1 FROM businesses WHERE id = quotes.business_id AND owner_id = auth.uid())`
-   - Admin policies stay the same (use `has_role(auth.uid(), 'admin')`)
+### Phase D — Business CRUD from Dashboard
 
-**Phase 2 — Data migration:**
-- Copy `client_profiles.mpesa_phone` and `location_name` into corresponding `profiles` rows
-- Rename `provider_profiles` to `businesses` and update the column name
+**10. New component `CreateBusinessForm`**: A modal/page accessible from the "My Businesses" tab in the dashboard. Fields: business name, bio, slug, categories, rates, M-Pesa phone, portfolio. Check `profiles.subscription_tier` to enforce max business count (free = 1).
 
-### Frontend Changes
+**11. Business management page** at `/business/:id`: Edit business details, view quotes received by that business, manage fixed-price services, see earnings.
 
-**Routing consolidation:**
-- Merge `/dashboard` and `/provider-dashboard` into a single `/dashboard` with sections:
-  - "My Requests" — jobs the user has posted
-  - "My Businesses" — list of user's businesses, each expandable to see quotes, jobs, earnings
-  - "Messages" — unified inbox
-  - "Settings" — single settings page
-- `/profile` — the user's personal profile (name, avatar, location, phone)
-- `/business/:id` or `/business/:slug` — manage a specific business
-- Remove `/client-profile` as a separate route
+**12. Update `ProviderDashboard` logic** (quote submission, open jobs view) to become a sub-view within business management — the provider sees open jobs filtered by their business's categories.
 
-**Signup flow:**
-- Remove the "Client or Provider?" choice from `Register.tsx` and `Auth.tsx`
-- All users sign up the same way (name, email, password, phone)
-- After signup, user lands on dashboard where they can "Create a Business" if they want to offer services
+### Phase E — Cleanup
 
-**Onboarding:**
-- Simplify to a single flow: personal info + location + M-Pesa phone
-- "Create a Business" becomes a separate action from the dashboard (not part of signup onboarding)
+**13. Delete dead files**: `ProviderDashboard.tsx`, `ClientProfile.tsx`, `ClientAccountSettings.tsx`, `ProviderAccountSettings.tsx` (after merging).
 
-**Navbar:**
-- Remove role-based branching
-- Show: Dashboard, Profile, and if user has businesses, a "My Businesses" dropdown
+**14. Update `app_role` enum**: Remove `customer` and `provider`, keep only `admin`. (Requires migration since enum values in use may need data cleanup first.)
 
-**Business creation flow:**
-- New page/modal: "Create a Business"
-- Fields: business name, bio, slug, categories, rates, portfolio
-- Check subscription tier to enforce max business count
+**15. Drop `profiles.role` column** (or leave nullable, no code reads it anymore).
 
-**Settings:**
-- Single settings page for all users
-- Notification preferences, password change, account status
-- Per-business settings accessible from business management page
+---
 
-### Files Affected
+## Implementation Priority
 
-| Category | Files |
-|----------|-------|
-| **Database** | 1 large migration (rename table, add columns, update FKs, update RLS, update triggers) |
-| **Auth/Signup** | `Register.tsx`, `Auth.tsx`, `AuthContext.tsx` |
-| **Onboarding** | `Onboarding.tsx` (simplify to single flow) |
-| **Routing** | `App.tsx` (merge dashboard routes) |
-| **Dashboards** | `Dashboard.tsx`, `ProviderDashboard.tsx` → merge into unified `Dashboard.tsx` |
-| **Profiles** | `Profile.tsx`, `ClientProfile.tsx` → merge; `ProviderProfileCard.tsx` → `BusinessProfileCard.tsx` |
-| **Navigation** | `Navbar.tsx`, `SettingsRedirect.tsx` |
-| **Settings** | `ClientAccountSettings.tsx`, `ProviderAccountSettings.tsx` → merge |
-| **Provider pages** | `ProviderLanding.tsx`, `Providers.tsx` → update queries to use `businesses` table |
-| **Hooks** | `useNewSchemaQueries.ts`, `useServices.ts`, `useConversations.ts` |
-| **Components** | `QuotesPanel.tsx`, `ConversationList.tsx`, `MessageDrawer.tsx` |
+I recommend implementing **Phase B first** (items 1-5) as a single pass. This is the most critical — it stops the broken role-based branching. Phases C-E can follow in subsequent passes.
 
-### Implementation Order
+### Files changed in Phase B
 
-This is too large for a single pass. Recommended phased approach:
-
-1. **Phase A — Database migration** (schema changes, data migration, updated RLS)
-2. **Phase B — Remove role from signup** (Register, Auth, triggers, onboarding simplification)
-3. **Phase C — Unified dashboard** (merge client + provider dashboards)
-4. **Phase D — Business CRUD** (create/edit/list businesses from dashboard)
-5. **Phase E — Cleanup** (remove dead code, old routes, old components)
-
-Each phase should be a separate implementation pass to keep changes manageable and testable.
-
-### Admin Capabilities
-
-Admins are identified via `user_roles` table with `role = 'admin'`. No changes to the mechanism — just ensure admin policies on all tables allow full CRUD. Admin UI (managing accounts, adding services) would be a separate future feature built on top of this refactored foundation.
+| Action | File |
+|--------|------|
+| Edit | `src/pages/Register.tsx` — remove role toggle, remove role from metadata |
+| Edit | `src/pages/Auth.tsx` — remove role toggle, remove role-based login routing |
+| Edit | `src/pages/Onboarding.tsx` — replace with single unified form |
+| Edit | `src/components/home/CTASection.tsx` — update link |
+| Edit | `src/components/home/HeroSection.tsx` — update link |
+| Edit | `src/components/layout/Footer.tsx` — update link |
+| Migration | Update `handle_new_user` trigger to not read role from metadata |
 
