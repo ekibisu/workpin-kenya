@@ -1,135 +1,64 @@
 
 
-# Phase C & D: Unified Dashboard + Business CRUD
+# Phase E: Cleanup — Dead Code and Database Entities
 
-## Phase C — Unified Dashboard
+## Dead Frontend Files
 
-### Problem
-Two separate 900+ and 650+ line dashboard pages (`Dashboard.tsx` and `ProviderDashboard.tsx`) with duplicated sidebar patterns, messaging, and settings. The role-based settings rendering in `Dashboard.tsx` (line 505) still checks `user_metadata.role`.
+These files are no longer imported or routed to anywhere in the app:
 
-### Changes
+| File | Reason to delete |
+|------|-----------------|
+| `src/pages/ProviderDashboard.tsx` | Not routed in `App.tsx`. All logic migrated to `BusinessesPanel.tsx` inside unified dashboard. |
+| `src/pages/ClientProfile.tsx` | Not routed in `App.tsx`. Profile is now unified at `/profile` via `Profile.tsx`. |
+| `src/pages/ClientAccountSettings.tsx` | Not imported by any active code. `UnifiedSettings.tsx` replaced it. |
+| `src/pages/ProviderAccountSettings.tsx` | Only imported by `SettingsRedirect.tsx` (itself dead). Replaced by `UnifiedSettings.tsx`. |
+| `src/components/dashboard/SettingsRedirect.tsx` | Not imported anywhere. Role-based fork is gone. |
+| `src/components/provider/settings/NotificationSettings.tsx` | Only imported by `ProviderAccountSettings.tsx` (dead). Notification UI now lives in `UnifiedSettings.tsx`. |
 
-**1. Merge sidebar tabs in `Dashboard.tsx`**
+## Dead Database Entities
 
-Add two new sidebar links between existing ones:
-```text
-Overview          (existing)
-My Requests       (existing — jobs user posted)
-My Businesses     (NEW — list user's businesses, open jobs, quotes received)
-Messages          (existing — unified inbox)
-Settings          (existing)
-```
+| Entity | Type | Reason to drop |
+|--------|------|---------------|
+| `direct_messages` table | Table | Not queried anywhere in frontend code. Messaging uses the `messages` table (via `work_threads`). Likely a leftover from an earlier design. |
+| `trg_sync_user_role` trigger | Trigger | Was removed in Phase A migration, but verify it's gone. It synced `profiles.role` to `user_roles` — no longer needed. |
+| `profiles.role` column | Column | No frontend code reads it anymore. Auth, routing, navbar, and settings all stopped using it in Phases A-C. Can be dropped. |
+| `app_role` enum values `customer`, `provider` | Enum values | Only `admin` is meaningful now. However, dropping enum values in Postgres requires recreating the enum — defer if risky, or clean up `user_roles` rows first. |
 
-Route: `/dashboard/businesses` triggers the new "My Businesses" tab.
+## Code References to Clean Up
 
-**2. Create `src/components/dashboard/BusinessesPanel.tsx`**
+| Location | Issue |
+|----------|-------|
+| `src/pages/Dashboard.tsx` lines 93, 383-386, 422-424 | Still references `provider_profiles` in the `Quote` interface and enrichment logic. Should rename to `business_ratings` or similar to avoid confusion with the dropped table name. |
+| `src/components/dashboard/QuotesPanel.tsx` lines 29-31, 80-82, 167-168 | Same — references `provider_profiles` in the `Quote` type and UI rendering. Rename field. |
 
-A new component that:
-- Fetches `businesses` where `owner_id = user.id`
-- If none: shows a "Create a Business" CTA card with description and button
-- If businesses exist: lists each as a card showing business name, categories, rating, active status
-- Each card has actions: "View Open Jobs", "Edit", and a link to business management
-- "View Open Jobs" expands inline to show the open-requests logic currently in `ProviderDashboard.tsx` (filtered by that business's categories)
-- Quote submission (from `ProviderDashboard`) moves into this panel, scoped per business
-- "Create a Business" button (respects subscription tier limit)
+## Plan
 
-**3. Migrate `ProviderDashboard.tsx` logic into `BusinessesPanel.tsx`**
+### Step 1 — Delete dead files (6 files)
+Delete the 6 files listed above.
 
-Move the core data-fetching and quote-submission logic from `ProviderDashboard.tsx` into the new panel, parameterized by `businessId` instead of assuming a single provider profile.
+### Step 2 — Rename `provider_profiles` references in Quote types
+In `Dashboard.tsx` and `QuotesPanel.tsx`, rename the `provider_profiles` field in the `Quote` interface to `business_ratings` (or just `ratings`) to reflect that it's fetched from `businesses`, not a dead table.
 
-**4. Merge settings in `Dashboard.tsx`**
+### Step 3 — Database migration
+Single migration to:
+- `ALTER TABLE profiles DROP COLUMN role;`
+- `DROP TABLE IF EXISTS direct_messages;`
+- Verify `trg_sync_user_role` is already gone; drop if not.
 
-Replace the role check at line 505 with a single unified settings component that combines:
-- Notification preferences (from `ClientAccountSettings`)
-- Change password (shared `ChangePasswordCard`)
-- Account status controls
-- If user has businesses: link to per-business settings
+### Step 4 — Defer enum cleanup
+Dropping values from a Postgres enum (`customer`, `provider` from `app_role`) is complex (requires recreating the type and all dependent columns). Since only `admin` is used in code, this is cosmetic. Defer to a future pass or do it if there's no existing data using those values.
 
-**5. Update `App.tsx`**
-
-- Remove `/provider-dashboard` and `/provider-dashboard/*` routes
-- Remove `/client-profile` route
-- Remove duplicate `/dashboard` route (lines 52-59)
-- Remove `/settings` route (settings lives inside `/dashboard/settings`)
-- Remove `SettingsRedirect` import
-
-**6. Update `Navbar.tsx`**
-
-- Remove `isProviderDashboard` variable and all conditional logic using it
-- Always show a single "Dashboard" link to `/dashboard`
-- Remove conditional profile link branching in mobile menu
-
-**7. Update `Profile.tsx`**
-
-Currently renders `ProviderProfileCard` and `ProviderAccountSettings` in tabs. Refactor to show personal profile info for all users. If user has businesses, show them as a list below.
-
-### Files changed in Phase C
+### Files changed
 
 | Action | File |
 |--------|------|
-| Create | `src/components/dashboard/BusinessesPanel.tsx` |
-| Create | `src/components/dashboard/UnifiedSettings.tsx` |
-| Edit | `src/pages/Dashboard.tsx` — add "My Businesses" tab, use unified settings |
-| Edit | `src/App.tsx` — remove provider-dashboard routes, client-profile, settings redirect |
-| Edit | `src/components/layout/Navbar.tsx` — remove role branching |
-| Edit | `src/pages/Profile.tsx` — show personal profile + business list |
-| Edit | `src/components/dashboard/SettingsRedirect.tsx` — delete or gut |
-
----
-
-## Phase D — Business CRUD
-
-### Changes
-
-**8. Create `src/components/dashboard/CreateBusinessForm.tsx`**
-
-A dialog/modal with fields:
-- Business name (required)
-- Bio / description
-- Categories (multi-select from `services` table)
-- Rate (KES) and rate type (hourly/fixed/project)
-- M-Pesa phone for business payments
-- Location (reuse `MapPicker`)
-
-Before insert, check: `SELECT count(*) FROM businesses WHERE owner_id = user.id` against `profiles.subscription_tier` limits (free = 1, pro = 5).
-
-Insert into `businesses` table with `owner_id = user.id`.
-
-**9. Create `src/pages/BusinessManage.tsx`**
-
-Route: `/business/:id` — a management page for a single business:
-- Edit business details (name, bio, categories, rates, portfolio photos)
-- View quotes received by this business
-- View/manage fixed-price services
-- View earnings (wallet balance, transaction history)
-- Toggle business active/inactive
-
-Reuses logic from `ProviderProfileSettings.tsx` and `ProviderDashboard.tsx`.
-
-**10. Update `App.tsx`**
-
-Add route:
-```
-/business/:id → <ProtectedRoute><BusinessManage /></ProtectedRoute>
-```
-
-**11. Update `BusinessesPanel.tsx`**
-
-Wire "Edit" button on each business card to navigate to `/business/:id`.
-Wire "Create a Business" button to open `CreateBusinessForm` dialog.
-
-### Files changed in Phase D
-
-| Action | File |
-|--------|------|
-| Create | `src/components/dashboard/CreateBusinessForm.tsx` |
-| Create | `src/pages/BusinessManage.tsx` |
-| Edit | `src/App.tsx` — add `/business/:id` route |
-| Edit | `src/components/dashboard/BusinessesPanel.tsx` — wire create/edit actions |
-
----
-
-## Implementation order
-
-Phase C first (items 1-7), then Phase D (items 8-11). Each is a single implementation pass. Phase E (cleanup: delete `ProviderDashboard.tsx`, `ClientProfile.tsx`, `ClientAccountSettings.tsx`, `ProviderAccountSettings.tsx`, drop `profiles.role` column) follows after both are stable.
+| Delete | `src/pages/ProviderDashboard.tsx` |
+| Delete | `src/pages/ClientProfile.tsx` |
+| Delete | `src/pages/ClientAccountSettings.tsx` |
+| Delete | `src/pages/ProviderAccountSettings.tsx` |
+| Delete | `src/components/dashboard/SettingsRedirect.tsx` |
+| Delete | `src/components/provider/settings/NotificationSettings.tsx` |
+| Edit | `src/pages/Dashboard.tsx` — rename `provider_profiles` in Quote type |
+| Edit | `src/components/dashboard/QuotesPanel.tsx` — rename `provider_profiles` in Quote type |
+| Migration | Drop `profiles.role` column, drop `direct_messages` table |
 
