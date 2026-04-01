@@ -2,9 +2,11 @@ import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { Search, ArrowRight } from "lucide-react";
 import { motion } from "framer-motion";
+import { useAuth } from "@/contexts/AuthContext";
 import heroImage from "@/assets/hero-image.jpg";
 
 const HeroSection = () => {
+  const { user } = useAuth();
   return (
     <section className="relative overflow-hidden">
       {/* Background image with overlay */}
@@ -41,7 +43,7 @@ const HeroSection = () => {
             className="flex flex-col gap-3 sm:flex-row sm:items-center"
           >
             <Button variant="hero" size="xl" asChild>
-              <Link to="/register">
+              <Link to={user ? "/request" : "/register"}>
                 <Search className="h-5 w-5" />
                 Hire a Verified Pro
               </Link>
@@ -52,7 +54,7 @@ const HeroSection = () => {
               className="text-primary-foreground/80 hover:text-primary-foreground hover:bg-primary-foreground/10"
               asChild
             >
-              <Link to="/register">
+              <Link to={user ? "/dashboard/businesses" : "/register"}>
                 Join as a Pro
                 <ArrowRight className="h-4 w-4" />
               </Link>

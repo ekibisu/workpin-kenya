@@ -1,8 +1,11 @@
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
-const CTASection = () => (
+const CTASection = () => {
+  const { user } = useAuth();
+  return (
   <section className="relative overflow-hidden gradient-hero py-16 md:py-24">
     <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_50%,hsl(155_80%_30%/0.3),transparent_60%)]" />
     <div className="container relative z-10 text-center">
@@ -18,7 +21,7 @@ const CTASection = () => (
           className="bg-primary-foreground text-primary hover:bg-primary-foreground/90 shadow-lg"
           asChild
         >
-          <Link to="/register">
+          <Link to={user ? "/request" : "/register"}>
             Get Started
             <ArrowRight className="h-5 w-5" />
           </Link>
@@ -29,11 +32,12 @@ const CTASection = () => (
           className="text-primary-foreground/80 hover:text-primary-foreground hover:bg-primary-foreground/10"
           asChild
         >
-          <Link to="/register">Become a Pro</Link>
+          <Link to={user ? "/dashboard/businesses" : "/register"}>Become a Pro</Link>
         </Button>
       </div>
     </div>
   </section>
-);
+  );
+};
 
 export default CTASection;
