@@ -49,6 +49,142 @@ export type Database = {
           },
         ]
       }
+      business_faqs: {
+        Row: {
+          answer: string
+          business_id: string
+          created_at: string | null
+          id: string
+          question: string
+          sort_order: number | null
+        }
+        Insert: {
+          answer: string
+          business_id: string
+          created_at?: string | null
+          id?: string
+          question: string
+          sort_order?: number | null
+        }
+        Update: {
+          answer?: string
+          business_id?: string
+          created_at?: string | null
+          id?: string
+          question?: string
+          sort_order?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "business_faqs_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      business_gallery: {
+        Row: {
+          alt_text: string | null
+          business_id: string
+          caption: string | null
+          category: string | null
+          created_at: string | null
+          id: string
+          media_url: string
+          sort_order: number | null
+          thumbnail_url: string | null
+        }
+        Insert: {
+          alt_text?: string | null
+          business_id: string
+          caption?: string | null
+          category?: string | null
+          created_at?: string | null
+          id?: string
+          media_url: string
+          sort_order?: number | null
+          thumbnail_url?: string | null
+        }
+        Update: {
+          alt_text?: string | null
+          business_id?: string
+          caption?: string | null
+          category?: string | null
+          created_at?: string | null
+          id?: string
+          media_url?: string
+          sort_order?: number | null
+          thumbnail_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "business_gallery_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      business_services: {
+        Row: {
+          business_id: string
+          created_at: string | null
+          custom_name: string
+          description: string | null
+          duration_estimate: string | null
+          id: string
+          is_active: boolean | null
+          price_kes: number | null
+          price_type: string | null
+          service_id: string | null
+          sort_order: number | null
+        }
+        Insert: {
+          business_id: string
+          created_at?: string | null
+          custom_name: string
+          description?: string | null
+          duration_estimate?: string | null
+          id?: string
+          is_active?: boolean | null
+          price_kes?: number | null
+          price_type?: string | null
+          service_id?: string | null
+          sort_order?: number | null
+        }
+        Update: {
+          business_id?: string
+          created_at?: string | null
+          custom_name?: string
+          description?: string | null
+          duration_estimate?: string | null
+          id?: string
+          is_active?: boolean | null
+          price_kes?: number | null
+          price_type?: string | null
+          service_id?: string | null
+          sort_order?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "business_services_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "business_services_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "services"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       businesses: {
         Row: {
           availability_json: Json | null
@@ -56,11 +192,14 @@ export type Database = {
           bio: string | null
           business_name: string
           categories: string[] | null
+          certifications: string[] | null
           created_at: string
           geom: unknown
+          hero_image_url: string | null
           id: string
           is_active: boolean
           is_verified: boolean | null
+          languages: string[] | null
           location_lat: number | null
           location_lng: number | null
           location_name: string | null
@@ -70,13 +209,18 @@ export type Database = {
           rate_kes: number | null
           rate_type: string | null
           response_time_minutes: number | null
+          service_area_description: string | null
           service_radius_km: number | null
           social_links: Json | null
           subscription_status: string | null
+          tagline: string | null
           top_skills: string[] | null
           total_reviews: number | null
           updated_at: string
           username: string | null
+          website_url: string | null
+          whatsapp_phone: string | null
+          years_experience: number | null
         }
         Insert: {
           availability_json?: Json | null
@@ -84,11 +228,14 @@ export type Database = {
           bio?: string | null
           business_name: string
           categories?: string[] | null
+          certifications?: string[] | null
           created_at?: string
           geom?: unknown
+          hero_image_url?: string | null
           id?: string
           is_active?: boolean
           is_verified?: boolean | null
+          languages?: string[] | null
           location_lat?: number | null
           location_lng?: number | null
           location_name?: string | null
@@ -98,13 +245,18 @@ export type Database = {
           rate_kes?: number | null
           rate_type?: string | null
           response_time_minutes?: number | null
+          service_area_description?: string | null
           service_radius_km?: number | null
           social_links?: Json | null
           subscription_status?: string | null
+          tagline?: string | null
           top_skills?: string[] | null
           total_reviews?: number | null
           updated_at?: string
           username?: string | null
+          website_url?: string | null
+          whatsapp_phone?: string | null
+          years_experience?: number | null
         }
         Update: {
           availability_json?: Json | null
@@ -112,11 +264,14 @@ export type Database = {
           bio?: string | null
           business_name?: string
           categories?: string[] | null
+          certifications?: string[] | null
           created_at?: string
           geom?: unknown
+          hero_image_url?: string | null
           id?: string
           is_active?: boolean
           is_verified?: boolean | null
+          languages?: string[] | null
           location_lat?: number | null
           location_lng?: number | null
           location_name?: string | null
@@ -126,13 +281,18 @@ export type Database = {
           rate_kes?: number | null
           rate_type?: string | null
           response_time_minutes?: number | null
+          service_area_description?: string | null
           service_radius_km?: number | null
           social_links?: Json | null
           subscription_status?: string | null
+          tagline?: string | null
           top_skills?: string[] | null
           total_reviews?: number | null
           updated_at?: string
           username?: string | null
+          website_url?: string | null
+          whatsapp_phone?: string | null
+          years_experience?: number | null
         }
         Relationships: [
           {

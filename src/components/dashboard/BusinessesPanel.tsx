@@ -5,10 +5,12 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { Progress } from "@/components/ui/progress";
 import {
-  Plus, Briefcase, MapPin, Star, Loader2, Settings, Eye, EyeOff,
+  Plus, Briefcase, MapPin, Star, Loader2, Settings, Eye, EyeOff, Wand2,
 } from "lucide-react";
 import CreateBusinessForm from "./CreateBusinessForm";
+import { computeCompleteness } from "@/lib/profileCompleteness";
 
 interface Business {
   id: string;
@@ -31,6 +33,7 @@ const BusinessesPanel = () => {
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [subscriptionTier, setSubscriptionTier] = useState("free");
+  const [bizMeta, setBizMeta] = useState<Record<string, { galleryCount: number; servicesCount: number; faqCount: number }>>({});
 
   useEffect(() => {
     if (!user) return;
@@ -47,8 +50,28 @@ const BusinessesPanel = () => {
           .eq("id", user.id)
           .maybeSingle(),
       ]);
-      setBusinesses((bizData as Business[]) || []);
+      const bizList = (bizData as Business[]) || [];
+      setBusinesses(bizList);
       setSubscriptionTier(profile?.subscription_tier || "free");
+
+      // Fetch counts for completeness
+      if (bizList.length > 0) {
+        const ids = bizList.map(b => b.id);
+        const [{ data: svcCounts }, { data: galCounts }, { data: faqCounts }] = await Promise.all([
+          supabase.from("business_services").select("business_id").in("business_id", ids),
+          supabase.from("business_gallery").select("business_id").in("business_id", ids),
+          supabase.from("business_faqs").select("business_id").in("business_id", ids),
+        ]);
+        const meta: Record<string, { galleryCount: number; servicesCount: number; faqCount: number }> = {};
+        ids.forEach(id => {
+          meta[id] = {
+            servicesCount: (svcCounts || []).filter((r: any) => r.business_id === id).length,
+            galleryCount: (galCounts || []).filter((r: any) => r.business_id === id).length,
+            faqCount: (faqCounts || []).filter((r: any) => r.business_id === id).length,
+          };
+        });
+        setBizMeta(meta);
+      }
       setLoading(false);
     };
     fetch();
@@ -160,15 +183,45 @@ const BusinessesPanel = () => {
                 )}
               </div>
 
+              {/* Completeness */}
+              {(() => {
+                const score = computeCompleteness({
+                  business_name: biz.business_name,
+                  bio: biz.bio,
+                  location_name: biz.location_name,
+                  ...(bizMeta[biz.id] || { galleryCount: 0, servicesCount: 0, faqCount: 0 }),
+                });
+                return (
+                  <div className="mt-3 space-y-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-muted-foreground">Profile: {score}%</span>
+                      {score < 60 && (
+                        <Button size="sm" variant="ghost" className="h-auto py-0 px-1 text-xs text-primary" onClick={() => navigate(`/business/${biz.id}/setup`)}>
+                          <Wand2 className="mr-1 h-3 w-3" /> Set Up
+                        </Button>
+                      )}
+                    </div>
+                    <Progress value={score} className="h-1.5" />
+                  </div>
+                );
+              })()}
+
               <div className="mt-3 flex gap-2">
                 <Button
                   variant="outline"
                   size="sm"
                   className="flex-1"
+                  onClick={() => navigate(`/business/${biz.id}/setup`)}
+                >
+                  <Wand2 className="mr-1.5 h-3.5 w-3.5" />
+                  Edit Profile
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={() => navigate(`/business/${biz.id}`)}
                 >
-                  <Settings className="mr-1.5 h-3.5 w-3.5" />
-                  Manage
+                  <Settings className="h-3.5 w-3.5" />
                 </Button>
                 <Button
                   variant="ghost"

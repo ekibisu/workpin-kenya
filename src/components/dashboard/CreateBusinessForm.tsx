@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,7 @@ interface CreateBusinessFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCreated: (business: any) => void;
+  redirectToWizard?: boolean;
 }
 
 interface ServiceOption {
@@ -33,7 +35,8 @@ interface ServiceOption {
   category: string;
 }
 
-const CreateBusinessForm = ({ open, onOpenChange, onCreated }: CreateBusinessFormProps) => {
+const CreateBusinessForm = ({ open, onOpenChange, onCreated, redirectToWizard = true }: CreateBusinessFormProps) => {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
   const [services, setServices] = useState<ServiceOption[]>([]);
@@ -97,6 +100,9 @@ const CreateBusinessForm = ({ open, onOpenChange, onCreated }: CreateBusinessFor
     setMpesaPhone("");
     setLocationName("");
     onCreated(data);
+    if (redirectToWizard && data?.id) {
+      navigate(`/business/${data.id}/setup`);
+    }
   };
 
   return (
