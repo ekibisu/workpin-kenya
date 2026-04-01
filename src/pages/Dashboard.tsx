@@ -382,7 +382,7 @@ const Dashboard = () => {
                   .in("id", providerIds);
                 const enriched = quotesData.map(q => ({
                   ...q,
-                  provider_profiles: providerRatings?.find(p => p.id === q.provider_id) ?? null,
+                  business_ratings: providerRatings?.find(p => p.id === q.provider_id) ?? null,
                 }));
                 setQuotes(enriched);
               } else {
