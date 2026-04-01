@@ -50,8 +50,28 @@ const BusinessesPanel = () => {
           .eq("id", user.id)
           .maybeSingle(),
       ]);
-      setBusinesses((bizData as Business[]) || []);
+      const bizList = (bizData as Business[]) || [];
+      setBusinesses(bizList);
       setSubscriptionTier(profile?.subscription_tier || "free");
+
+      // Fetch counts for completeness
+      if (bizList.length > 0) {
+        const ids = bizList.map(b => b.id);
+        const [{ data: svcCounts }, { data: galCounts }, { data: faqCounts }] = await Promise.all([
+          supabase.from("business_services").select("business_id").in("business_id", ids),
+          supabase.from("business_gallery").select("business_id").in("business_id", ids),
+          supabase.from("business_faqs").select("business_id").in("business_id", ids),
+        ]);
+        const meta: Record<string, { galleryCount: number; servicesCount: number; faqCount: number }> = {};
+        ids.forEach(id => {
+          meta[id] = {
+            servicesCount: (svcCounts || []).filter((r: any) => r.business_id === id).length,
+            galleryCount: (galCounts || []).filter((r: any) => r.business_id === id).length,
+            faqCount: (faqCounts || []).filter((r: any) => r.business_id === id).length,
+          };
+        });
+        setBizMeta(meta);
+      }
       setLoading(false);
     };
     fetch();
