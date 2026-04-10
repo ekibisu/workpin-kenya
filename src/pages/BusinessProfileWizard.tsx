@@ -420,7 +420,7 @@ const BusinessProfileWizard = () => {
               {step === 1 && (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <p className="text-sm text-muted-foreground">Add the services you offer with descriptions and pricing.</p>
+                    <p className="text-sm text-muted-foreground">Add the services you offer. Each service gets its own pricing shown on your profile.</p>
                     <Button size="sm" variant="outline" onClick={addService}>
                       <Plus className="mr-1 h-3.5 w-3.5" /> Add Service
                     </Button>
@@ -481,26 +481,32 @@ const BusinessProfileWizard = () => {
                               className="resize-none"
                             />
                           </div>
-                          <div className="grid grid-cols-3 gap-2">
-                            <div className="space-y-1">
-                              <Label className="text-xs">Price (KES)</Label>
-                              <Input type="number" min="0" value={svc.price_kes} onChange={e => updateService(i, "price_kes", e.target.value)} placeholder="e.g. 3000" />
+                          <div className="pt-2 border-t border-border/50">
+                            <p className="text-[11px] font-medium text-muted-foreground mb-2 flex items-center gap-1">
+                              <span>💰</span> Pricing & Duration
+                              <span className="text-[10px] font-normal italic ml-1">— shown on your public profile</span>
+                            </p>
+                            <div className="grid grid-cols-2 gap-2">
+                              <div className="space-y-1">
+                                <Label className="text-xs">Price (KES)</Label>
+                                <Input type="number" min="0" value={svc.price_kes} onChange={e => updateService(i, "price_kes", e.target.value)} placeholder="e.g. 3,000" />
+                              </div>
+                              <div className="space-y-1">
+                                <Label className="text-xs">Price Type</Label>
+                                <Select value={svc.price_type} onValueChange={v => updateService(i, "price_type", v)}>
+                                  <SelectTrigger className="text-xs"><SelectValue /></SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="starting_at">Starting from</SelectItem>
+                                    <SelectItem value="fixed">Fixed price</SelectItem>
+                                    <SelectItem value="hourly">Per hour</SelectItem>
+                                    <SelectItem value="quote">Request quote</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
                             </div>
-                            <div className="space-y-1">
-                              <Label className="text-xs">Price Type</Label>
-                              <Select value={svc.price_type} onValueChange={v => updateService(i, "price_type", v)}>
-                                <SelectTrigger className="text-xs"><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="starting_at">Starting at</SelectItem>
-                                  <SelectItem value="fixed">Fixed</SelectItem>
-                                  <SelectItem value="hourly">Per hour</SelectItem>
-                                  <SelectItem value="quote">Get quote</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <div className="space-y-1">
-                              <Label className="text-xs">Duration</Label>
-                              <Input value={svc.duration_estimate} onChange={e => updateService(i, "duration_estimate", e.target.value)} placeholder="e.g. 2-3 hrs" />
+                            <div className="space-y-1 mt-2">
+                              <Label className="text-xs">Estimated Duration</Label>
+                              <Input value={svc.duration_estimate} onChange={e => updateService(i, "duration_estimate", e.target.value)} placeholder="e.g. 2-3 hours" />
                             </div>
                           </div>
                         </CardContent>
