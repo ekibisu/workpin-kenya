@@ -1,55 +1,37 @@
 
 
-# Amplify 3D Effects Across the Entire UI
+# Fix Image Loading + 3D Button Effects
 
-## Problem
-The current 3D button shadows are subtle — the bottom edge is only 2px and the ambient shadows are light. Cards use a flat `shadow-sm`. Text, icons, and badges have no depth treatment at all. The UI feels flat instead of tactile and lifelike.
+## Root Cause: Images Not Loading
 
-## Changes
+The `Image` component (`src/components/ui/Image.tsx`) has a critical bug on line 76:
 
-### 1. `src/index.css` — Deeper 3D shadows + new utilities
-
-**Buttons**: Increase the bottom edge from 2px to 4px, darken and enlarge the ambient shadows significantly. Add an `inset` highlight at the top for a glossy convex feel.
-
-```css
-.shadow-brand-3d {
-  box-shadow:
-    inset 0 1px 0 0 hsl(160 70% 45% / 0.5),   /* top highlight */
-    0 4px 0 0 hsl(160 95% 18%),                  /* thick bottom edge */
-    0 6px 16px -2px hsl(160 95% 20% / 0.45),     /* mid shadow */
-    0 12px 32px -4px hsl(160 95% 20% / 0.2);     /* deep shadow */
-}
+```tsx
+className={cn(className, isLoading && 'hidden')}
 ```
 
-Same pattern scaled up for hover, scaled down for pressed.
+When `isLoading` is true, the `<img>` gets `display: none` via Tailwind's `hidden` class. Combined with `loading="lazy"` on line 75, this creates a deadlock: lazy-loaded images only load when they enter the viewport, but `display: none` elements are never observed by the Intersection Observer. The image never loads, so `isLoading` never becomes false, so the image stays hidden forever.
 
-**New utilities for cards, text, and icons**:
-- `.shadow-card-raised` — subtle multi-layer shadow for cards (neutral, not green) with a 1px bottom edge for a "lifted paper" look
-- `.text-raised` — `text-shadow` with a tiny light highlight above and dark shadow below to emboss headings
-- `.icon-raised` — `filter: drop-shadow(...)` for SVG icons to appear slightly lifted
+**Fix**: Replace `hidden` with `invisible h-0 overflow-hidden` (or `opacity-0 absolute`) so the element remains in the DOM flow and can trigger the lazy load, while still being visually hidden during the loading state.
 
-### 2. `src/components/ui/card.tsx` — Raised cards
-Replace `shadow-sm` with the new `shadow-card-raised` utility on the base `Card` component. Add `hover:shadow-card-raised-hover` with a subtle lift transition.
+## 3D Button Effects
 
-### 3. `src/components/ui/button.tsx` — Bolder 3D
-The variants already reference the shadow utilities, so they'll get the deeper shadows automatically from the CSS change. Add `border-b-2 border-primary-dark/30` to `default` and `hero` for an additional bottom border that reinforces the edge.
+The current `default` button variant uses `shadow-brand` which is a soft colored shadow. To create a raised, 3D look:
 
-### 4. `src/index.css` base layer — Global raised text + icons
-- Apply `text-raised` to `h1-h6` headings globally
-- Apply a subtle `text-shadow` to body text for micro-depth
-- Apply `icon-raised` via a global `[data-lucide]` or `svg` selector for all Lucide icons
+### Changes to `src/components/ui/button.tsx`
+- Update the `default` variant with a multi-layer box shadow (bottom highlight + deeper shadow) and a subtle `translate-y` on hover/active for a press effect
+- Add `active:translate-y-0.5` and `active:shadow-sm` for a tactile "push down" feel
 
-### 5. `src/components/ui/badge.tsx` — Raised badges
-Add a small `shadow-sm` and `border-b` to default/secondary badge variants for a pill-button depth effect.
+### Changes to `src/index.css`
+- Add new utility `.shadow-brand-3d` with a layered shadow: a tight bottom edge shadow for the "raised" look plus a softer ambient shadow beneath
 
-## Files
+## Summary of Changes
 
 | File | Change |
 |------|--------|
-| `src/index.css` | Amplify 3D shadow utilities; add card-raised, text-raised, icon-raised utilities; global heading/body text-shadow |
-| `src/components/ui/card.tsx` | Replace `shadow-sm` with `shadow-card-raised` + hover lift |
-| `src/components/ui/button.tsx` | Add bottom border accent to reinforce 3D edge |
-| `src/components/ui/badge.tsx` | Add subtle shadow + bottom border for raised pill effect |
+| `src/components/ui/Image.tsx` | Replace `hidden` with `invisible h-0 overflow-hidden` to fix lazy-load deadlock |
+| `src/components/ui/button.tsx` | Add 3D raised effect with layered shadows and active press animation to `default` and `hero` variants |
+| `src/index.css` | Add `.shadow-brand-3d` utility with multi-layer shadow for raised look |
 
 No database changes needed.
 
