@@ -183,7 +183,11 @@ const ProviderLanding = () => {
               <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
             </div>
           ) : (
-            <div className="h-32 bg-gradient-to-br from-primary/10 via-accent/30 to-background" />
+            <div className="relative h-48 sm:h-56 overflow-hidden">
+              <div className="absolute inset-0 gradient-hero opacity-90" />
+              <div className="absolute inset-0" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, hsl(0 0% 100% / 0.08) 1px, transparent 0)', backgroundSize: '24px 24px' }} />
+              <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent" />
+            </div>
           )}
 
           <div className={`container ${provider.hero_image_url ? "-mt-24 relative z-10" : "pt-8"} pb-8`}>
@@ -196,7 +200,7 @@ const ProviderLanding = () => {
               animate={{ opacity: 1, y: 0 }}
               className="flex flex-col gap-6 md:flex-row md:items-end"
             >
-              <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground font-heading text-2xl font-bold shadow-lg ring-4 ring-background">
+              <div className="flex h-28 w-28 shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground font-heading text-3xl font-bold shadow-xl ring-4 ring-background drop-shadow-lg">
                 {profileData?.avatar_url ? (
                   <Image src={profileData.avatar_url} alt={provider.business_name} className="h-full w-full rounded-2xl object-cover" />
                 ) : initials}
@@ -237,14 +241,14 @@ const ProviderLanding = () => {
                 )}
               </div>
 
-              <div className="flex flex-col gap-2 md:min-w-[200px]">
-                <Button size="lg" asChild>
+              <div className="flex flex-col gap-2 md:min-w-[220px]">
+                <Button size="lg" className="rounded-full shadow-button-raised px-8" asChild>
                   <Link to={`/request?provider=${provider.id}`}>
                     <MessageCircle className="mr-2 h-4 w-4" /> Request a Quote
                   </Link>
                 </Button>
                 {provider.whatsapp_phone && (
-                  <Button variant="outline" size="lg" asChild>
+                  <Button variant="outline" size="lg" className="rounded-full shadow-sm hover:shadow-md transition-shadow" asChild>
                     <a href={`https://wa.me/254${provider.whatsapp_phone.replace(/^0/, "")}`} target="_blank" rel="noopener noreferrer">
                       <Phone className="mr-2 h-4 w-4" /> WhatsApp
                     </a>
@@ -291,7 +295,7 @@ const ProviderLanding = () => {
               </h2>
               <div className="grid gap-3 sm:grid-cols-2">
                 {bizServices.map(svc => (
-                  <div key={svc.id} className="rounded-xl border border-border bg-card p-4 space-y-2 hover:border-primary/30 transition-colors">
+                  <div key={svc.id} className="rounded-xl border border-border border-l-4 border-l-primary bg-card p-4 space-y-2 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
                     <div className="flex items-start justify-between">
                       <h3 className="font-semibold text-foreground">{svc.custom_name}</h3>
                       {priceLabel(svc) && (
@@ -338,7 +342,7 @@ const ProviderLanding = () => {
           )}
 
           {/* Gallery */}
-          {(galleryItems.length > 0 || (provider.portfolio_photos && provider.portfolio_photos.length > 0)) && (
+          {(galleryItems.length > 0 || (provider.portfolio_photos && provider.portfolio_photos.length > 0)) ? (
             <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }}>
               <h2 className="mb-3 text-xl font-bold font-heading flex items-center gap-2">
                 <ImageIcon className="h-5 w-5 text-primary" /> Portfolio
@@ -392,6 +396,17 @@ const ProviderLanding = () => {
                 </div>
               )}
             </motion.section>
+          ) : (
+            <section>
+              <h2 className="mb-3 text-xl font-bold font-heading flex items-center gap-2">
+                <ImageIcon className="h-5 w-5 text-primary" /> Portfolio
+              </h2>
+              <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-border py-12 text-center">
+                <ImageIcon className="h-10 w-10 text-muted-foreground/40 mb-3" />
+                <p className="text-sm text-muted-foreground">No portfolio photos yet</p>
+                <p className="text-xs text-muted-foreground/60 mt-1">Check back later for work samples</p>
+              </div>
+            </section>
           )}
 
           {/* Lightbox */}
@@ -471,13 +486,17 @@ const ProviderLanding = () => {
                 })}
               </div>
             ) : (
-              <p className="text-muted-foreground">No reviews yet.</p>
+              <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-border py-10 text-center">
+                <Star className="h-8 w-8 text-muted-foreground/30 mb-2" />
+                <p className="text-sm text-muted-foreground">No reviews yet</p>
+                <p className="text-xs text-muted-foreground/60 mt-1">Be the first to leave a review</p>
+              </div>
             )}
           </motion.section>
 
           {/* Bottom CTA */}
-          <div className="flex flex-col items-center gap-3 rounded-2xl bg-accent/50 p-8 text-center">
-            <h3 className="text-lg font-bold font-heading">Ready to work with {provider.business_name}?</h3>
+          <div className="flex flex-col items-center gap-4 rounded-2xl bg-primary/5 border border-primary/10 p-10 text-center">
+            <h3 className="text-xl font-bold font-heading">Ready to work with {provider.business_name}?</h3>
             <p className="text-sm text-muted-foreground max-w-md">
               Get a free quote or book directly. Most providers respond within{" "}
               {provider.response_time_minutes
@@ -485,8 +504,8 @@ const ProviderLanding = () => {
                 : "an hour"}.
             </p>
             <div className="flex gap-3">
-              <Button asChild><Link to={`/request?provider=${provider.id}`}>Request a Quote</Link></Button>
-              <Button variant="outline" asChild><Link to="/providers">Browse More Pros</Link></Button>
+              <Button className="rounded-full shadow-button-raised px-8" asChild><Link to={`/request?provider=${provider.id}`}>Request a Quote</Link></Button>
+              <Button variant="outline" className="rounded-full" asChild><Link to="/providers">Browse More Pros</Link></Button>
             </div>
           </div>
         </div>
