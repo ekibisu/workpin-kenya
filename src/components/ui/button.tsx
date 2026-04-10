@@ -9,13 +9,13 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/90 shadow-brand-3d hover:-translate-y-0.5 hover:shadow-brand-3d-hover active:translate-y-0 active:shadow-brand-3d-pressed",
+        default: "bg-primary text-primary-foreground hover:bg-primary/90 shadow-brand-3d border-b-2 border-[hsl(160_95%_18%/0.3)] hover:-translate-y-0.5 hover:shadow-brand-3d-hover active:translate-y-0.5 active:shadow-brand-3d-pressed",
         destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
-        outline: "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
-        secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+        outline: "border border-input bg-background hover:bg-accent hover:text-accent-foreground shadow-card-raised hover:shadow-card-raised-hover transition-shadow",
+        secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80 shadow-card-raised",
         ghost: "hover:bg-accent hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline",
-        hero: "gradient-hero text-primary-foreground shadow-brand-3d hover:-translate-y-0.5 hover:shadow-brand-3d-hover active:translate-y-0 active:shadow-brand-3d-pressed hover:scale-[1.02] active:scale-[0.98]",
+        hero: "gradient-hero text-primary-foreground shadow-brand-3d border-b-2 border-[hsl(160_95%_18%/0.3)] hover:-translate-y-0.5 hover:shadow-brand-3d-hover active:translate-y-0.5 active:shadow-brand-3d-pressed hover:scale-[1.02] active:scale-[0.98]",
       },
       size: {
         default: "h-10 px-5 py-2",
