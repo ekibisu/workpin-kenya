@@ -73,7 +73,7 @@ const Image = ({
         alt={resolvedAlt}
         title={resolvedTitle}
         loading="lazy"
-        className={cn(className, isLoading && 'hidden')}
+        className={cn(className, isLoading && 'invisible h-0 overflow-hidden')}
         onLoad={handleLoad}
         onError={handleError}
         {...props}
