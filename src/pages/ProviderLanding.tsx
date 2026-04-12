@@ -18,6 +18,7 @@ import {
   Languages, ChevronRight,
 } from "lucide-react";
 import { motion } from "framer-motion";
+import SubscriptionBadge from "@/components/SubscriptionBadge";
 
 interface ProviderData {
   id: string;
@@ -207,6 +208,7 @@ const ProviderLanding = () => {
                 <div className="flex items-center gap-2">
                   <h1 className="text-3xl font-extrabold text-foreground font-heading">{provider.business_name}</h1>
                   {provider.is_verified && <BadgeCheck className="h-6 w-6 text-primary" />}
+                  <SubscriptionBadge status={(provider as any).subscription_status} size="md" />
                 </div>
                 {provider.tagline && <p className="text-lg text-muted-foreground">{provider.tagline}</p>}
 

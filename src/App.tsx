@@ -20,6 +20,7 @@ import Register from "./pages/Register";
 import ResetPassword from "./pages/ResetPassword";
 import BusinessManage from "./pages/BusinessManage";
 import BusinessProfileWizard from "./pages/BusinessProfileWizard";
+import Pricing from "./pages/Pricing";
 
 const queryClient = new QueryClient();
 
@@ -39,6 +40,7 @@ const App = () => (
             <Route path="/providers" element={<Providers />} />
             <Route path="/pro/:slug" element={<ProviderLanding />} />
             <Route path="/how-it-works" element={<HowItWorks />} />
+            <Route path="/pricing" element={<Pricing />} />
             <Route path="/request" element={<RequestService />} />
             <Route
               path="/dashboard"

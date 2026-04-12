@@ -17,6 +17,8 @@ import {
   X,
 } from "lucide-react";
 
+import SubscriptionBadge from "@/components/SubscriptionBadge";
+
 interface Provider {
   id: string;
   owner_id: string;
@@ -31,6 +33,7 @@ interface Provider {
   rate_type: string | null;
   username: string | null;
   logo_url: string | null;
+  subscription_status: string | null;
   profiles: { full_name: string | null; avatar_url: string | null } | null;
 }
 
@@ -46,7 +49,7 @@ const Providers = () => {
       .from("businesses")
       .select(`
         id, owner_id, business_name, bio, avg_rating, total_reviews,
-        is_verified, categories, location_name, rate_kes, rate_type, username, logo_url,
+        is_verified, categories, location_name, rate_kes, rate_type, username, logo_url, subscription_status,
         profiles:profiles!businesses_owner_id_fkey ( full_name, avatar_url )
       `)
       .eq("is_active", true)
@@ -208,6 +211,7 @@ const Providers = () => {
                             {provider.is_verified && (
                               <BadgeCheck className="h-4 w-4 shrink-0 text-primary" />
                             )}
+                            <SubscriptionBadge status={provider.subscription_status} />
                           </div>
                           <p className="text-sm text-muted-foreground">
                             {profileData?.full_name}
