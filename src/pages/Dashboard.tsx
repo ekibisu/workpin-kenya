@@ -474,7 +474,9 @@ const Dashboard = () => {
       <div className="flex flex-1">
         <aside className="hidden w-60 shrink-0 border-r border-border bg-card p-4 lg:block">
           <nav className="space-y-1">
-            {sideLinks.map((link) => {
+            {sideLinks
+              .filter((link) => !('providerOnly' in link && link.providerOnly) || hasBusinesses)
+              .map((link) => {
               const isActive = location.pathname === link.href || (link.href === "/dashboard" && location.pathname === "/dashboard/");
               return (
                 <Link key={link.label} to={link.href} className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${isActive ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"}`}>
