@@ -1,37 +1,38 @@
 
 
-# Fix Image Loading + 3D Button Effects
+# Add Business Profile Avatar/Logo
 
-## Root Cause: Images Not Loading
+## Problem
+Businesses have no dedicated avatar or logo. Both the Providers listing and the `/pro/:slug` landing page fall back to `profiles.avatar_url` (the owner's personal avatar), which is usually null — resulting in plain initials in a green square. There's no `logo_url` column on the `businesses` table and no way to upload one in the wizard.
 
-The `Image` component (`src/components/ui/Image.tsx`) has a critical bug on line 76:
+## Changes
 
-```tsx
-className={cn(className, isLoading && 'hidden')}
+### 1. Database Migration
+Add a `logo_url` column to `businesses`:
+```sql
+ALTER TABLE businesses ADD COLUMN IF NOT EXISTS logo_url text;
 ```
 
-When `isLoading` is true, the `<img>` gets `display: none` via Tailwind's `hidden` class. Combined with `loading="lazy"` on line 75, this creates a deadlock: lazy-loaded images only load when they enter the viewport, but `display: none` elements are never observed by the Intersection Observer. The image never loads, so `isLoading` never becomes false, so the image stays hidden forever.
+### 2. Business Profile Wizard (`src/pages/BusinessProfileWizard.tsx`)
+- In Step 1 (Basics), add a logo/avatar upload area — a clickable square with camera icon that uploads via `useMediaUpload` and saves to `businesses.logo_url`
+- Show a preview of the uploaded logo with a "Change" overlay on hover
 
-**Fix**: Replace `hidden` with `invisible h-0 overflow-hidden` (or `opacity-0 absolute`) so the element remains in the DOM flow and can trigger the lazy load, while still being visually hidden during the loading state.
+### 3. Provider Landing Page (`src/pages/ProviderLanding.tsx`)
+- Update the avatar block (line 199–202) to check `provider.logo_url` first, then `profileData?.avatar_url`, then initials fallback
 
-## 3D Button Effects
+### 4. Providers Listing (`src/pages/Providers.tsx`)
+- Same priority chain for the card avatar (line 192–200): `provider.logo_url` → `profileData?.avatar_url` → initials
 
-The current `default` button variant uses `shadow-brand` which is a soft colored shadow. To create a raised, 3D look:
+### 5. Provider Profile Settings (`src/components/provider/settings/ProviderProfileSettings.tsx`)
+- Add logo upload option in the settings form
 
-### Changes to `src/components/ui/button.tsx`
-- Update the `default` variant with a multi-layer box shadow (bottom highlight + deeper shadow) and a subtle `translate-y` on hover/active for a press effect
-- Add `active:translate-y-0.5` and `active:shadow-sm` for a tactile "push down" feel
+## Files
 
-### Changes to `src/index.css`
-- Add new utility `.shadow-brand-3d` with a layered shadow: a tight bottom edge shadow for the "raised" look plus a softer ambient shadow beneath
-
-## Summary of Changes
-
-| File | Change |
-|------|--------|
-| `src/components/ui/Image.tsx` | Replace `hidden` with `invisible h-0 overflow-hidden` to fix lazy-load deadlock |
-| `src/components/ui/button.tsx` | Add 3D raised effect with layered shadows and active press animation to `default` and `hero` variants |
-| `src/index.css` | Add `.shadow-brand-3d` utility with multi-layer shadow for raised look |
-
-No database changes needed.
+| Action | File |
+|--------|------|
+| Migration | Add `logo_url` to `businesses` |
+| Edit | `src/pages/BusinessProfileWizard.tsx` — logo upload in Step 1 |
+| Edit | `src/pages/ProviderLanding.tsx` — use `logo_url` for avatar |
+| Edit | `src/pages/Providers.tsx` — use `logo_url` for card avatar |
+| Edit | `src/components/provider/settings/ProviderProfileSettings.tsx` — logo upload |
 
