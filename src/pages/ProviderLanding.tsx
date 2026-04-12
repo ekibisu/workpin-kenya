@@ -133,13 +133,7 @@ const ProviderLanding = () => {
       setLoading(false);
 
       // Track profile view
-      supabase.from("profile_views").upsert(
-        { business_id: data.id, viewed_at: new Date().toISOString().split("T")[0], view_count: 1 },
-        { onConflict: "business_id,viewed_at" }
-      ).then(() => {
-        // increment — upsert created the row, now increment
-        supabase.rpc("increment_profile_view" as any, { biz_id: data.id }).catch(() => {});
-      });
+      supabase.rpc("track_profile_view" as any, { biz_id: data.id });
 
       // SEO meta
       document.title = `${data.business_name}${data.tagline ? ` — ${data.tagline}` : ""} | WorkPin`;
