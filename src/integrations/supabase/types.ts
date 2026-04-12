@@ -185,6 +185,60 @@ export type Database = {
           },
         ]
       }
+      business_subscriptions: {
+        Row: {
+          business_id: string
+          created_at: string
+          expires_at: string | null
+          id: string
+          mpesa_receipt: string | null
+          period: string
+          plan_id: string
+          started_at: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          business_id: string
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          mpesa_receipt?: string | null
+          period?: string
+          plan_id: string
+          started_at?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          business_id?: string
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          mpesa_receipt?: string | null
+          period?: string
+          plan_id?: string
+          started_at?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "business_subscriptions_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: true
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "business_subscriptions_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       businesses: {
         Row: {
           availability_json: Json | null
@@ -658,6 +712,35 @@ export type Database = {
           },
         ]
       }
+      profile_views: {
+        Row: {
+          business_id: string
+          id: string
+          view_count: number
+          viewed_at: string
+        }
+        Insert: {
+          business_id: string
+          id?: string
+          view_count?: number
+          viewed_at?: string
+        }
+        Update: {
+          business_id?: string
+          id?: string
+          view_count?: number
+          viewed_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profile_views_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -950,6 +1033,42 @@ export type Database = {
           proj4text?: string | null
           srid?: number
           srtext?: string | null
+        }
+        Relationships: []
+      }
+      subscription_plans: {
+        Row: {
+          created_at: string
+          features: Json
+          id: string
+          is_active: boolean
+          limits: Json
+          name: string
+          price_annual_kes: number
+          price_monthly_kes: number
+          sort_order: number
+        }
+        Insert: {
+          created_at?: string
+          features?: Json
+          id?: string
+          is_active?: boolean
+          limits?: Json
+          name: string
+          price_annual_kes?: number
+          price_monthly_kes?: number
+          sort_order?: number
+        }
+        Update: {
+          created_at?: string
+          features?: Json
+          id?: string
+          is_active?: boolean
+          limits?: Json
+          name?: string
+          price_annual_kes?: number
+          price_monthly_kes?: number
+          sort_order?: number
         }
         Relationships: []
       }
