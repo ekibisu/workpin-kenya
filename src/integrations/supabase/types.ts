@@ -203,6 +203,7 @@ export type Database = {
           location_lat: number | null
           location_lng: number | null
           location_name: string | null
+          logo_url: string | null
           mpesa_phone: string | null
           owner_id: string
           portfolio_photos: string[] | null
@@ -239,6 +240,7 @@ export type Database = {
           location_lat?: number | null
           location_lng?: number | null
           location_name?: string | null
+          logo_url?: string | null
           mpesa_phone?: string | null
           owner_id: string
           portfolio_photos?: string[] | null
@@ -275,6 +277,7 @@ export type Database = {
           location_lat?: number | null
           location_lng?: number | null
           location_name?: string | null
+          logo_url?: string | null
           mpesa_phone?: string | null
           owner_id?: string
           portfolio_photos?: string[] | null
