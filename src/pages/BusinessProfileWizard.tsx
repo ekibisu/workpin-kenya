@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
@@ -18,7 +18,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ChevronLeft, ChevronRight, Loader2, Save, Upload, Plus, X, Trash2,
-  Eye, CheckCircle, Briefcase, Image as ImageIcon, Award, Phone, MapPin,
+  Eye, CheckCircle, Briefcase, Image as ImageIcon, Award, Phone, MapPin, Camera,
 } from "lucide-react";
 import { useMediaUpload } from "@/hooks/useMediaUpload";
 import { generateUniqueSlug } from "@/lib/slugify";
@@ -68,6 +68,9 @@ const BusinessProfileWizard = () => {
   const [bio, setBio] = useState("");
   const [locationName, setLocationName] = useState("");
   const [slug, setSlug] = useState("");
+  const [logoUrl, setLogoUrl] = useState("");
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const logoInputRef = useRef<HTMLInputElement | null>(null);
 
   // Step 2: Services
   const [services, setServices] = useState<BusinessService[]>([]);
@@ -115,6 +118,7 @@ const BusinessProfileWizard = () => {
       setLocationName(biz.location_name || "");
       setSlug(biz.username || "");
       setHeroUrl(biz.hero_image_url || "");
+      setLogoUrl((biz as any).logo_url || "");
       setYearsExperience(biz.years_experience?.toString() || "");
       setCertifications(biz.certifications || []);
       setLanguages(biz.languages || ["English"]);
@@ -169,13 +173,29 @@ const BusinessProfileWizard = () => {
     try {
       if (step === 0) {
         const finalSlug = slug || await generateUniqueSlug(businessName, locationName, user?.id);
+
+        // Upload logo if new file
+        let finalLogoUrl = logoUrl;
+        if (logoFile) {
+          const result = await upload({
+            file: logoFile,
+            context: "logo",
+            providerSlug: finalSlug || id,
+            providerName: businessName,
+          });
+          if (result) finalLogoUrl = result.public_url;
+          setLogoUrl(finalLogoUrl);
+          setLogoFile(null);
+        }
+
         await supabase.from("businesses").update({
           business_name: businessName.trim(),
           tagline: tagline.trim() || null,
           bio: bio.trim() || null,
           location_name: locationName.trim() || null,
           username: finalSlug || null,
-        }).eq("id", id);
+          logo_url: finalLogoUrl || null,
+        } as any).eq("id", id);
         if (!slug) setSlug(finalSlug);
       }
 
@@ -277,7 +297,7 @@ const BusinessProfileWizard = () => {
     } finally {
       setSaving(false);
     }
-  }, [step, id, businessName, tagline, bio, locationName, slug, services, heroFile, heroUrl, gallery, yearsExperience, certifications, languages, mpesaPhone, whatsappPhone, websiteUrl, rateKes, rateType]);
+  }, [step, id, businessName, tagline, bio, locationName, slug, services, heroFile, heroUrl, gallery, yearsExperience, certifications, languages, mpesaPhone, whatsappPhone, websiteUrl, rateKes, rateType, logoFile, logoUrl]);
 
   const handleNext = async () => {
     await saveStep();
@@ -388,6 +408,48 @@ const BusinessProfileWizard = () => {
               {step === 0 && (
                 <Card>
                   <CardContent className="space-y-4 pt-6">
+                    {/* Logo Upload */}
+                    <div className="space-y-1.5">
+                      <Label>Business Logo / Avatar</Label>
+                      <div className="flex items-center gap-4">
+                        <button
+                          type="button"
+                          onClick={() => logoInputRef.current?.click()}
+                          className="relative group flex h-20 w-20 shrink-0 items-center justify-center rounded-xl bg-primary/10 border-2 border-dashed border-primary/30 hover:border-primary/60 transition-colors overflow-hidden"
+                        >
+                          {(logoUrl || logoFile) ? (
+                            <>
+                              <img
+                                src={logoFile ? URL.createObjectURL(logoFile) : logoUrl}
+                                alt="Logo preview"
+                                className="h-full w-full object-cover rounded-xl"
+                              />
+                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                <Camera className="h-5 w-5 text-white" />
+                              </div>
+                            </>
+                          ) : (
+                            <div className="flex flex-col items-center gap-1">
+                              <Camera className="h-5 w-5 text-primary/60" />
+                              <span className="text-[10px] text-primary/60 font-medium">Add Logo</span>
+                            </div>
+                          )}
+                        </button>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          ref={logoInputRef}
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) setLogoFile(file);
+                            e.target.value = "";
+                          }}
+                        />
+                        <p className="text-xs text-muted-foreground">Upload a logo or photo that represents your business. This appears on your profile card and listing.</p>
+                      </div>
+                    </div>
+
                     <div className="space-y-1.5">
                       <Label>Business Name *</Label>
                       <Input value={businessName} onChange={e => setBusinessName(e.target.value)} placeholder="e.g. Mwangi Plumbing" />

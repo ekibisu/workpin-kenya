@@ -26,6 +26,7 @@ interface ProviderData {
   bio: string | null;
   tagline: string | null;
   hero_image_url: string | null;
+  logo_url: string | null;
   categories: string[] | null;
   avg_rating: number | null;
   total_reviews: number | null;
@@ -94,7 +95,7 @@ const ProviderLanding = () => {
 
     const fetchProvider = async () => {
       const selectFields = `
-        id, owner_id, business_name, bio, tagline, hero_image_url, categories,
+        id, owner_id, business_name, bio, tagline, hero_image_url, logo_url, categories,
         avg_rating, total_reviews, is_verified, portfolio_photos, location_name,
         rate_kes, rate_type, response_time_minutes, top_skills, username,
         years_experience, certifications, languages, website_url, whatsapp_phone,
@@ -197,8 +198,8 @@ const ProviderLanding = () => {
               className="flex flex-col gap-6 md:flex-row md:items-end"
             >
               <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground font-heading text-2xl font-bold shadow-lg ring-4 ring-background">
-                {profileData?.avatar_url ? (
-                  <Image src={profileData.avatar_url} alt={provider.business_name} className="h-full w-full rounded-2xl object-cover" />
+                {(provider.logo_url || profileData?.avatar_url) ? (
+                  <Image src={(provider.logo_url || profileData?.avatar_url)!} alt={provider.business_name} className="h-full w-full rounded-2xl object-cover" />
                 ) : initials}
               </div>
 

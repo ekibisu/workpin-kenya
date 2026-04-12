@@ -35,6 +35,7 @@ interface BusinessProfile {
   response_time_minutes: number;
   location_name: string | null;
   username: string | null;
+  logo_url: string | null;
 }
 
 interface ProfileData {
@@ -52,6 +53,7 @@ const ProviderProfileSettings = ({ userId }: ProviderProfileSettingsProps) => {
   const [location, setLocation] = useState("");
   const [hours, setHours] = useState<{ [key: string]: string }>({});
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const logoInputRef = useRef<HTMLInputElement | null>(null);
   const portfolioInputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   const { toast } = useToast();
@@ -68,7 +70,7 @@ const ProviderProfileSettings = ({ userId }: ProviderProfileSettingsProps) => {
         businesses (
           id, business_name, bio, avg_rating, total_reviews,
           is_verified, categories, availability_json,
-          portfolio_photos, response_time_minutes, location_name, username
+          portfolio_photos, response_time_minutes, location_name, username, logo_url
         )
       `)
       .eq("id", userId)
@@ -108,6 +110,33 @@ const ProviderProfileSettings = ({ userId }: ProviderProfileSettingsProps) => {
   }, [userId]);
 
   const biz = data?.businesses?.[0];
+
+  const handleLogoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !biz) return;
+
+    const result = await upload({
+      file,
+      providerId: biz.id,
+      providerSlug: biz.username || userId,
+      providerName: biz.business_name,
+      context: 'logo',
+      tags: ['logo'],
+    });
+
+    if (!result) {
+      toast({ title: "Upload failed", variant: "destructive" });
+      return;
+    }
+
+    await supabase
+      .from("businesses")
+      .update({ logo_url: result.public_url } as any)
+      .eq("id", biz.id);
+
+    toast({ title: "Logo updated" });
+    fetchProfile();
+  };
 
   const handleProfilePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -250,6 +279,31 @@ const ProviderProfileSettings = ({ userId }: ProviderProfileSettingsProps) => {
               Save Changes
             </Button>
           </div>
+        </div>
+
+        {/* Business Logo */}
+        <div className="flex flex-col items-center gap-3 self-start">
+          <p className="text-sm font-medium text-muted-foreground">Logo</p>
+          <button
+            type="button"
+            onClick={() => logoInputRef.current?.click()}
+            className="relative group flex h-20 w-20 shrink-0 items-center justify-center rounded-xl bg-primary/10 border-2 border-dashed border-primary/30 hover:border-primary/60 transition-colors overflow-hidden"
+          >
+            {biz.logo_url ? (
+              <>
+                <Image src={biz.logo_url} alt="Logo" className="h-full w-full object-cover rounded-xl" />
+                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                  <Camera className="h-5 w-5 text-white" />
+                </div>
+              </>
+            ) : (
+              <div className="flex flex-col items-center gap-1">
+                <Camera className="h-5 w-5 text-primary/60" />
+                <span className="text-[10px] text-primary/60 font-medium">Add Logo</span>
+              </div>
+            )}
+          </button>
+          <input type="file" accept="image/*" ref={logoInputRef} className="hidden" onChange={handleLogoUpload} disabled={uploading} />
         </div>
 
         {/* Profile Photo */}
