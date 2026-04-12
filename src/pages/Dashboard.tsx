@@ -9,6 +9,7 @@ import { Link, useLocation } from "react-router-dom";
 import {
   LayoutDashboard, FileText, MessageCircle, Settings, Plus, Briefcase,
   TrendingUp, Clock, CheckCircle, DollarSign, MapPin, Loader2, User, Star, Pencil, Trash2,
+  Search, Send,
 } from "lucide-react";
 import QuotesPanel from "@/components/dashboard/QuotesPanel";
 import {
@@ -40,6 +41,8 @@ import {
 } from "@/components/ui/dialog";
 import UnifiedSettings from "@/components/dashboard/UnifiedSettings";
 import BusinessesPanel from "@/components/dashboard/BusinessesPanel";
+import ProviderJobFeed from "@/components/dashboard/ProviderJobFeed";
+import ProviderQuotesPanel from "@/components/dashboard/ProviderQuotesPanel";
 import questionsData from "@/data/questions.json";
 
 // Normalize image_urls: filter nulls, empty strings, and obviously broken URLs
@@ -97,6 +100,8 @@ interface Quote {
 const sideLinks = [
   { label: "Overview", icon: LayoutDashboard, href: "/dashboard" },
   { label: "My Requests", icon: FileText, href: "/dashboard/requests" },
+  { label: "Job Feed", icon: Search, href: "/dashboard/jobs", providerOnly: true },
+  { label: "My Quotes", icon: Send, href: "/dashboard/quotes", providerOnly: true },
   { label: "My Businesses", icon: Briefcase, href: "/dashboard/businesses" },
   { label: "Messages", icon: MessageCircle, href: "/dashboard/messages" },
   { label: "Settings", icon: Settings, href: "/dashboard/settings" },
@@ -109,7 +114,10 @@ const Dashboard = () => {
   const isMessagesTab = location.pathname.includes("/dashboard/messages");
   const isSettingsTab = location.pathname.includes("/dashboard/settings");
   const isBusinessesTab = location.pathname.includes("/dashboard/businesses");
+  const isJobFeedTab = location.pathname.includes("/dashboard/jobs");
+  const isMyQuotesTab = location.pathname.includes("/dashboard/quotes");
   const { unreadCount, resetCount } = useUnreadMessageCount();
+  const [hasBusinesses, setHasBusinesses] = useState(false);
   const [requests, setRequests] = useState<JobRequest[]>([]);
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [loading, setLoading] = useState(true);
@@ -357,6 +365,15 @@ const Dashboard = () => {
 
   useEffect(() => {
     if (!user) return;
+    // Check if user owns any active businesses (for provider tabs)
+    supabase
+      .from("businesses")
+      .select("id")
+      .eq("owner_id", user.id)
+      .eq("is_active", true)
+      .limit(1)
+      .then(({ data }) => setHasBusinesses((data || []).length > 0));
+
     supabase
       .from("job_requests")
       .select("id, description, location_name, status, created_at, image_urls, services(name, archetype)")
@@ -457,7 +474,9 @@ const Dashboard = () => {
       <div className="flex flex-1">
         <aside className="hidden w-60 shrink-0 border-r border-border bg-card p-4 lg:block">
           <nav className="space-y-1">
-            {sideLinks.map((link) => {
+            {sideLinks
+              .filter((link) => !('providerOnly' in link && link.providerOnly) || hasBusinesses)
+              .map((link) => {
               const isActive = location.pathname === link.href || (link.href === "/dashboard" && location.pathname === "/dashboard/");
               return (
                 <Link key={link.label} to={link.href} className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${isActive ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"}`}>
@@ -477,7 +496,7 @@ const Dashboard = () => {
           <div className="mb-8 flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-extrabold text-foreground">
-                {isMessagesTab ? "Messages" : isSettingsTab ? "Account Settings" : isBusinessesTab ? "My Businesses" : "Dashboard"}
+                {isMessagesTab ? "Messages" : isSettingsTab ? "Account Settings" : isBusinessesTab ? "My Businesses" : isJobFeedTab ? "Job Feed" : isMyQuotesTab ? "My Quotes" : "Dashboard"}
               </h1>
               <p className="text-sm text-muted-foreground">
                 {isMessagesTab 
@@ -486,10 +505,14 @@ const Dashboard = () => {
                     ? "Manage your account and payment settings." 
                     : isBusinessesTab
                       ? "Manage your businesses and services."
-                      : "Welcome back! Here's your activity overview."}
+                      : isJobFeedTab
+                        ? "Browse open requests and submit quotes."
+                        : isMyQuotesTab
+                          ? "Track quotes you've sent to clients."
+                          : "Welcome back! Here's your activity overview."}
               </p>
             </div>
-            {!isMessagesTab && !isSettingsTab && !isBusinessesTab && (
+            {!isMessagesTab && !isSettingsTab && !isBusinessesTab && !isJobFeedTab && !isMyQuotesTab && (
               <Button asChild>
                 <Link to="/request">
                   <Plus className="h-4 w-4" />New Request
@@ -507,6 +530,19 @@ const Dashboard = () => {
             <UnifiedSettings />
           ) : isBusinessesTab ? (
             <BusinessesPanel />
+          ) : isJobFeedTab ? (
+            <div className="rounded-2xl border border-border bg-card p-6">
+              <ProviderJobFeed />
+            </div>
+          ) : isMyQuotesTab ? (
+            <div className="rounded-2xl border border-border bg-card p-6">
+              <ProviderQuotesPanel
+                onMessage={(threadId, name) => {
+                  setChatWorkThreadId(threadId);
+                  setChatRecipientName(name);
+                }}
+              />
+            </div>
           ) : (
             <>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
