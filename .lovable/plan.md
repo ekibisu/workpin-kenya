@@ -1,120 +1,69 @@
 
 
-# Save Payment Analysis + System Gap Analysis & Pre-Payment Roadmap
+# Sprint A: Provider Job Feed + Quote Submission
 
-## Task 1: Save Payment Analysis Document
+## Goal
+Complete the supply-side loop so providers with a business can browse open job requests and submit quotes — making the marketplace functional end-to-end.
 
-Save the Kenya payment infrastructure analysis from the previous conversation as `/mnt/documents/WorkPin_Payment_Analysis.md` for future reference.
+## Current State
+- Dashboard is client-only: shows "My Requests" + incoming quotes
+- Sidebar has: Overview, My Requests, My Businesses, Messages, Settings
+- `job_requests` RLS already allows SELECT for users who own an active business
+- `quotes` RLS already allows INSERT for business owners
+- `work_threads` INSERT is open to any authenticated user
+- No provider-facing feed or quote form exists
 
-## Task 2: System Gap Analysis
+## What We Build
 
-After thorough investigation of the codebase, here are the critical missing pieces that must be addressed **before** implementing payments:
+### 1. Provider Job Feed (`src/components/dashboard/ProviderJobFeed.tsx`)
+A new dashboard tab showing open job requests available to quote on.
 
-### Critical Gaps
+- Query `job_requests` with `status = 'open'` and join `services(name, archetype)`
+- Optionally filter by categories matching the provider's `businesses.categories`
+- Each card shows: service name, parsed description summary, location, time posted, image count, quote count
+- "Submit Quote" button opens the quote form dialog
+- Empty state: "No open requests match your services right now"
 
-```text
-┌─────────────────────────────────┬──────────┬─────────────────────────────────────┐
-│ Gap                             │ Severity │ Why It Blocks Payments              │
-├─────────────────────────────────┼──────────┼─────────────────────────────────────┤
-│ No provider quote submission UI │ CRITICAL │ Core loop broken — providers can't  │
-│                                 │          │ respond to job requests             │
-├─────────────────────────────────┼──────────┼─────────────────────────────────────┤
-│ No provider job feed/browse     │ CRITICAL │ Providers can't discover open jobs  │
-│                                 │          │ to quote on                         │
-├─────────────────────────────────┼──────────┼─────────────────────────────────────┤
-│ No edge functions deployed      │ HIGH     │ Zero backend functions exist —      │
-│                                 │          │ supabase/functions/ is empty        │
-├─────────────────────────────────┼──────────┼─────────────────────────────────────┤
-│ Settings don't persist          │ HIGH     │ Notification prefs, account status  │
-│                                 │          │ are local state only                │
-├─────────────────────────────────┼──────────┼─────────────────────────────────────┤
-│ No Google OAuth                 │ MEDIUM   │ Kenya users expect social login     │
-├─────────────────────────────────┼──────────┼─────────────────────────────────────┤
-│ Review trigger exists but no    │ MEDIUM   │ Trust system incomplete — ratings   │
-│ review submission flow tested   │          │ don't aggregate                     │
-├─────────────────────────────────┼──────────┼─────────────────────────────────────┤
-│ Subscription enforcement absent │ MEDIUM   │ useSubscriptionLimits hook exists   │
-│                                 │          │ but nothing calls it to block       │
-├─────────────────────────────────┼──────────┼─────────────────────────────────────┤
-│ No email verification flow      │ LOW      │ Users can sign up with fake emails  │
-├─────────────────────────────────┼──────────┼─────────────────────────────────────┤
-│ No Terms of Service / Privacy   │ LOW      │ Required for payment processing     │
-└─────────────────────────────────┴──────────┴─────────────────────────────────────┘
-```
+### 2. Quote Submission Dialog (`src/components/dashboard/SubmitQuoteForm.tsx`)
+A dialog/sheet for providers to submit a quote on a job request.
 
-### Detailed Findings
+- Fields: price (KES), message, timeline estimate
+- Provider selects which of their businesses to quote from (dropdown, auto-selected if only one)
+- On submit:
+  1. Create a `work_thread` with `client_id` from the job request, `provider_id` = selected business ID, `job_request_id`, `status: 'inquiry'`
+  2. Insert into `quotes` with `provider_id`, `request_id`, `price_kes`, `message`, `timeline`, `work_thread_id`
+- Success toast + close dialog
+- Prevent duplicate quotes (check if business already quoted on this request)
 
-**1. Provider Core Loop is Broken (CRITICAL)**
-- The Dashboard only shows the **client** perspective: "My Requests" with quotes received
-- There is **no UI for providers to browse open job requests** or submit quotes
-- `quotes` table INSERT requires `provider_id` to be a business the user owns (RLS is correct), but no page exists to do this
-- This means the marketplace has zero functional supply-side flow
+### 3. Provider Outgoing Quotes View (`src/components/dashboard/ProviderQuotesPanel.tsx`)
+Shows quotes the provider has sent, grouped by status.
 
-**2. No Edge Functions Exist**
-- `supabase/functions/` directory is completely empty
-- The M-Pesa STK Push function referenced in docs was never created
-- No webhook handlers, no notification functions, no server-side logic exists
+- Query `quotes` where `provider_id` IN user's business IDs, join `job_requests(description, services(name))` and `profiles(full_name)` for client info
+- Show: service name, price quoted, status badge (pending/accepted/declined), date, "Message" button if work_thread exists
+- Sort by newest first
 
-**3. Settings Are Cosmetic**
-- `UnifiedSettings.tsx` manages notification preferences and account status in React state only — toggling checkboxes or deactivating does nothing in the database
+### 4. Dashboard Integration (`src/pages/Dashboard.tsx`)
+- Add "Job Feed" and "My Quotes" to `sideLinks` (with `Search` and `Send` icons)
+- Add route detection: `isJobFeedTab`, `isMyQuotesTab`
+- Render `ProviderJobFeed` and `ProviderQuotesPanel` in the main content switch
+- Only show these tabs if user owns at least one active business (query on mount)
 
-**4. Subscription Limits Not Enforced**
-- `useSubscriptionLimits` hook exists and works, but `CreateBusinessForm`, `BusinessProfileWizard`, and quote submission don't check it
+## Files
 
-**5. Review Flow Exists but Untested**
-- Dashboard has a feedback dialog that inserts into `reviews`, and a trigger auto-updates `avg_rating`
-- But the foreign key reference in ProviderLanding line 126 uses `profiles!reviews_customer_id_fkey` which likely fails since the column is `client_id`
+| Action | File | Change |
+|--------|------|--------|
+| Create | `src/components/dashboard/ProviderJobFeed.tsx` | Job request browser with filters and quote trigger |
+| Create | `src/components/dashboard/SubmitQuoteForm.tsx` | Quote submission dialog with business selector |
+| Create | `src/components/dashboard/ProviderQuotesPanel.tsx` | Outgoing quotes list with status tracking |
+| Edit | `src/pages/Dashboard.tsx` | Add 2 sidebar links, route detection, conditional rendering, business ownership check |
 
----
+## No Database Changes Required
+All tables (`job_requests`, `quotes`, `work_threads`) and RLS policies already support this flow.
 
-## Pre-Payment Roadmap
-
-### Sprint A: Fix the Core Loop (Must Do First)
-
-| # | Task | Effort |
-|---|------|--------|
-| A1 | **Provider Job Feed** — New dashboard tab showing open `job_requests` that match provider's service categories, with location/budget details | 1 session |
-| A2 | **Quote Submission UI** — Form for providers to submit price, message, timeline on a job request; creates quote + inquiry work thread | 1 session |
-| A3 | **Provider Dashboard View** — Show provider's sent quotes (pending/accepted/declined), active jobs, and earnings summary | 1 session |
-
-### Sprint B: Trust & Reliability
-
-| # | Task | Effort |
-|---|------|--------|
-| B1 | **Review System Verification** — Fix FK reference, test end-to-end review submission, verify trigger updates `avg_rating` | 0.5 session |
-| B2 | **Subscription Limit Enforcement** — Wire `useSubscriptionLimits` into CreateBusinessForm (business count), BusinessProfileWizard (services/gallery count), and quote submission (monthly cap) | 1 session |
-| B3 | **Google OAuth** — Add Google sign-in button to Auth page | 0.5 session |
-| B4 | **Settings Persistence** — Store notification preferences in profiles or a new `user_preferences` table; wire account deactivation to `profiles.is_active` or similar | 1 session |
-
-### Sprint C: Legal & Launch Prep
-
-| # | Task | Effort |
-|---|------|--------|
-| C1 | **Terms of Service & Privacy Policy** — Static pages at `/terms` and `/privacy` (required before accepting payments) | 0.5 session |
-| C2 | **Email Verification** — Ensure email confirmation is required before dashboard access | 0.5 session |
-
-### Then: Payment Integration (Sprint D)
-Only after Sprints A-C are complete should payment infrastructure be built.
-
----
-
-## Files to Create/Modify
-
-| File | Change |
-|------|--------|
-| `/mnt/documents/WorkPin_Payment_Analysis.md` | Save payment infrastructure analysis |
-| `src/pages/Dashboard.tsx` | Add provider job feed tab + quote submission |
-| `src/components/dashboard/ProviderJobFeed.tsx` | New: browse open job requests |
-| `src/components/dashboard/SubmitQuoteForm.tsx` | New: quote submission dialog |
-| `src/components/dashboard/ProviderQuotesPanel.tsx` | New: provider's outgoing quotes view |
-| `src/components/dashboard/BusinessesPanel.tsx` | Enforce subscription business count limit |
-| `src/pages/BusinessProfileWizard.tsx` | Enforce service/gallery limits |
-| `src/pages/ProviderLanding.tsx` | Fix review FK reference |
-| `src/components/dashboard/UnifiedSettings.tsx` | Persist to database |
-| `src/pages/Auth.tsx` | Add Google OAuth button |
-| `src/pages/Terms.tsx` | New: Terms of Service |
-| `src/pages/Privacy.tsx` | New: Privacy Policy |
-| `src/App.tsx` | Add new routes |
-
-No database migrations needed for Sprint A (tables exist). Sprint B may need a `user_preferences` table.
+## Technical Notes
+- `quotes.provider_id` is a business ID (not user ID) — the form must use the business ID
+- `work_threads.provider_id` is also a business ID — same mapping
+- Reuse `parseDescriptionSummary()` from Dashboard for displaying job descriptions
+- Reuse avatar color/initials helpers from `QuotesPanel`
+- Use `format(new Date(...), 'MMM d')` for dates (already imported in Dashboard)
 
