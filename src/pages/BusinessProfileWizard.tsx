@@ -173,13 +173,29 @@ const BusinessProfileWizard = () => {
     try {
       if (step === 0) {
         const finalSlug = slug || await generateUniqueSlug(businessName, locationName, user?.id);
+
+        // Upload logo if new file
+        let finalLogoUrl = logoUrl;
+        if (logoFile) {
+          const result = await upload({
+            file: logoFile,
+            context: "logo",
+            providerSlug: finalSlug || id,
+            providerName: businessName,
+          });
+          if (result) finalLogoUrl = result.public_url;
+          setLogoUrl(finalLogoUrl);
+          setLogoFile(null);
+        }
+
         await supabase.from("businesses").update({
           business_name: businessName.trim(),
           tagline: tagline.trim() || null,
           bio: bio.trim() || null,
           location_name: locationName.trim() || null,
           username: finalSlug || null,
-        }).eq("id", id);
+          logo_url: finalLogoUrl || null,
+        } as any).eq("id", id);
         if (!slug) setSlug(finalSlug);
       }
 
