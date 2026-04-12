@@ -132,6 +132,15 @@ const ProviderLanding = () => {
       setReviews((reviewData as Review[]) ?? []);
       setLoading(false);
 
+      // Track profile view
+      supabase.from("profile_views").upsert(
+        { business_id: data.id, viewed_at: new Date().toISOString().split("T")[0], view_count: 1 },
+        { onConflict: "business_id,viewed_at" }
+      ).then(() => {
+        // increment — upsert created the row, now increment
+        supabase.rpc("increment_profile_view" as any, { biz_id: data.id }).catch(() => {});
+      });
+
       // SEO meta
       document.title = `${data.business_name}${data.tagline ? ` — ${data.tagline}` : ""} | WorkPin`;
       const meta = document.querySelector('meta[name="description"]');
@@ -209,7 +218,7 @@ const ProviderLanding = () => {
                 <div className="flex items-center gap-2">
                   <h1 className="text-3xl font-extrabold text-foreground font-heading">{provider.business_name}</h1>
                   {provider.is_verified && <BadgeCheck className="h-6 w-6 text-primary" />}
-                  <SubscriptionBadge status={(provider as any).subscription_status} size="md" />
+                  <SubscriptionBadge status={provider.subscription_status} size="md" />
                 </div>
                 {provider.tagline && <p className="text-lg text-muted-foreground">{provider.tagline}</p>}
 
