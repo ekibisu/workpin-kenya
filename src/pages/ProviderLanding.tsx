@@ -202,7 +202,6 @@ const ProviderLanding = () => {
                   <Image src={(provider.logo_url || profileData?.avatar_url)!} alt={provider.business_name} className="h-full w-full rounded-2xl object-cover" />
                 ) : initials}
               </div>
-              </div>
 
               <div className="flex-1 space-y-1">
                 <div className="flex items-center gap-2">
