@@ -100,6 +100,8 @@ interface Quote {
 const sideLinks = [
   { label: "Overview", icon: LayoutDashboard, href: "/dashboard" },
   { label: "My Requests", icon: FileText, href: "/dashboard/requests" },
+  { label: "Job Feed", icon: Search, href: "/dashboard/jobs", providerOnly: true },
+  { label: "My Quotes", icon: Send, href: "/dashboard/quotes", providerOnly: true },
   { label: "My Businesses", icon: Briefcase, href: "/dashboard/businesses" },
   { label: "Messages", icon: MessageCircle, href: "/dashboard/messages" },
   { label: "Settings", icon: Settings, href: "/dashboard/settings" },
