@@ -496,7 +496,7 @@ const Dashboard = () => {
           <div className="mb-8 flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-extrabold text-foreground">
-                {isMessagesTab ? "Messages" : isSettingsTab ? "Account Settings" : isBusinessesTab ? "My Businesses" : "Dashboard"}
+                {isMessagesTab ? "Messages" : isSettingsTab ? "Account Settings" : isBusinessesTab ? "My Businesses" : isJobFeedTab ? "Job Feed" : isMyQuotesTab ? "My Quotes" : "Dashboard"}
               </h1>
               <p className="text-sm text-muted-foreground">
                 {isMessagesTab 
@@ -505,10 +505,14 @@ const Dashboard = () => {
                     ? "Manage your account and payment settings." 
                     : isBusinessesTab
                       ? "Manage your businesses and services."
-                      : "Welcome back! Here's your activity overview."}
+                      : isJobFeedTab
+                        ? "Browse open requests and submit quotes."
+                        : isMyQuotesTab
+                          ? "Track quotes you've sent to clients."
+                          : "Welcome back! Here's your activity overview."}
               </p>
             </div>
-            {!isMessagesTab && !isSettingsTab && !isBusinessesTab && (
+            {!isMessagesTab && !isSettingsTab && !isBusinessesTab && !isJobFeedTab && !isMyQuotesTab && (
               <Button asChild>
                 <Link to="/request">
                   <Plus className="h-4 w-4" />New Request
