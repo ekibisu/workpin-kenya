@@ -35,6 +35,7 @@ interface BusinessProfile {
   response_time_minutes: number;
   location_name: string | null;
   username: string | null;
+  logo_url: string | null;
 }
 
 interface ProfileData {
@@ -52,6 +53,7 @@ const ProviderProfileSettings = ({ userId }: ProviderProfileSettingsProps) => {
   const [location, setLocation] = useState("");
   const [hours, setHours] = useState<{ [key: string]: string }>({});
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const logoInputRef = useRef<HTMLInputElement | null>(null);
   const portfolioInputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   const { toast } = useToast();
@@ -68,7 +70,7 @@ const ProviderProfileSettings = ({ userId }: ProviderProfileSettingsProps) => {
         businesses (
           id, business_name, bio, avg_rating, total_reviews,
           is_verified, categories, availability_json,
-          portfolio_photos, response_time_minutes, location_name, username
+          portfolio_photos, response_time_minutes, location_name, username, logo_url
         )
       `)
       .eq("id", userId)
