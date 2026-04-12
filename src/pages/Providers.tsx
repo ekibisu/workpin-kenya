@@ -30,6 +30,7 @@ interface Provider {
   rate_kes: number | null;
   rate_type: string | null;
   username: string | null;
+  logo_url: string | null;
   profiles: { full_name: string | null; avatar_url: string | null } | null;
 }
 
@@ -45,7 +46,7 @@ const Providers = () => {
       .from("businesses")
       .select(`
         id, owner_id, business_name, bio, avg_rating, total_reviews,
-        is_verified, categories, location_name, rate_kes, rate_type, username,
+        is_verified, categories, location_name, rate_kes, rate_type, username, logo_url,
         profiles:profiles!businesses_owner_id_fkey ( full_name, avatar_url )
       `)
       .eq("is_active", true)
@@ -189,9 +190,9 @@ const Providers = () => {
                     <Link to={`/pro/${slug}`} className="block">
                       <div className="mb-4 flex items-start gap-3">
                         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 font-heading text-sm font-bold text-primary">
-                          {profileData?.avatar_url ? (
+                          {(provider.logo_url || profileData?.avatar_url) ? (
                             <Image
-                              src={profileData.avatar_url}
+                              src={(provider.logo_url || profileData?.avatar_url)!}
                               alt={provider.business_name}
                               className="h-full w-full rounded-xl object-cover"
                             />

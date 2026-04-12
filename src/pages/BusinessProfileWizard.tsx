@@ -408,6 +408,48 @@ const BusinessProfileWizard = () => {
               {step === 0 && (
                 <Card>
                   <CardContent className="space-y-4 pt-6">
+                    {/* Logo Upload */}
+                    <div className="space-y-1.5">
+                      <Label>Business Logo / Avatar</Label>
+                      <div className="flex items-center gap-4">
+                        <button
+                          type="button"
+                          onClick={() => logoInputRef.current?.click()}
+                          className="relative group flex h-20 w-20 shrink-0 items-center justify-center rounded-xl bg-primary/10 border-2 border-dashed border-primary/30 hover:border-primary/60 transition-colors overflow-hidden"
+                        >
+                          {(logoUrl || logoFile) ? (
+                            <>
+                              <img
+                                src={logoFile ? URL.createObjectURL(logoFile) : logoUrl}
+                                alt="Logo preview"
+                                className="h-full w-full object-cover rounded-xl"
+                              />
+                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                <Camera className="h-5 w-5 text-white" />
+                              </div>
+                            </>
+                          ) : (
+                            <div className="flex flex-col items-center gap-1">
+                              <Camera className="h-5 w-5 text-primary/60" />
+                              <span className="text-[10px] text-primary/60 font-medium">Add Logo</span>
+                            </div>
+                          )}
+                        </button>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          ref={logoInputRef}
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) setLogoFile(file);
+                            e.target.value = "";
+                          }}
+                        />
+                        <p className="text-xs text-muted-foreground">Upload a logo or photo that represents your business. This appears on your profile card and listing.</p>
+                      </div>
+                    </div>
+
                     <div className="space-y-1.5">
                       <Label>Business Name *</Label>
                       <Input value={businessName} onChange={e => setBusinessName(e.target.value)} placeholder="e.g. Mwangi Plumbing" />
