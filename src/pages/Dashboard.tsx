@@ -530,6 +530,19 @@ const Dashboard = () => {
             <UnifiedSettings />
           ) : isBusinessesTab ? (
             <BusinessesPanel />
+          ) : isJobFeedTab ? (
+            <div className="rounded-2xl border border-border bg-card p-6">
+              <ProviderJobFeed />
+            </div>
+          ) : isMyQuotesTab ? (
+            <div className="rounded-2xl border border-border bg-card p-6">
+              <ProviderQuotesPanel
+                onMessage={(threadId, name) => {
+                  setChatWorkThreadId(threadId);
+                  setChatRecipientName(name);
+                }}
+              />
+            </div>
           ) : (
             <>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
