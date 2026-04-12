@@ -18,6 +18,7 @@ import {
   Languages, ChevronRight,
 } from "lucide-react";
 import { motion } from "framer-motion";
+import SubscriptionBadge from "@/components/SubscriptionBadge";
 
 interface ProviderData {
   id: string;
@@ -43,6 +44,7 @@ interface ProviderData {
   languages: string[] | null;
   website_url: string | null;
   whatsapp_phone: string | null;
+  subscription_status: string | null;
   profiles: { full_name: string | null; avatar_url: string | null } | null;
 }
 
@@ -98,7 +100,7 @@ const ProviderLanding = () => {
         id, owner_id, business_name, bio, tagline, hero_image_url, logo_url, categories,
         avg_rating, total_reviews, is_verified, portfolio_photos, location_name,
         rate_kes, rate_type, response_time_minutes, top_skills, username,
-        years_experience, certifications, languages, website_url, whatsapp_phone,
+        years_experience, certifications, languages, website_url, whatsapp_phone, subscription_status,
         profiles:profiles!businesses_owner_id_fkey ( full_name, avatar_url )
       `;
 
@@ -129,6 +131,9 @@ const ProviderLanding = () => {
       setFaqs((faqData as FAQ[]) ?? []);
       setReviews((reviewData as Review[]) ?? []);
       setLoading(false);
+
+      // Track profile view
+      supabase.rpc("track_profile_view" as any, { biz_id: data.id });
 
       // SEO meta
       document.title = `${data.business_name}${data.tagline ? ` — ${data.tagline}` : ""} | WorkPin`;
@@ -207,6 +212,7 @@ const ProviderLanding = () => {
                 <div className="flex items-center gap-2">
                   <h1 className="text-3xl font-extrabold text-foreground font-heading">{provider.business_name}</h1>
                   {provider.is_verified && <BadgeCheck className="h-6 w-6 text-primary" />}
+                  <SubscriptionBadge status={provider.subscription_status} size="md" />
                 </div>
                 {provider.tagline && <p className="text-lg text-muted-foreground">{provider.tagline}</p>}
 

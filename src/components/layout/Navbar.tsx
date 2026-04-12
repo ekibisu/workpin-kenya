@@ -18,6 +18,7 @@ const navLinks = [
   { href: "/", label: "Home" },
   { href: "/services", label: "Services" },
   { href: "/providers", label: "Find Pros" },
+  { href: "/pricing", label: "Pricing" },
   { href: "/how-it-works", label: "How It Works" },
 ];
 
