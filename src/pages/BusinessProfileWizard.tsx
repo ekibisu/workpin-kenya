@@ -18,7 +18,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ChevronLeft, ChevronRight, Loader2, Save, Upload, Plus, X, Trash2,
-  Eye, CheckCircle, Briefcase, Image as ImageIcon, Award, Phone, MapPin,
+  Eye, CheckCircle, Briefcase, Image as ImageIcon, Award, Phone, MapPin, Camera,
 } from "lucide-react";
 import { useMediaUpload } from "@/hooks/useMediaUpload";
 import { generateUniqueSlug } from "@/lib/slugify";
