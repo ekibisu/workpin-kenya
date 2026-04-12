@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
@@ -68,6 +68,9 @@ const BusinessProfileWizard = () => {
   const [bio, setBio] = useState("");
   const [locationName, setLocationName] = useState("");
   const [slug, setSlug] = useState("");
+  const [logoUrl, setLogoUrl] = useState("");
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const logoInputRef = useRef<HTMLInputElement | null>(null);
 
   // Step 2: Services
   const [services, setServices] = useState<BusinessService[]>([]);
@@ -115,6 +118,7 @@ const BusinessProfileWizard = () => {
       setLocationName(biz.location_name || "");
       setSlug(biz.username || "");
       setHeroUrl(biz.hero_image_url || "");
+      setLogoUrl((biz as any).logo_url || "");
       setYearsExperience(biz.years_experience?.toString() || "");
       setCertifications(biz.certifications || []);
       setLanguages(biz.languages || ["English"]);
