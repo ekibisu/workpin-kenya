@@ -44,6 +44,7 @@ interface ProviderData {
   languages: string[] | null;
   website_url: string | null;
   whatsapp_phone: string | null;
+  subscription_status: string | null;
   profiles: { full_name: string | null; avatar_url: string | null } | null;
 }
 
@@ -99,7 +100,7 @@ const ProviderLanding = () => {
         id, owner_id, business_name, bio, tagline, hero_image_url, logo_url, categories,
         avg_rating, total_reviews, is_verified, portfolio_photos, location_name,
         rate_kes, rate_type, response_time_minutes, top_skills, username,
-        years_experience, certifications, languages, website_url, whatsapp_phone,
+        years_experience, certifications, languages, website_url, whatsapp_phone, subscription_status,
         profiles:profiles!businesses_owner_id_fkey ( full_name, avatar_url )
       `;
 
