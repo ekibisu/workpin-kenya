@@ -111,6 +111,33 @@ const ProviderProfileSettings = ({ userId }: ProviderProfileSettingsProps) => {
 
   const biz = data?.businesses?.[0];
 
+  const handleLogoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !biz) return;
+
+    const result = await upload({
+      file,
+      providerId: biz.id,
+      providerSlug: biz.username || userId,
+      providerName: biz.business_name,
+      context: 'logo',
+      tags: ['logo'],
+    });
+
+    if (!result) {
+      toast({ title: "Upload failed", variant: "destructive" });
+      return;
+    }
+
+    await supabase
+      .from("businesses")
+      .update({ logo_url: result.public_url } as any)
+      .eq("id", biz.id);
+
+    toast({ title: "Logo updated" });
+    fetchProfile();
+  };
+
   const handleProfilePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file || !biz) return;
