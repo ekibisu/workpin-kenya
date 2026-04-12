@@ -281,6 +281,31 @@ const ProviderProfileSettings = ({ userId }: ProviderProfileSettingsProps) => {
           </div>
         </div>
 
+        {/* Business Logo */}
+        <div className="flex flex-col items-center gap-3 self-start">
+          <p className="text-sm font-medium text-muted-foreground">Logo</p>
+          <button
+            type="button"
+            onClick={() => logoInputRef.current?.click()}
+            className="relative group flex h-20 w-20 shrink-0 items-center justify-center rounded-xl bg-primary/10 border-2 border-dashed border-primary/30 hover:border-primary/60 transition-colors overflow-hidden"
+          >
+            {biz.logo_url ? (
+              <>
+                <Image src={biz.logo_url} alt="Logo" className="h-full w-full object-cover rounded-xl" />
+                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                  <Camera className="h-5 w-5 text-white" />
+                </div>
+              </>
+            ) : (
+              <div className="flex flex-col items-center gap-1">
+                <Camera className="h-5 w-5 text-primary/60" />
+                <span className="text-[10px] text-primary/60 font-medium">Add Logo</span>
+              </div>
+            )}
+          </button>
+          <input type="file" accept="image/*" ref={logoInputRef} className="hidden" onChange={handleLogoUpload} disabled={uploading} />
+        </div>
+
         {/* Profile Photo */}
         <div className="relative group w-64 h-72 bg-muted rounded-sm overflow-hidden border shadow-sm self-start">
           <Image
