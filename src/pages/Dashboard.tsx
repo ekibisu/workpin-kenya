@@ -365,6 +365,15 @@ const Dashboard = () => {
 
   useEffect(() => {
     if (!user) return;
+    // Check if user owns any active businesses (for provider tabs)
+    supabase
+      .from("businesses")
+      .select("id")
+      .eq("owner_id", user.id)
+      .eq("is_active", true)
+      .limit(1)
+      .then(({ data }) => setHasBusinesses((data || []).length > 0));
+
     supabase
       .from("job_requests")
       .select("id, description, location_name, status, created_at, image_urls, services(name, archetype)")
