@@ -140,8 +140,12 @@ export default function ProviderJobFeed() {
 
   const handleQuoteSubmitted = (requestId: string) => {
     setQuotedRequestIds((prev) => new Set(prev).add(requestId));
+    setQuotesThisMonth((n) => n + 1);
     setQuoteJob(null);
   };
+
+  const monthlyLimit = limits.max_quotes_per_month;
+  const limitReached = !isUnlimited(monthlyLimit) && quotesThisMonth >= monthlyLimit;
 
   if (loading) {
     return (
@@ -165,6 +169,27 @@ export default function ProviderJobFeed() {
 
   return (
     <div className="space-y-4">
+      {limitReached && (
+        <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 flex items-start justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold text-foreground">
+              Monthly quote limit reached ({quotesThisMonth}/{monthlyLimit})
+            </p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              You're on the <strong>{planName}</strong> plan. Upgrade to send more quotes this month.
+            </p>
+          </div>
+          <Button asChild size="sm">
+            <Link to="/pricing">Upgrade</Link>
+          </Button>
+        </div>
+      )}
+      {!limitReached && !isUnlimited(monthlyLimit) && quotesThisMonth >= Math.max(1, monthlyLimit - 2) && (
+        <div className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+          {quotesThisMonth} of {monthlyLimit} quotes used this month on the {planName} plan.{" "}
+          <Link to="/pricing" className="text-primary hover:underline">Upgrade</Link>
+        </div>
+      )}
       {/* Filters */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="relative flex-1 max-w-sm">
