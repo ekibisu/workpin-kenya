@@ -70,41 +70,50 @@ const StepIndicator = ({ steps, current }: StepIndicatorProps) => {
 
 // ─── Phone field ──────────────────────────────────────────────────────────────
 
+import CountrySelect from "@/components/CountrySelect";
+import RegionSelect from "@/components/RegionSelect";
+import { useCountry } from "@/hooks/useCountries";
+
 interface PhoneFieldProps {
   value: string;
   onChange: (v: string) => void;
+  countryCode: string;
   hint?: string;
 }
-const PhoneField = ({ value, onChange, hint }: PhoneFieldProps) => (
-  <div className="space-y-1.5">
-    <Label htmlFor="mpesa">M-Pesa phone number</Label>
-    <div className="flex">
-      <span className="inline-flex items-center gap-1 rounded-l-md border border-r-0 border-input bg-muted px-3 text-sm text-muted-foreground select-none">
-        🇰🇪 +254
-      </span>
-      <Input
-        id="mpesa"
-        className="rounded-l-none"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder="7XX XXX XXX"
-        inputMode="numeric"
-        maxLength={12}
-        required
-      />
+const PhoneField = ({ value, onChange, countryCode, hint }: PhoneFieldProps) => {
+  const country = useCountry(countryCode);
+  return (
+    <div className="space-y-1.5">
+      <Label htmlFor="mpesa">Mobile money phone number</Label>
+      <div className="flex">
+        <span className="inline-flex items-center gap-1 rounded-l-md border border-r-0 border-input bg-muted px-3 text-sm text-muted-foreground select-none">
+          {country?.flag_emoji} {country?.dial_code ?? "+254"}
+        </span>
+        <Input
+          id="mpesa"
+          className="rounded-l-none"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="7XX XXX XXX"
+          inputMode="numeric"
+          maxLength={15}
+          required
+        />
+      </div>
+      <p className="text-xs text-muted-foreground">{hint ?? "Used for mobile money payments"}</p>
     </div>
-    <p className="text-xs text-muted-foreground">{hint ?? "Format: 07XX XXX XXX"}</p>
-  </div>
-);
+  );
+};
 
-const validatePhone = (raw: string) => {
+const validatePhone = (raw: string, regex?: string) => {
   const digits = raw.replace(/\s/g, "");
-  return /^07\d{8}$/.test(digits) ? digits : null;
+  if (!regex) return /^0?\d{8,12}$/.test(digits) ? digits : null;
+  try { return new RegExp(regex).test(digits) ? digits : null; } catch { return digits; }
 };
 
 // ─── Unified onboarding form ─────────────────────────────────────────────────
 
-const STEPS = ["Personal info", "Payment"];
+const STEPS = ["Personal info", "Location", "Payment"];
 
 const OnboardingForm = ({ userId, initialName }: { userId: string; initialName: string }) => {
   const navigate = useNavigate();
@@ -113,16 +122,21 @@ const OnboardingForm = ({ userId, initialName }: { userId: string; initialName: 
 
   const [fullName, setFullName] = useState(initialName);
   const [location, setLocation] = useState("");
+  const [countryCode, setCountryCode] = useState<string>("KE");
+  const [regionId, setRegionId] = useState<string | null>(null);
   const [mpesa, setMpesa] = useState("");
   const [saving, setSaving] = useState(false);
+  const country = useCountry(countryCode);
 
   const canNext =
-    step === 0 ? fullName.trim() !== "" && location.trim() !== "" : mpesa.trim() !== "";
+    step === 0 ? fullName.trim() !== "" && location.trim() !== ""
+    : step === 1 ? !!countryCode
+    : mpesa.trim() !== "";
 
   const handleSave = async () => {
-    const digits = validatePhone(mpesa);
+    const digits = validatePhone(mpesa, country?.phone_regex);
     if (!digits) {
-      toast({ title: "Invalid phone number", description: "Format: 07XX XXX XXX", variant: "destructive" });
+      toast({ title: "Invalid phone number", description: `Please use a valid ${country?.name ?? ""} number`, variant: "destructive" });
       return;
     }
     setSaving(true);
@@ -134,6 +148,8 @@ const OnboardingForm = ({ userId, initialName }: { userId: string; initialName: 
           onboarding_complete: true,
           location_name: location.trim(),
           mpesa_phone: digits,
+          country_code: countryCode,
+          region_id: regionId,
         })
         .eq("id", userId);
       if (pErr) throw pErr;
@@ -178,14 +194,27 @@ const OnboardingForm = ({ userId, initialName }: { userId: string; initialName: 
                   <Input id="fullName" value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Your full name" required />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="location">Location</Label>
-                  <Input id="location" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="e.g. Kilimani, Nairobi" required />
+                  <Label htmlFor="location">Neighbourhood / Area</Label>
+                  <Input id="location" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="e.g. Kilimani" required />
                 </div>
               </>
             )}
 
             {step === 1 && (
-              <PhoneField value={mpesa} onChange={setMpesa} hint="Used for M-Pesa payments on Workpin" />
+              <>
+                <div className="space-y-1.5">
+                  <Label>Country</Label>
+                  <CountrySelect value={countryCode} onChange={(c) => { setCountryCode(c); setRegionId(null); }} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Region</Label>
+                  <RegionSelect countryCode={countryCode} value={regionId} onChange={setRegionId} />
+                </div>
+              </>
+            )}
+
+            {step === 2 && (
+              <PhoneField value={mpesa} onChange={setMpesa} countryCode={countryCode} hint={`Used for mobile money payments in ${country?.name ?? ""}`} />
             )}
           </CardContent>
         </Card>
