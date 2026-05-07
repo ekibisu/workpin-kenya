@@ -25,6 +25,8 @@ import { generateUniqueSlug } from "@/lib/slugify";
 import { computeCompleteness } from "@/lib/profileCompleteness";
 import { useSubscriptionLimits, isUnlimited } from "@/hooks/useSubscriptionLimits";
 import { Link } from "react-router-dom";
+import CountrySelect from "@/components/CountrySelect";
+import CountryMultiSelect from "@/components/CountryMultiSelect";
 
 const STEPS = ["Basics", "Services", "Gallery", "Credentials", "Contact", "Preview"];
 
