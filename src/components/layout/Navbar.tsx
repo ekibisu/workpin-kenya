@@ -23,6 +23,28 @@ const navLinks = [
   { href: "/how-it-works", label: "How It Works" },
 ];
 
+const CountrySwitcher = () => {
+  const { activeCountry, setActiveCountry, countries, country } = useActiveCountry();
+  if (!countries.length) return null;
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground">
+          <Globe className="h-3.5 w-3.5" />
+          <span>{country?.flag_emoji} {activeCountry}</span>
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-44">
+        {countries.map((c) => (
+          <DropdownMenuItem key={c.code} onClick={() => setActiveCountry(c.code)}>
+            <span className="mr-2">{c.flag_emoji}</span> {c.name}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+};
+
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const location = useLocation();
