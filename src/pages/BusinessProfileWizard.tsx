@@ -72,6 +72,8 @@ const BusinessProfileWizard = () => {
   const [tagline, setTagline] = useState("");
   const [bio, setBio] = useState("");
   const [locationName, setLocationName] = useState("");
+  const [countryCode, setCountryCode] = useState("KE");
+  const [serviceCountries, setServiceCountries] = useState<string[]>(["KE"]);
   const [slug, setSlug] = useState("");
   const [logoUrl, setLogoUrl] = useState("");
   const [logoFile, setLogoFile] = useState<File | null>(null);
