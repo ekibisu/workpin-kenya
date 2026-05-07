@@ -123,6 +123,8 @@ const BusinessProfileWizard = () => {
       setTagline(biz.tagline || "");
       setBio(biz.bio || "");
       setLocationName(biz.location_name || "");
+      setCountryCode((biz as any).country_code || "KE");
+      setServiceCountries(((biz as any).service_country_codes && (biz as any).service_country_codes.length > 0) ? (biz as any).service_country_codes : [(biz as any).country_code || "KE"]);
       setSlug(biz.username || "");
       setHeroUrl(biz.hero_image_url || "");
       setLogoUrl((biz as any).logo_url || "");
