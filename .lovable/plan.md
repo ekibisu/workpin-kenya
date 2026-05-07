@@ -1,83 +1,66 @@
-# Sprint C.5: Geography & Localization
+# Sprint B + Sprint C: Trust, Reliability & Launch Prep
 
-Adds country-aware data model and UI so the marketplace can support multiple East African countries before we wire up Paystack/Pesapal in Sprint D.
+Closing the open trust and legal items so the marketplace is safe to take live before we wire payments.
 
-## Scope (based on your answers)
+## Sprint B — Trust & Reliability
 
-- Launch countries: **Kenya, Uganda, Tanzania, Rwanda** (expandable later via seed-only changes)
-- Users **can switch viewing country freely** — they see their home country by default but can browse other launch countries
-- **Country-only on day 1** — regions table exists but stays empty until per-country onboarding
-- Pesapal will cover all 4 launch countries (M-Pesa KE, MTN/Airtel UG, M-Pesa TZ, MTN RW), so payment provider routing in Sprint D will be simple
+### 1. Fix reviews foreign key (DB migration)
+Current state: `reviews.provider_id` references `profiles(id)`, but in our unified model reviews are written **about a business**. Inserting a review with a business id silently fails the FK. Also `reviews_request_id_fkey` is a duplicate of `reviews_work_thread_fk`.
 
-## Database Changes (one migration)
+Migration:
+- Drop `reviews_provider_id_fkey`, recreate it pointing to `businesses(id) ON DELETE CASCADE`.
+- Drop the redundant `reviews_request_id_fkey`.
 
-**New tables**
-- `countries` — `code` (PK, e.g. `KE`), `name`, `currency_code` (`KES`/`UGX`/`TZS`/`RWF`), `dial_code` (`+254`...), `phone_regex`, `default_payment_provider` (`pesapal`), `flag_emoji`, `is_active`, `sort_order`
-- `regions` — `id`, `country_code` (FK), `name`, `kind` (`county`/`district`/`province`), `is_active`. Empty at launch; populated as we onboard each country.
+### 2. Update ProviderLanding reviews query
+- `src/pages/ProviderLanding.tsx` line 126: change FK alias from `reviews_customer_id_fkey` to `reviews_client_id_fkey` (the actual constraint name) so the join returns the client's name instead of erroring silently.
 
-**Column additions**
-- `profiles`: `country_code` (default `KE`, NOT NULL after backfill), `region_id` (nullable)
-- `businesses`: `country_code` (NOT NULL after backfill), `region_id` (nullable), `service_country_codes text[]` (defaults to `[country_code]` — for cross-border providers later)
-- `job_requests`: `country_code` (NOT NULL after backfill), `region_id` (nullable)
-- `subscription_plans`: `prices jsonb` keyed by currency, e.g. `{"KES":{"monthly":500,"annual":5000},"UGX":{...}}`. Existing `price_monthly_kes`/`price_annual_kes` columns stay during transition; UI reads from `prices` with KES fallback.
+### 3. Enforce subscription limits at the edges
+- `src/pages/BusinessProfileWizard.tsx` (Services + Gallery steps): block "Add" when `business_services.count >= limits.max_services` or `business_gallery.count >= limits.max_gallery`. Show inline upsell card linking to `/pricing`.
+- `src/components/dashboard/ProviderJobFeed.tsx`: count quotes submitted by the owner's businesses this calendar month; if `>= limits.max_quotes_per_month`, disable the "Quote" button per row and surface an upsell banner. Use the existing `useSubscriptionLimits` hook.
 
-**Indexes**: `(country_code)` on `businesses`, `job_requests`; `(country_code, region_id)` composite on both.
+### 4. Google OAuth on Auth page
+- `src/pages/Auth.tsx`: add a "Continue with Google" button (above the email/password form on both Login and Signup tabs). Calls `supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: `${window.location.origin}/dashboard` }})`.
+- `src/pages/Register.tsx`: same button at top of form.
+- No code change needed for the Google provider itself — Lovable Cloud Auth handles it; if the user hasn't enabled Google in Auth settings yet, we will note it in the response so they can flip the toggle.
 
-**Backfill**: every existing row gets `country_code = 'KE'`.
+## Sprint C — Launch Prep
 
-**Seed**: insert KE/UG/TZ/RW rows into `countries`. No regions yet.
+### 5. Terms of Service + Privacy Policy pages
+- `src/pages/Terms.tsx` — boilerplate ToS scoped to a Kenya-incorporated marketplace operating in KE/UG/TZ/RW (account, acceptable use, payments via mobile money, dispute resolution placeholder, governing law).
+- `src/pages/Privacy.tsx` — what we collect (profile, location, mobile-money phone), how we use it, third parties (Lovable Cloud, payment providers), user rights, retention.
+- Wire both into `src/App.tsx` as public routes `/terms` and `/privacy`.
+- `src/components/layout/Footer.tsx`: ensure links exist (replace any "#" placeholders).
+- Register/Auth already reference these pages — they'll resolve once routes exist.
 
-**RLS**: existing policies continue to work — country filtering is done in queries, not RLS (any authenticated user may read businesses/job_requests across countries; the UI applies the active-country filter).
+### 6. Email verification gate
+- `src/pages/Auth.tsx` `handleLogin`: after `signInWithPassword`, check `data.user.email_confirmed_at`. If null, sign the user out and show "Please verify your email — we sent a link to {email}. Resend?" with a resend action calling `supabase.auth.resend({ type: 'signup', email })`.
+- Continue to allow Google OAuth users (they're verified by Google).
 
-## Frontend Changes
-
-**New components**
-- `src/components/CountrySelect.tsx` — flag + name dropdown, fed by `useCountries()` hook
-- `src/components/RegionSelect.tsx` — disabled when `regions` empty for the selected country (shows "Region selection coming soon")
-- `src/contexts/CountryContext.tsx` — holds `activeCountry` (defaults to `profile.country_code`, persisted to `localStorage` as `workpin.activeCountry`); exposes setter used by the navbar switcher
-- `src/hooks/useCountries.ts`, `src/hooks/useRegions.ts`
-
-**Onboarding & registration**
-- `src/pages/Register.tsx` — add CountrySelect before phone; phone input adopts country `dial_code` and `phone_regex`; remove the hardcoded 🇰🇪 / +254 / "Find services across Kenya" copy
-- `src/pages/Onboarding.tsx` — capture `country_code` (+ optional region) and write to `profiles`
-
-**Business creation**
-- `src/components/dashboard/CreateBusinessForm.tsx` — add CountrySelect (defaults to owner's country); submit writes `country_code` and `service_country_codes = [country_code]`
-- `src/pages/BusinessProfileWizard.tsx` — surface the same in the Basics step; allow editing `service_country_codes` (multi-select) for providers who cover more than one country
-
-**Browsing & filtering** (apply `country_code = activeCountry` filter)
-- `src/pages/Providers.tsx`
-- `src/pages/Services.tsx`
-- `src/pages/RequestService.tsx` (sets `country_code` from active country on insert)
-- `src/components/dashboard/ProviderJobFeed.tsx` — filter to jobs in any country listed in the provider's `service_country_codes`
-- `src/components/home/ServiceCategories.tsx` and any other landing surfaces that count/show businesses
-
-**Navbar / global**
-- `src/components/layout/Navbar.tsx` — add a compact country switcher (flag + code) that updates `CountryContext` and triggers a refetch of country-scoped queries
-
-**Pricing**
-- `src/pages/Pricing.tsx` — read `subscription_plans.prices[currency]` based on active country's currency; fall back to KES values if a currency block is missing
-
-## Documentation Updates
-
-- Update `/mnt/documents/WorkPin_Payment_Analysis.md` — confirm Sprint C.5 is the prerequisite for the Paystack/Pesapal pivot; note that all 4 launch countries route to Pesapal, so Paystack is not required at launch but the abstraction stays so we can add NG/GH/ZA later
-- Update `/mnt/documents/WorkPin_PrePayment_Roadmap.md` — insert Sprint C.5 between Sprint C and Sprint D, mark Geography as the gating dependency, and refresh the "remaining work" checklist
-
-## Out of Scope (deferred to later sprints)
-- Region data for any country (added per-country as we onboard)
-- Paystack/Pesapal edge functions (Sprint D)
-- Translation/i18n of UI copy (English only at launch)
-- Per-country tax/VAT handling
+## Out of Scope
+- Persisting `UnifiedSettings.tsx` preferences (small follow-up; not blocking payments)
+- Sprint C.5 leftovers (UGX/TZS/RWF price seeds, wizard country picker) — separate task
+- Sprint D payment integration
 
 ## Files to Create
-`src/components/CountrySelect.tsx`, `src/components/RegionSelect.tsx`, `src/contexts/CountryContext.tsx`, `src/hooks/useCountries.ts`, `src/hooks/useRegions.ts`
+- `src/pages/Terms.tsx`
+- `src/pages/Privacy.tsx`
 
 ## Files to Modify
-`src/App.tsx` (wrap with CountryProvider), `src/pages/Register.tsx`, `src/pages/Onboarding.tsx`, `src/pages/Pricing.tsx`, `src/pages/Providers.tsx`, `src/pages/Services.tsx`, `src/pages/RequestService.tsx`, `src/pages/BusinessProfileWizard.tsx`, `src/components/dashboard/CreateBusinessForm.tsx`, `src/components/dashboard/ProviderJobFeed.tsx`, `src/components/layout/Navbar.tsx`
+- `src/pages/ProviderLanding.tsx` (review query alias)
+- `src/pages/BusinessProfileWizard.tsx` (services/gallery limits)
+- `src/components/dashboard/ProviderJobFeed.tsx` (quote-per-month limit)
+- `src/pages/Auth.tsx` (Google button + email verification gate)
+- `src/pages/Register.tsx` (Google button)
+- `src/components/layout/Footer.tsx` (Terms/Privacy links)
+- `src/App.tsx` (new routes)
 
-## Acceptance Criteria
-- New user from Kampala can register, pick Uganda + a UG phone format, and only sees UG businesses/jobs by default
-- Existing KE users see no behavioural change (their `country_code` is backfilled to `KE`)
-- Any user can flip the navbar country switcher and see Providers/Services/Jobs refilter
-- Pricing page shows UGX/TZS/RWF/KES amounts depending on the active country, falling back to KES
-- Sprint D (Paystack/Pesapal) can begin immediately after this ships, with `profiles.country_code` driving provider selection
+## Database Migration
+One migration: repoint `reviews.provider_id` FK to `businesses`, drop redundant `reviews_request_id_fkey`.
+
+## Acceptance
+- Reviews can be inserted for a business id without FK errors; ProviderLanding shows reviewer names.
+- Free-tier user cannot add a 4th service or 6th gallery item; sees upsell.
+- Free-tier provider cannot submit a 6th quote in the same month; sees upsell.
+- Auth and Register both show "Continue with Google".
+- Unverified email users are blocked at login with a resend link.
+- `/terms` and `/privacy` render real content (linked from Auth, Register, Footer).
