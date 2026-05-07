@@ -25,6 +25,8 @@ import { generateUniqueSlug } from "@/lib/slugify";
 import { computeCompleteness } from "@/lib/profileCompleteness";
 import { useSubscriptionLimits, isUnlimited } from "@/hooks/useSubscriptionLimits";
 import { Link } from "react-router-dom";
+import CountrySelect from "@/components/CountrySelect";
+import CountryMultiSelect from "@/components/CountryMultiSelect";
 
 const STEPS = ["Basics", "Services", "Gallery", "Credentials", "Contact", "Preview"];
 
@@ -70,6 +72,8 @@ const BusinessProfileWizard = () => {
   const [tagline, setTagline] = useState("");
   const [bio, setBio] = useState("");
   const [locationName, setLocationName] = useState("");
+  const [countryCode, setCountryCode] = useState("KE");
+  const [serviceCountries, setServiceCountries] = useState<string[]>(["KE"]);
   const [slug, setSlug] = useState("");
   const [logoUrl, setLogoUrl] = useState("");
   const [logoFile, setLogoFile] = useState<File | null>(null);
@@ -119,6 +123,8 @@ const BusinessProfileWizard = () => {
       setTagline(biz.tagline || "");
       setBio(biz.bio || "");
       setLocationName(biz.location_name || "");
+      setCountryCode((biz as any).country_code || "KE");
+      setServiceCountries(((biz as any).service_country_codes && (biz as any).service_country_codes.length > 0) ? (biz as any).service_country_codes : [(biz as any).country_code || "KE"]);
       setSlug(biz.username || "");
       setHeroUrl(biz.hero_image_url || "");
       setLogoUrl((biz as any).logo_url || "");
@@ -196,6 +202,8 @@ const BusinessProfileWizard = () => {
           tagline: tagline.trim() || null,
           bio: bio.trim() || null,
           location_name: locationName.trim() || null,
+          country_code: countryCode,
+          service_country_codes: serviceCountries.length > 0 ? serviceCountries : [countryCode],
           username: finalSlug || null,
           logo_url: finalLogoUrl || null,
         } as any).eq("id", id);
@@ -300,7 +308,7 @@ const BusinessProfileWizard = () => {
     } finally {
       setSaving(false);
     }
-  }, [step, id, businessName, tagline, bio, locationName, slug, services, heroFile, heroUrl, gallery, yearsExperience, certifications, languages, mpesaPhone, whatsappPhone, websiteUrl, rateKes, rateType, logoFile, logoUrl]);
+  }, [step, id, businessName, tagline, bio, locationName, countryCode, serviceCountries, slug, services, heroFile, heroUrl, gallery, yearsExperience, certifications, languages, mpesaPhone, whatsappPhone, websiteUrl, rateKes, rateType, logoFile, logoUrl]);
 
   const handleNext = async () => {
     await saveStep();
@@ -470,6 +478,16 @@ const BusinessProfileWizard = () => {
                     <div className="space-y-1.5">
                       <Label className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5" /> Location</Label>
                       <Input value={locationName} onChange={e => setLocationName(e.target.value)} placeholder="e.g. Westlands, Nairobi" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Primary Country</Label>
+                      <CountrySelect value={countryCode} onChange={setCountryCode} />
+                      <p className="text-xs text-muted-foreground">Where your business is based.</p>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Countries You Serve</Label>
+                      <CountryMultiSelect value={serviceCountries} onChange={setServiceCountries} />
+                      <p className="text-xs text-muted-foreground">Select every country where you accept jobs. Leads outside these are hidden.</p>
                     </div>
                     {slug && (
                       <div className="rounded-lg bg-accent/50 p-3 text-sm">

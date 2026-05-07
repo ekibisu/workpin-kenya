@@ -62,7 +62,12 @@ const Profile = () => {
       <Navbar />
       <main className="flex-1 bg-background">
         <div className="container max-w-2xl py-10">
-          <h1 className="mb-6 text-2xl font-extrabold text-foreground">My Profile</h1>
+          <div className="mb-6 flex items-center justify-between">
+            <h1 className="text-2xl font-extrabold text-foreground">My Profile</h1>
+            <Button variant="outline" size="sm" asChild>
+              <Link to="/settings"><Settings className="mr-1.5 h-3.5 w-3.5" /> Settings</Link>
+            </Button>
+          </div>
 
           {/* Personal Info Card */}
           <div className="rounded-2xl border border-border bg-card p-6">
