@@ -202,6 +202,8 @@ const BusinessProfileWizard = () => {
           tagline: tagline.trim() || null,
           bio: bio.trim() || null,
           location_name: locationName.trim() || null,
+          country_code: countryCode,
+          service_country_codes: serviceCountries.length > 0 ? serviceCountries : [countryCode],
           username: finalSlug || null,
           logo_url: finalLogoUrl || null,
         } as any).eq("id", id);
