@@ -247,6 +247,7 @@ export type Database = {
           business_name: string
           categories: string[] | null
           certifications: string[] | null
+          country_code: string
           created_at: string
           geom: unknown
           hero_image_url: string | null
@@ -263,8 +264,10 @@ export type Database = {
           portfolio_photos: string[] | null
           rate_kes: number | null
           rate_type: string | null
+          region_id: string | null
           response_time_minutes: number | null
           service_area_description: string | null
+          service_country_codes: string[]
           service_radius_km: number | null
           social_links: Json | null
           subscription_status: string | null
@@ -284,6 +287,7 @@ export type Database = {
           business_name: string
           categories?: string[] | null
           certifications?: string[] | null
+          country_code?: string
           created_at?: string
           geom?: unknown
           hero_image_url?: string | null
@@ -300,8 +304,10 @@ export type Database = {
           portfolio_photos?: string[] | null
           rate_kes?: number | null
           rate_type?: string | null
+          region_id?: string | null
           response_time_minutes?: number | null
           service_area_description?: string | null
+          service_country_codes?: string[]
           service_radius_km?: number | null
           social_links?: Json | null
           subscription_status?: string | null
@@ -321,6 +327,7 @@ export type Database = {
           business_name?: string
           categories?: string[] | null
           certifications?: string[] | null
+          country_code?: string
           created_at?: string
           geom?: unknown
           hero_image_url?: string | null
@@ -337,8 +344,10 @@ export type Database = {
           portfolio_photos?: string[] | null
           rate_kes?: number | null
           rate_type?: string | null
+          region_id?: string | null
           response_time_minutes?: number | null
           service_area_description?: string | null
+          service_country_codes?: string[]
           service_radius_km?: number | null
           social_links?: Json | null
           subscription_status?: string | null
@@ -353,10 +362,24 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "businesses_country_code_fkey"
+            columns: ["country_code"]
+            isOneToOne: false
+            referencedRelation: "countries"
+            referencedColumns: ["code"]
+          },
+          {
             foreignKeyName: "businesses_owner_id_fkey"
             columns: ["owner_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "businesses_region_id_fkey"
+            columns: ["region_id"]
+            isOneToOne: false
+            referencedRelation: "regions"
             referencedColumns: ["id"]
           },
         ]
@@ -386,6 +409,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      countries: {
+        Row: {
+          code: string
+          created_at: string
+          currency_code: string
+          default_payment_provider: string
+          dial_code: string
+          flag_emoji: string | null
+          is_active: boolean
+          name: string
+          phone_regex: string
+          sort_order: number
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          currency_code: string
+          default_payment_provider?: string
+          dial_code: string
+          flag_emoji?: string | null
+          is_active?: boolean
+          name: string
+          phone_regex: string
+          sort_order?: number
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          currency_code?: string
+          default_payment_provider?: string
+          dial_code?: string
+          flag_emoji?: string | null
+          is_active?: boolean
+          name?: string
+          phone_regex?: string
+          sort_order?: number
+        }
+        Relationships: []
       }
       disputes: {
         Row: {
@@ -484,6 +546,7 @@ export type Database = {
           budget_max_kes: number | null
           budget_min_kes: number | null
           client_id: string
+          country_code: string
           created_at: string
           description: string
           id: string
@@ -491,6 +554,7 @@ export type Database = {
           lat: number | null
           lng: number | null
           location_name: string | null
+          region_id: string | null
           service_id: string
           status: string
           timeline: string | null
@@ -500,6 +564,7 @@ export type Database = {
           budget_max_kes?: number | null
           budget_min_kes?: number | null
           client_id: string
+          country_code?: string
           created_at?: string
           description: string
           id?: string
@@ -507,6 +572,7 @@ export type Database = {
           lat?: number | null
           lng?: number | null
           location_name?: string | null
+          region_id?: string | null
           service_id: string
           status?: string
           timeline?: string | null
@@ -516,6 +582,7 @@ export type Database = {
           budget_max_kes?: number | null
           budget_min_kes?: number | null
           client_id?: string
+          country_code?: string
           created_at?: string
           description?: string
           id?: string
@@ -523,12 +590,27 @@ export type Database = {
           lat?: number | null
           lng?: number | null
           location_name?: string | null
+          region_id?: string | null
           service_id?: string
           status?: string
           timeline?: string | null
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "job_requests_country_code_fkey"
+            columns: ["country_code"]
+            isOneToOne: false
+            referencedRelation: "countries"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "job_requests_region_id_fkey"
+            columns: ["region_id"]
+            isOneToOne: false
+            referencedRelation: "regions"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "service_requests_customer_id_fkey"
             columns: ["client_id"]
@@ -744,6 +826,7 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
+          country_code: string
           created_at: string
           email: string | null
           full_name: string | null
@@ -754,11 +837,13 @@ export type Database = {
           mpesa_phone: string | null
           onboarding_complete: boolean
           phone: string | null
+          region_id: string | null
           subscription_tier: string
           updated_at: string
         }
         Insert: {
           avatar_url?: string | null
+          country_code?: string
           created_at?: string
           email?: string | null
           full_name?: string | null
@@ -769,11 +854,13 @@ export type Database = {
           mpesa_phone?: string | null
           onboarding_complete?: boolean
           phone?: string | null
+          region_id?: string | null
           subscription_tier?: string
           updated_at?: string
         }
         Update: {
           avatar_url?: string | null
+          country_code?: string
           created_at?: string
           email?: string | null
           full_name?: string | null
@@ -784,10 +871,26 @@ export type Database = {
           mpesa_phone?: string | null
           onboarding_complete?: boolean
           phone?: string | null
+          region_id?: string | null
           subscription_tier?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_country_code_fkey"
+            columns: ["country_code"]
+            isOneToOne: false
+            referencedRelation: "countries"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "profiles_region_id_fkey"
+            columns: ["region_id"]
+            isOneToOne: false
+            referencedRelation: "regions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       provider_templates: {
         Row: {
@@ -911,6 +1014,44 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "work_threads"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      regions: {
+        Row: {
+          country_code: string
+          created_at: string
+          id: string
+          is_active: boolean
+          kind: string
+          name: string
+          sort_order: number
+        }
+        Insert: {
+          country_code: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          kind?: string
+          name: string
+          sort_order?: number
+        }
+        Update: {
+          country_code?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          kind?: string
+          name?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "regions_country_code_fkey"
+            columns: ["country_code"]
+            isOneToOne: false
+            referencedRelation: "countries"
+            referencedColumns: ["code"]
           },
         ]
       }
@@ -1046,6 +1187,7 @@ export type Database = {
           name: string
           price_annual_kes: number
           price_monthly_kes: number
+          prices: Json
           sort_order: number
         }
         Insert: {
@@ -1057,6 +1199,7 @@ export type Database = {
           name: string
           price_annual_kes?: number
           price_monthly_kes?: number
+          prices?: Json
           sort_order?: number
         }
         Update: {
@@ -1068,6 +1211,7 @@ export type Database = {
           name?: string
           price_annual_kes?: number
           price_monthly_kes?: number
+          prices?: Json
           sort_order?: number
         }
         Relationships: []
