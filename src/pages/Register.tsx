@@ -6,6 +6,8 @@ import { Label } from "@/components/ui/label";
 import { MapPin, ArrowLeft, Mail, Lock, User, Loader2, Phone } from "lucide-react";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
+import CountrySelect from "@/components/CountrySelect";
+import { useCountry } from "@/hooks/useCountries";
 
 export default function Register() {
   const navigate = useNavigate();
@@ -13,8 +15,10 @@ export default function Register() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [phone, setPhone] = useState("");
+  const [countryCode, setCountryCode] = useState("KE");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const country = useCountry(countryCode);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,6 +32,7 @@ export default function Register() {
           data: {
             full_name: fullName,
             phone: phone,
+            country_code: countryCode,
           },
           emailRedirectTo: `${window.location.origin}/dashboard`,
         },
@@ -54,7 +59,7 @@ export default function Register() {
             <MapPin className="h-8 w-8" />
           </div>
           <h2 className="mb-4 text-3xl font-extrabold">Welcome to Workpin</h2>
-          <p className="opacity-90">Connect with trusted service professionals across Kenya.</p>
+          <p className="opacity-90">Connect with trusted service professionals across East Africa.</p>
         </div>
       </div>
 
