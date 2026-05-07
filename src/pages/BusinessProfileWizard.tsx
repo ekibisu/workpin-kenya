@@ -479,6 +479,16 @@ const BusinessProfileWizard = () => {
                       <Label className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5" /> Location</Label>
                       <Input value={locationName} onChange={e => setLocationName(e.target.value)} placeholder="e.g. Westlands, Nairobi" />
                     </div>
+                    <div className="space-y-1.5">
+                      <Label>Primary Country</Label>
+                      <CountrySelect value={countryCode} onChange={setCountryCode} />
+                      <p className="text-xs text-muted-foreground">Where your business is based.</p>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Countries You Serve</Label>
+                      <CountryMultiSelect value={serviceCountries} onChange={setServiceCountries} />
+                      <p className="text-xs text-muted-foreground">Select every country where you accept jobs. Leads outside these are hidden.</p>
+                    </div>
                     {slug && (
                       <div className="rounded-lg bg-accent/50 p-3 text-sm">
                         <span className="text-muted-foreground">Your profile URL: </span>
