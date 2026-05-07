@@ -21,6 +21,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import CountrySelect from "@/components/CountrySelect";
+import { useActiveCountry } from "@/contexts/CountryContext";
 
 interface CreateBusinessFormProps {
   open: boolean;
@@ -39,6 +41,7 @@ const CreateBusinessForm = ({ open, onOpenChange, onCreated, redirectToWizard = 
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
+  const { activeCountry } = useActiveCountry();
   const [services, setServices] = useState<ServiceOption[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
@@ -49,6 +52,9 @@ const CreateBusinessForm = ({ open, onOpenChange, onCreated, redirectToWizard = 
   const [rateType, setRateType] = useState("hourly");
   const [mpesaPhone, setMpesaPhone] = useState("");
   const [locationName, setLocationName] = useState("");
+  const [countryCode, setCountryCode] = useState<string>(activeCountry || "KE");
+
+  useEffect(() => { setCountryCode(activeCountry || "KE"); }, [activeCountry]);
 
   useEffect(() => {
     supabase
