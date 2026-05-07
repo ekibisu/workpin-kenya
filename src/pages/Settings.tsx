@@ -14,7 +14,7 @@ import { useActiveCountry } from "@/contexts/CountryContext";
 
 const Settings = () => {
   const { user, loading: authLoading } = useAuth();
-  const { setCountryCode: setActiveCountryCode } = useActiveCountry();
+  const { setActiveCountry } = useActiveCountry();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [countryCode, setCountryCode] = useState("KE");
