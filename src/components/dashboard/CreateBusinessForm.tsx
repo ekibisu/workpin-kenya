@@ -86,6 +86,8 @@ const CreateBusinessForm = ({ open, onOpenChange, onCreated, redirectToWizard = 
         rate_type: rateType,
         mpesa_phone: mpesaPhone.trim() || null,
         location_name: locationName.trim() || null,
+        country_code: countryCode,
+        service_country_codes: [countryCode],
       })
       .select("id, business_name, bio, categories, avg_rating, total_reviews, is_active, location_name, rate_kes, rate_type")
       .single();
