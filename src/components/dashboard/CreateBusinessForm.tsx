@@ -204,6 +204,11 @@ const CreateBusinessForm = ({ open, onOpenChange, onCreated, redirectToWizard = 
               placeholder="e.g. Westlands, Nairobi"
             />
           </div>
+
+          <div className="space-y-1.5">
+            <Label>Country</Label>
+            <CountrySelect value={countryCode} onChange={setCountryCode} />
+          </div>
         </div>
 
         <div className="flex justify-end gap-2 border-t border-border px-6 py-4">
