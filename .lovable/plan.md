@@ -49,3 +49,13 @@ Finish the deferred Sprint C item: a Preferences card on `src/pages/UnifiedSetti
 ## Deliverable
 
 After this lands, every prerequisite the Sprint D plan depends on (country on profile, multi-currency plan prices, provider service-country coverage, user-controllable country preference) is in place, and Sprint D can start cleanly.
+
+---
+
+## Status: Shipped
+
+- ✅ Seeded UGX/TZS/RWF prices on Free/Pro/Premium in `subscription_plans.prices`. `Pricing.tsx` already reads currency-aware values from `useActiveCountry`.
+- ✅ Added `CountryMultiSelect` and wired primary-country + service-countries pickers into `BusinessProfileWizard.tsx` (Basics step), persisted to `businesses.country_code` and `businesses.service_country_codes`.
+- ✅ Created `src/pages/Settings.tsx` (`/settings`) with country + region preference card writing to `profiles.country_code` / `profiles.region_id`, syncs `useActiveCountry`. Linked from `Profile.tsx`.
+
+Sprint D (Pesapal + Paystack) is now unblocked.
