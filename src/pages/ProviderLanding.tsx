@@ -123,7 +123,7 @@ const ProviderLanding = () => {
         supabase.from("business_services").select("id, custom_name, description, price_kes, price_type, duration_estimate").eq("business_id", data.id).eq("is_active", true).order("sort_order"),
         supabase.from("business_gallery").select("id, media_url, caption, alt_text, category").eq("business_id", data.id).order("sort_order"),
         supabase.from("business_faqs").select("id, question, answer").eq("business_id", data.id).order("sort_order"),
-        supabase.from("reviews").select("id, rating, body, created_at, profiles:profiles!reviews_customer_id_fkey ( full_name )").eq("provider_id", data.id).order("created_at", { ascending: false }).limit(10),
+        supabase.from("reviews").select("id, rating, body, created_at, profiles:profiles!reviews_client_id_fkey ( full_name )").eq("provider_id", data.id).order("created_at", { ascending: false }).limit(10),
       ]);
 
       setBizServices((svcData as BusinessService[]) ?? []);
