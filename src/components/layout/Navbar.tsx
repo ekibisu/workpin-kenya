@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Menu, X, MapPin, LogOut, User, Settings, LayoutDashboard } from "lucide-react";
+import { Menu, X, MapPin, LogOut, User, Settings, LayoutDashboard, Globe } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { supabase } from "@/integrations/supabase/client";
+import { useActiveCountry } from "@/contexts/CountryContext";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -91,6 +92,7 @@ const Navbar = () => {
         </div>
 
         <div className="hidden items-center gap-3 md:flex">
+          <CountrySwitcher />
           {user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
