@@ -12,6 +12,8 @@ import {
 } from "@/components/ui/select";
 import { formatDistanceToNow } from "date-fns";
 import SubmitQuoteForm from "./SubmitQuoteForm";
+import { useSubscriptionLimits, isUnlimited } from "@/hooks/useSubscriptionLimits";
+import { Link } from "react-router-dom";
 
 interface OpenJob {
   id: string;
@@ -44,9 +46,11 @@ function parseDescription(raw: string): string {
 
 export default function ProviderJobFeed() {
   const { user } = useAuth();
+  const { limits, planName } = useSubscriptionLimits(user?.id);
   const [jobs, setJobs] = useState<OpenJob[]>([]);
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [quotedRequestIds, setQuotedRequestIds] = useState<Set<string>>(new Set());
+  const [quotesThisMonth, setQuotesThisMonth] = useState(0);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
@@ -92,9 +96,17 @@ export default function ProviderJobFeed() {
       const bizIds = biz.map((b) => b.id);
       const { data: quotedData } = await supabase
         .from("quotes")
-        .select("request_id")
+        .select("request_id, created_at")
         .in("provider_id", bizIds);
       setQuotedRequestIds(new Set((quotedData || []).map((q) => q.request_id)));
+
+      // Count quotes this calendar month
+      const monthStart = new Date();
+      monthStart.setDate(1);
+      monthStart.setHours(0, 0, 0, 0);
+      setQuotesThisMonth(
+        (quotedData || []).filter((q: any) => new Date(q.created_at) >= monthStart).length
+      );
 
       setLoading(false);
     };
