@@ -22,6 +22,8 @@ import ResetPassword from "./pages/ResetPassword";
 import BusinessManage from "./pages/BusinessManage";
 import BusinessProfileWizard from "./pages/BusinessProfileWizard";
 import Pricing from "./pages/Pricing";
+import Terms from "./pages/Terms";
+import Privacy from "./pages/Privacy";
 
 const queryClient = new QueryClient();
 
@@ -43,6 +45,8 @@ const App = () => (
             <Route path="/pro/:slug" element={<ProviderLanding />} />
             <Route path="/how-it-works" element={<HowItWorks />} />
             <Route path="/pricing" element={<Pricing />} />
+            <Route path="/terms" element={<Terms />} />
+            <Route path="/privacy" element={<Privacy />} />
             <Route path="/request" element={<RequestService />} />
             <Route
               path="/dashboard"

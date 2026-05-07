@@ -12,6 +12,8 @@ import {
 } from "@/components/ui/select";
 import { formatDistanceToNow } from "date-fns";
 import SubmitQuoteForm from "./SubmitQuoteForm";
+import { useSubscriptionLimits, isUnlimited } from "@/hooks/useSubscriptionLimits";
+import { Link } from "react-router-dom";
 
 interface OpenJob {
   id: string;
@@ -44,9 +46,11 @@ function parseDescription(raw: string): string {
 
 export default function ProviderJobFeed() {
   const { user } = useAuth();
+  const { limits, planName } = useSubscriptionLimits(user?.id);
   const [jobs, setJobs] = useState<OpenJob[]>([]);
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [quotedRequestIds, setQuotedRequestIds] = useState<Set<string>>(new Set());
+  const [quotesThisMonth, setQuotesThisMonth] = useState(0);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
@@ -92,9 +96,17 @@ export default function ProviderJobFeed() {
       const bizIds = biz.map((b) => b.id);
       const { data: quotedData } = await supabase
         .from("quotes")
-        .select("request_id")
+        .select("request_id, created_at")
         .in("provider_id", bizIds);
       setQuotedRequestIds(new Set((quotedData || []).map((q) => q.request_id)));
+
+      // Count quotes this calendar month
+      const monthStart = new Date();
+      monthStart.setDate(1);
+      monthStart.setHours(0, 0, 0, 0);
+      setQuotesThisMonth(
+        (quotedData || []).filter((q: any) => new Date(q.created_at) >= monthStart).length
+      );
 
       setLoading(false);
     };
@@ -128,8 +140,12 @@ export default function ProviderJobFeed() {
 
   const handleQuoteSubmitted = (requestId: string) => {
     setQuotedRequestIds((prev) => new Set(prev).add(requestId));
+    setQuotesThisMonth((n) => n + 1);
     setQuoteJob(null);
   };
+
+  const monthlyLimit = limits.max_quotes_per_month;
+  const limitReached = !isUnlimited(monthlyLimit) && quotesThisMonth >= monthlyLimit;
 
   if (loading) {
     return (
@@ -153,6 +169,27 @@ export default function ProviderJobFeed() {
 
   return (
     <div className="space-y-4">
+      {limitReached && (
+        <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 flex items-start justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold text-foreground">
+              Monthly quote limit reached ({quotesThisMonth}/{monthlyLimit})
+            </p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              You're on the <strong>{planName}</strong> plan. Upgrade to send more quotes this month.
+            </p>
+          </div>
+          <Button asChild size="sm">
+            <Link to="/pricing">Upgrade</Link>
+          </Button>
+        </div>
+      )}
+      {!limitReached && !isUnlimited(monthlyLimit) && quotesThisMonth >= Math.max(1, monthlyLimit - 2) && (
+        <div className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+          {quotesThisMonth} of {monthlyLimit} quotes used this month on the {planName} plan.{" "}
+          <Link to="/pricing" className="text-primary hover:underline">Upgrade</Link>
+        </div>
+      )}
       {/* Filters */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="relative flex-1 max-w-sm">
@@ -245,6 +282,8 @@ export default function ProviderJobFeed() {
                     ) : (
                       <Button
                         size="sm"
+                        disabled={limitReached}
+                        title={limitReached ? "Monthly quote limit reached — upgrade to send more" : undefined}
                         onClick={() => setQuoteJob(job)}
                       >
                         <MessageSquareQuote className="mr-1 h-3.5 w-3.5" />

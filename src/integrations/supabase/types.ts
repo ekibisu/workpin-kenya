@@ -1098,14 +1098,7 @@ export type Database = {
             foreignKeyName: "reviews_provider_id_fkey"
             columns: ["provider_id"]
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "reviews_request_id_fkey"
-            columns: ["work_thread_id"]
-            isOneToOne: false
-            referencedRelation: "job_requests"
+            referencedRelation: "businesses"
             referencedColumns: ["id"]
           },
           {

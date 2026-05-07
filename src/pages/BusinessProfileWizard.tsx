@@ -23,6 +23,8 @@ import {
 import { useMediaUpload } from "@/hooks/useMediaUpload";
 import { generateUniqueSlug } from "@/lib/slugify";
 import { computeCompleteness } from "@/lib/profileCompleteness";
+import { useSubscriptionLimits, isUnlimited } from "@/hooks/useSubscriptionLimits";
+import { Link } from "react-router-dom";
 
 const STEPS = ["Basics", "Services", "Gallery", "Credentials", "Contact", "Preview"];
 
@@ -56,6 +58,7 @@ const BusinessProfileWizard = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { upload, uploading } = useMediaUpload();
+  const { limits, planName } = useSubscriptionLimits(user?.id);
 
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -482,11 +485,30 @@ const BusinessProfileWizard = () => {
               {step === 1 && (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <p className="text-sm text-muted-foreground">Add the services you offer. Each service gets its own pricing shown on your profile.</p>
-                    <Button size="sm" variant="outline" onClick={addService}>
+                    <p className="text-sm text-muted-foreground">
+                      Add the services you offer. Each service gets its own pricing shown on your profile.
+                      {!isUnlimited(limits.max_services) && (
+                        <span className="ml-1 text-xs">({services.length}/{limits.max_services} on {planName})</span>
+                      )}
+                    </p>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={addService}
+                      disabled={!isUnlimited(limits.max_services) && services.length >= limits.max_services}
+                    >
                       <Plus className="mr-1 h-3.5 w-3.5" /> Add Service
                     </Button>
                   </div>
+
+                  {!isUnlimited(limits.max_services) && services.length >= limits.max_services && (
+                    <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-xs flex items-center justify-between gap-3">
+                      <span className="text-muted-foreground">
+                        You've reached the {planName} plan limit of {limits.max_services} services.
+                      </span>
+                      <Link to="/pricing" className="font-medium text-primary hover:underline">Upgrade</Link>
+                    </div>
+                  )}
 
                   {services.length === 0 ? (
                     <Card>
@@ -619,14 +641,35 @@ const BusinessProfileWizard = () => {
                   <Card>
                     <CardContent className="space-y-3 pt-5">
                       <div className="flex items-center justify-between">
-                        <Label className="flex items-center gap-1"><ImageIcon className="h-3.5 w-3.5" /> Portfolio Gallery</Label>
-                        <label className="cursor-pointer">
-                          <Button size="sm" variant="outline" asChild>
+                        <Label className="flex items-center gap-1">
+                          <ImageIcon className="h-3.5 w-3.5" /> Portfolio Gallery
+                          {!isUnlimited(limits.max_gallery) && (
+                            <span className="ml-1 text-xs font-normal text-muted-foreground">({gallery.length}/{limits.max_gallery})</span>
+                          )}
+                        </Label>
+                        <label className={(!isUnlimited(limits.max_gallery) && gallery.length >= limits.max_gallery) ? "cursor-not-allowed opacity-50" : "cursor-pointer"}>
+                          <Button size="sm" variant="outline" asChild disabled={!isUnlimited(limits.max_gallery) && gallery.length >= limits.max_gallery}>
                             <span><Plus className="mr-1 h-3.5 w-3.5" /> Add Photos</span>
                           </Button>
-                          <input type="file" accept="image/*" multiple className="hidden" onChange={handleGalleryUpload} />
+                          <input
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            className="hidden"
+                            disabled={!isUnlimited(limits.max_gallery) && gallery.length >= limits.max_gallery}
+                            onChange={handleGalleryUpload}
+                          />
                         </label>
                       </div>
+
+                      {!isUnlimited(limits.max_gallery) && gallery.length >= limits.max_gallery && (
+                        <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-xs flex items-center justify-between gap-3">
+                          <span className="text-muted-foreground">
+                            You've reached the {planName} plan limit of {limits.max_gallery} photos.
+                          </span>
+                          <Link to="/pricing" className="font-medium text-primary hover:underline">Upgrade</Link>
+                        </div>
+                      )}
 
                       {gallery.length === 0 ? (
                         <div className="flex flex-col items-center py-8 text-center">
