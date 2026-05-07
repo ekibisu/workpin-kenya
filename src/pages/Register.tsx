@@ -86,8 +86,17 @@ export default function Register() {
               <div className="relative"><Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" /><Input type="password" placeholder="••••••••" className="pl-9" value={password} onChange={(e) => setPassword(e.target.value)} required /></div>
             </div>
             <div className="space-y-2">
+              <Label>Country</Label>
+              <CountrySelect value={countryCode} onChange={setCountryCode} />
+            </div>
+            <div className="space-y-2">
               <Label>Phone Number</Label>
-              <div className="relative"><Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" /><Input type="tel" placeholder="0712 345 678" className="pl-9" value={phone} onChange={(e) => setPhone(e.target.value)} required /></div>
+              <div className="flex">
+                <span className="inline-flex items-center gap-1 rounded-l-md border border-r-0 border-input bg-muted px-3 text-sm text-muted-foreground select-none">
+                  {country?.flag_emoji} {country?.dial_code ?? "+254"}
+                </span>
+                <Input type="tel" placeholder="7XX XXX XXX" className="rounded-l-none" value={phone} onChange={(e) => setPhone(e.target.value)} required />
+              </div>
             </div>
             {error && <div className="text-red-600 text-sm mt-2">{error}</div>}
             <Button className="w-full" size="lg" type="submit" disabled={loading}>
