@@ -48,7 +48,7 @@ const Settings = () => {
       toast({ title: "Could not save", description: error.message, variant: "destructive" });
       return;
     }
-    setActiveCountryCode?.(countryCode);
+    setActiveCountry(countryCode);
     toast({ title: "Preferences saved" });
   };
 
