@@ -30,6 +30,7 @@ interface Business {
   id: string;
   business_name: string;
   categories: string[] | null;
+  service_country_codes: string[] | null;
 }
 
 function parseDescription(raw: string): string {
@@ -59,7 +60,7 @@ export default function ProviderJobFeed() {
       // 1. Get user's businesses
       const { data: bizData } = await supabase
         .from("businesses")
-        .select("id, business_name, categories")
+        .select("id, business_name, categories, service_country_codes")
         .eq("owner_id", user.id)
         .eq("is_active", true);
       const biz = (bizData as Business[]) || [];
@@ -70,14 +71,21 @@ export default function ProviderJobFeed() {
         return;
       }
 
-      // 2. Get open job requests (exclude user's own)
-      const { data: jobData } = await supabase
+      // Union of all countries this owner serves
+      const countrySet = new Set<string>();
+      biz.forEach((b) => (b.service_country_codes || []).forEach((c) => countrySet.add(c)));
+      const countries = Array.from(countrySet);
+
+      // 2. Get open job requests (exclude user's own), filtered to served countries
+      let jobQuery = supabase
         .from("job_requests")
         .select("id, description, location_name, created_at, budget_min_kes, budget_max_kes, image_urls, timeline, client_id, services(name, category)")
         .eq("status", "open")
         .neq("client_id", user.id)
         .order("created_at", { ascending: false })
         .limit(50);
+      if (countries.length > 0) jobQuery = jobQuery.in("country_code", countries);
+      const { data: jobData } = await jobQuery;
       setJobs((jobData as unknown as OpenJob[]) || []);
 
       // 3. Get IDs already quoted by any of user's businesses

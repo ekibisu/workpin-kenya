@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 
 import SubscriptionBadge from "@/components/SubscriptionBadge";
+import { useActiveCountry } from "@/contexts/CountryContext";
 
 interface Provider {
   id: string;
@@ -38,6 +39,7 @@ interface Provider {
 }
 
 const Providers = () => {
+  const { activeCountry } = useActiveCountry();
   const [providers, setProviders] = useState<Provider[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -45,6 +47,7 @@ const Providers = () => {
   const [minRating, setMinRating] = useState(0);
 
   useEffect(() => {
+    setLoading(true);
     supabase
       .from("businesses")
       .select(`
@@ -53,12 +56,13 @@ const Providers = () => {
         profiles:profiles!businesses_owner_id_fkey ( full_name, avatar_url )
       `)
       .eq("is_active", true)
+      .or(`country_code.eq.${activeCountry},service_country_codes.cs.{${activeCountry}}`)
       .order("avg_rating", { ascending: false })
       .then(({ data }) => {
         setProviders((data as unknown as Provider[]) ?? []);
         setLoading(false);
       });
-  }, []);
+  }, [activeCountry]);
 
   const locations = useMemo(() => {
     const areas = providers
