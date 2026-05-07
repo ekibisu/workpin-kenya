@@ -7,12 +7,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Check, Crown, Zap, Star } from "lucide-react";
 import { motion } from "framer-motion";
+import { useActiveCountry } from "@/contexts/CountryContext";
 
 interface Plan {
   id: string;
   name: string;
   price_monthly_kes: number;
   price_annual_kes: number;
+  prices: Record<string, { monthly?: number; annual?: number }>;
   limits: Record<string, number>;
   features: string[];
   sort_order: number;
@@ -31,6 +33,8 @@ const tierAccents: Record<string, string> = {
 };
 
 const Pricing = () => {
+  const { country } = useActiveCountry();
+  const currency = country?.currency_code || "KES";
   const [plans, setPlans] = useState<Plan[]>([]);
   const [annual, setAnnual] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -47,6 +51,7 @@ const Pricing = () => {
             ...p,
             features: Array.isArray(p.features) ? p.features : [],
             limits: typeof p.limits === "object" && p.limits ? p.limits : {},
+            prices: typeof p.prices === "object" && p.prices ? p.prices : {},
           }))
         );
         setLoading(false);
@@ -101,9 +106,10 @@ const Pricing = () => {
           ) : (
             <div className="grid gap-6 md:grid-cols-3">
               {plans.map((plan, i) => {
-                const price = annual
-                  ? Math.round(plan.price_annual_kes / 12)
-                  : plan.price_monthly_kes;
+                const block = plan.prices[currency] || plan.prices["KES"] || { monthly: plan.price_monthly_kes, annual: plan.price_annual_kes };
+                const monthly = block.monthly ?? 0;
+                const annualTotal = block.annual ?? 0;
+                const price = annual ? Math.round(annualTotal / 12) : monthly;
                 const isPro = plan.name === "Pro";
 
                 return (
@@ -134,14 +140,14 @@ const Pricing = () => {
                         <span className="text-3xl font-extrabold">Free</span>
                       ) : (
                         <div className="flex items-baseline gap-1">
-                          <span className="text-sm text-muted-foreground">KES</span>
+                          <span className="text-sm text-muted-foreground">{currency}</span>
                           <span className="text-3xl font-extrabold">{price.toLocaleString()}</span>
                           <span className="text-sm text-muted-foreground">/mo</span>
                         </div>
                       )}
-                      {annual && plan.price_annual_kes > 0 && (
+                      {annual && annualTotal > 0 && (
                         <p className="mt-1 text-xs text-muted-foreground">
-                          KES {plan.price_annual_kes.toLocaleString()} billed annually
+                          {currency} {annualTotal.toLocaleString()} billed annually
                         </p>
                       )}
                     </div>

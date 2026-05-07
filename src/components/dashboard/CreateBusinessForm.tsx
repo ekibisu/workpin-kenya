@@ -21,6 +21,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import CountrySelect from "@/components/CountrySelect";
+import { useActiveCountry } from "@/contexts/CountryContext";
 
 interface CreateBusinessFormProps {
   open: boolean;
@@ -39,6 +41,7 @@ const CreateBusinessForm = ({ open, onOpenChange, onCreated, redirectToWizard = 
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
+  const { activeCountry } = useActiveCountry();
   const [services, setServices] = useState<ServiceOption[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
@@ -49,6 +52,9 @@ const CreateBusinessForm = ({ open, onOpenChange, onCreated, redirectToWizard = 
   const [rateType, setRateType] = useState("hourly");
   const [mpesaPhone, setMpesaPhone] = useState("");
   const [locationName, setLocationName] = useState("");
+  const [countryCode, setCountryCode] = useState<string>(activeCountry || "KE");
+
+  useEffect(() => { setCountryCode(activeCountry || "KE"); }, [activeCountry]);
 
   useEffect(() => {
     supabase
@@ -80,6 +86,8 @@ const CreateBusinessForm = ({ open, onOpenChange, onCreated, redirectToWizard = 
         rate_type: rateType,
         mpesa_phone: mpesaPhone.trim() || null,
         location_name: locationName.trim() || null,
+        country_code: countryCode,
+        service_country_codes: [countryCode],
       })
       .select("id, business_name, bio, categories, avg_rating, total_reviews, is_active, location_name, rate_kes, rate_type")
       .single();
@@ -195,6 +203,11 @@ const CreateBusinessForm = ({ open, onOpenChange, onCreated, redirectToWizard = 
               onChange={(e) => setLocationName(e.target.value)}
               placeholder="e.g. Westlands, Nairobi"
             />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Country</Label>
+            <CountrySelect value={countryCode} onChange={setCountryCode} />
           </div>
         </div>
 

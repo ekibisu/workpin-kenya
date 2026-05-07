@@ -6,6 +6,8 @@ import { Label } from "@/components/ui/label";
 import { MapPin, ArrowLeft, Mail, Lock, User, Loader2, Phone } from "lucide-react";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
+import CountrySelect from "@/components/CountrySelect";
+import { useCountry } from "@/hooks/useCountries";
 
 export default function Register() {
   const navigate = useNavigate();
@@ -13,8 +15,10 @@ export default function Register() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [phone, setPhone] = useState("");
+  const [countryCode, setCountryCode] = useState("KE");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const country = useCountry(countryCode);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,6 +32,7 @@ export default function Register() {
           data: {
             full_name: fullName,
             phone: phone,
+            country_code: countryCode,
           },
           emailRedirectTo: `${window.location.origin}/dashboard`,
         },
@@ -54,7 +59,7 @@ export default function Register() {
             <MapPin className="h-8 w-8" />
           </div>
           <h2 className="mb-4 text-3xl font-extrabold">Welcome to Workpin</h2>
-          <p className="opacity-90">Connect with trusted service professionals across Kenya.</p>
+          <p className="opacity-90">Connect with trusted service professionals across East Africa.</p>
         </div>
       </div>
 
@@ -81,8 +86,17 @@ export default function Register() {
               <div className="relative"><Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" /><Input type="password" placeholder="••••••••" className="pl-9" value={password} onChange={(e) => setPassword(e.target.value)} required /></div>
             </div>
             <div className="space-y-2">
+              <Label>Country</Label>
+              <CountrySelect value={countryCode} onChange={setCountryCode} />
+            </div>
+            <div className="space-y-2">
               <Label>Phone Number</Label>
-              <div className="relative"><Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" /><Input type="tel" placeholder="0712 345 678" className="pl-9" value={phone} onChange={(e) => setPhone(e.target.value)} required /></div>
+              <div className="flex">
+                <span className="inline-flex items-center gap-1 rounded-l-md border border-r-0 border-input bg-muted px-3 text-sm text-muted-foreground select-none">
+                  {country?.flag_emoji} {country?.dial_code ?? "+254"}
+                </span>
+                <Input type="tel" placeholder="7XX XXX XXX" className="rounded-l-none" value={phone} onChange={(e) => setPhone(e.target.value)} required />
+              </div>
             </div>
             {error && <div className="text-red-600 text-sm mt-2">{error}</div>}
             <Button className="w-full" size="lg" type="submit" disabled={loading}>

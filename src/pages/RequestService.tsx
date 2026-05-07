@@ -135,6 +135,7 @@ const RequestService = () => {
 
     setSubmitting(true);
 
+    const activeCountry = (typeof window !== "undefined" && localStorage.getItem("workpin.activeCountry")) || "KE";
     const { error } = await supabase
       .from("job_requests")
       .insert({
@@ -147,6 +148,7 @@ const RequestService = () => {
         timeline: null,
         status: "open",
         image_urls: uploadedImageUrls.length > 0 ? uploadedImageUrls : [],
+        country_code: activeCountry,
       });
 
     if (error) {
