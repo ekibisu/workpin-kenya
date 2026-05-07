@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { MapPin, ArrowLeft, Mail, Lock, User, Loader2, Eye, EyeOff } from "lucide-react";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
+import { lovable } from "@/integrations/lovable";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -31,6 +32,21 @@ const Auth = () => {
   
   if (user) return <Navigate to="/dashboard" replace />;
 
+  const handleGoogle = async () => {
+    setLoading(true);
+    try {
+      const result = await lovable.auth.signInWithOAuth("google", {
+        redirect_uri: `${window.location.origin}/dashboard`,
+      });
+      if (result.error) throw result.error;
+      if (result.redirected) return;
+      navigate("/dashboard");
+    } catch (err: any) {
+      toast({ title: "Google sign-in failed", description: err.message, variant: "destructive" });
+      setLoading(false);
+    }
+  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -45,6 +61,18 @@ const Auth = () => {
 
       if (authError) throw authError;
       if (!data.user) throw new Error("Authentication failed: No user data.");
+
+      // Email verification gate
+      if (!data.user.email_confirmed_at) {
+        await supabase.auth.signOut();
+        toast({
+          title: "Please verify your email",
+          description: `We sent a confirmation link to ${cleanEmail}. Check your inbox, then sign in again.`,
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
 
       const { data: profile, error: profileError } = await supabase
         .from("profiles")
