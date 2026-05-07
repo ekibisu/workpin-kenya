@@ -308,7 +308,7 @@ const BusinessProfileWizard = () => {
     } finally {
       setSaving(false);
     }
-  }, [step, id, businessName, tagline, bio, locationName, slug, services, heroFile, heroUrl, gallery, yearsExperience, certifications, languages, mpesaPhone, whatsappPhone, websiteUrl, rateKes, rateType, logoFile, logoUrl]);
+  }, [step, id, businessName, tagline, bio, locationName, countryCode, serviceCountries, slug, services, heroFile, heroUrl, gallery, yearsExperience, certifications, languages, mpesaPhone, whatsappPhone, websiteUrl, rateKes, rateType, logoFile, logoUrl]);
 
   const handleNext = async () => {
     await saveStep();
