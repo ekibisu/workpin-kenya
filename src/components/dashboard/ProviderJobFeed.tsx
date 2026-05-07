@@ -282,6 +282,8 @@ export default function ProviderJobFeed() {
                     ) : (
                       <Button
                         size="sm"
+                        disabled={limitReached}
+                        title={limitReached ? "Monthly quote limit reached — upgrade to send more" : undefined}
                         onClick={() => setQuoteJob(job)}
                       >
                         <MessageSquareQuote className="mr-1 h-3.5 w-3.5" />
