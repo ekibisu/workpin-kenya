@@ -133,12 +133,8 @@ const Dashboard = () => {
       toast({ title: "Error", description: "Could not start job.", variant: "destructive" });
       return;
     }
-    setRequests(prev => prev.map(r => r.id === jobRequestId ? { ...r, status: "pending" } : r));
-    setQuotes(prev => prev.map(q => {
-      if (q.request_id !== jobRequestId) return q;
-      if (q.id === selectedQuoteId) return { ...q, status: "accepted", work_thread_id: threadId };
-      return { ...q, status: "declined" };
-    }));
+    invalidateRequests();
+    invalidateQuotes();
     toast({ title: "Job started!", description: "The provider has been hired." });
   };
 
