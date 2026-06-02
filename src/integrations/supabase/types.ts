@@ -949,6 +949,7 @@ export type Database = {
           lng: number | null
           location_name: string | null
           mpesa_phone: string | null
+          notification_prefs: Json | null
           onboarding_complete: boolean
           phone: string | null
           region_id: string | null
@@ -966,6 +967,7 @@ export type Database = {
           lng?: number | null
           location_name?: string | null
           mpesa_phone?: string | null
+          notification_prefs?: Json | null
           onboarding_complete?: boolean
           phone?: string | null
           region_id?: string | null
@@ -983,6 +985,7 @@ export type Database = {
           lng?: number | null
           location_name?: string | null
           mpesa_phone?: string | null
+          notification_prefs?: Json | null
           onboarding_complete?: boolean
           phone?: string | null
           region_id?: string | null

@@ -1,7 +1,11 @@
-import { useState } from "react";
-import { Bell, ShieldAlert, Mail, MessageSquare, Smartphone } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Bell, ShieldAlert, Mail, MessageSquare, Smartphone, Loader2 } from "lucide-react";
 import ChangePasswordCard from "@/components/settings/ChangePasswordCard";
 import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
+import { useQuery } from "@tanstack/react-query";
 
 interface NotificationSetting {
   id: string;
@@ -11,18 +15,126 @@ interface NotificationSetting {
   push: boolean;
 }
 
-const UnifiedSettings = () => {
-  const [activeStatus, setActiveStatus] = useState(true);
-  const [notifications, setNotifications] = useState<NotificationSetting[]>([
-    { id: "1", label: "New Quote Received", email: true, sms: false, push: true },
-    { id: "2", label: "Job Status Updates", email: true, sms: true, push: true },
-    { id: "3", label: "Marketing & Promos", email: false, sms: false, push: false },
-  ]);
+type Channel = "email" | "sms" | "push";
+type PrefsShape = Record<string, Record<Channel, boolean>>;
 
-  const toggleNotification = (id: string, field: keyof Omit<NotificationSetting, "id" | "label">) => {
-    setNotifications(prev =>
-      prev.map(n => (n.id === id ? { ...n, [field]: !n[field] } : n))
+const PREF_KEYS: { id: string; key: string; label: string }[] = [
+  { id: "1", key: "new_quote", label: "New Quote Received" },
+  { id: "2", key: "job_updates", label: "Job Status Updates" },
+  { id: "3", key: "marketing", label: "Marketing & Promos" },
+];
+
+const DEFAULT_NOTIFS: NotificationSetting[] = [
+  { id: "1", label: "New Quote Received", email: true, sms: false, push: true },
+  { id: "2", label: "Job Status Updates", email: true, sms: true, push: true },
+  { id: "3", label: "Marketing & Promos", email: false, sms: false, push: false },
+];
+
+function mapPrefsToState(prefs: PrefsShape): NotificationSetting[] {
+  return PREF_KEYS.map(({ id, key, label }) => {
+    const p = prefs?.[key] ?? {} as Record<Channel, boolean>;
+    return {
+      id, label,
+      email: !!p.email,
+      sms: !!p.sms,
+      push: !!p.push,
+    };
+  });
+}
+
+function mapStateToPrefs(state: NotificationSetting[]): PrefsShape {
+  const out: PrefsShape = {};
+  PREF_KEYS.forEach(({ id, key }) => {
+    const n = state.find((s) => s.id === id);
+    if (n) out[key] = { email: n.email, sms: n.sms, push: n.push };
+  });
+  return out;
+}
+
+const UnifiedSettings = () => {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [notifications, setNotifications] = useState<NotificationSetting[]>(DEFAULT_NOTIFS);
+  const [saving, setSaving] = useState(false);
+
+  const [bizId, setBizId] = useState<string | null>(null);
+  const [activeStatus, setActiveStatus] = useState(true);
+  const [togglingActive, setTogglingActive] = useState(false);
+
+  const { data: prefs } = useQuery({
+    queryKey: ["notif_prefs", user?.id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("notification_prefs")
+        .eq("id", user!.id)
+        .maybeSingle();
+      return (data?.notification_prefs as PrefsShape) ?? null;
+    },
+    enabled: !!user?.id,
+  });
+
+  useEffect(() => {
+    if (prefs) setNotifications(mapPrefsToState(prefs));
+  }, [prefs]);
+
+  // Load first business is_active
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from("businesses")
+      .select("id, is_active")
+      .eq("owner_id", user.id)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) {
+          setBizId(data.id);
+          setActiveStatus(!!data.is_active);
+        }
+      });
+  }, [user]);
+
+  const toggleNotification = (id: string, field: Channel) => {
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, [field]: !n[field] } : n))
     );
+  };
+
+  const handleSavePrefs = async () => {
+    if (!user) return;
+    setSaving(true);
+    const { error } = await supabase
+      .from("profiles")
+      .update({ notification_prefs: mapStateToPrefs(notifications) })
+      .eq("id", user.id);
+    setSaving(false);
+    if (error) {
+      toast({ title: "Error", description: "Could not save preferences.", variant: "destructive" });
+      return;
+    }
+    toast({ title: "Notification preferences saved." });
+  };
+
+  const handleToggleActive = async () => {
+    if (!bizId) {
+      toast({ title: "No business yet", description: "Create a business first." });
+      return;
+    }
+    setTogglingActive(true);
+    const next = !activeStatus;
+    const { error } = await supabase
+      .from("businesses")
+      .update({ is_active: next })
+      .eq("id", bizId);
+    setTogglingActive(false);
+    if (error) {
+      toast({ title: "Error", description: "Could not update status.", variant: "destructive" });
+      return;
+    }
+    setActiveStatus(next);
+    toast({ title: `Business set to ${next ? "active" : "inactive"}` });
   };
 
   return (
@@ -55,6 +167,12 @@ const UnifiedSettings = () => {
               ))}
             </div>
           ))}
+          <div className="mt-4 flex justify-end border-t border-border pt-4">
+            <Button size="sm" onClick={handleSavePrefs} disabled={saving}>
+              {saving && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
+              Save preferences
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -83,9 +201,11 @@ const UnifiedSettings = () => {
             <Button
               variant={activeStatus ? "outline" : "default"}
               size="sm"
-              onClick={() => setActiveStatus(!activeStatus)}
+              onClick={handleToggleActive}
+              disabled={togglingActive || !bizId}
               className={activeStatus ? "border-destructive/30 text-destructive hover:bg-destructive/10" : ""}
             >
+              {togglingActive && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
               {activeStatus ? "Deactivate" : "Reactivate"}
             </Button>
           </div>

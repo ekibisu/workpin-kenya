@@ -1,0 +1,2 @@
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS notification_prefs jsonb
+DEFAULT '{"new_quote":{"email":true,"sms":false,"push":true},"job_updates":{"email":true,"sms":true,"push":true},"marketing":{"email":false,"sms":false,"push":false}}'::jsonb;
