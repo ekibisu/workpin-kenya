@@ -371,11 +371,8 @@ const Dashboard = () => {
       <EditRequestDialog
         request={editingRequest}
         onClose={() => setEditingRequest(null)}
-        onSaved={(updates) => {
-          if (!editingRequest) return;
-          setRequests((prev) =>
-            prev.map((r) => (r.id === editingRequest.id ? { ...r, ...updates } : r))
-          );
+        onSaved={() => {
+          invalidateRequests();
         }}
       />
 
