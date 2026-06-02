@@ -747,6 +747,14 @@ const Dashboard = () => {
                           decliningQuoteId={decliningQuoteId}
                           requestId={req.id}
                           onHire={handleStartJob}
+                          onPayAndHire={(requestId, quoteId, amount, providerName, workThreadId) => {
+                            const r = requests.find((x) => x.id === requestId);
+                            setPayContext({
+                              requestId, quoteId, amount, providerName,
+                              serviceName: r?.services?.name ?? "Service",
+                              workThreadId,
+                            });
+                          }}
                           onDecline={handleDeclineQuote}
                           onMessage={(threadId, name) => {
                             setChatWorkThreadId(threadId);
