@@ -85,8 +85,7 @@ export default function DisputeDialog({
         const rec = await uploadMediaFile({
           file,
           context: "dispute-evidence",
-          userId: user.id,
-        } as Parameters<typeof uploadMediaFile>[0]);
+        });
         if (rec?.public_url) uploadedUrls.push(rec.public_url);
       }
 
