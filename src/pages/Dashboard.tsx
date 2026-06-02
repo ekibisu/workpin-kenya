@@ -953,6 +953,21 @@ const Dashboard = () => {
         </DialogContent>
       </Dialog>
 
+      <MpesaCheckout
+        open={!!payContext}
+        onOpenChange={(o) => { if (!o) setPayContext(null); }}
+        amount={payContext?.amount ?? 0}
+        workThreadId={payContext?.workThreadId ?? ""}
+        providerName={payContext?.providerName ?? ""}
+        serviceName={payContext?.serviceName ?? ""}
+        onSuccess={async () => {
+          if (payContext) {
+            await handleStartJob(payContext.requestId, payContext.quoteId);
+            setPayContext(null);
+          }
+        }}
+      />
+
       <MessageDrawer
         workThreadId={chatWorkThreadId}
         recipientName={chatRecipientName}
