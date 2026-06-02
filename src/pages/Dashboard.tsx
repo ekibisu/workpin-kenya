@@ -12,6 +12,7 @@ import {
   Search, Send,
 } from "lucide-react";
 import QuotesPanel from "@/components/dashboard/QuotesPanel";
+import MpesaCheckout from "@/components/payments/MpesaCheckout";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -141,6 +142,11 @@ const Dashboard = () => {
 
   // Map job_request_id → work_thread_id for messaging & reviews
   const [workThreadMap, setWorkThreadMap] = useState<Record<string, string>>({});
+
+  const [payContext, setPayContext] = useState<{
+    requestId: string; quoteId: string; amount: number;
+    providerName: string; serviceName: string; workThreadId: string;
+  } | null>(null);
 
   const handleStartJob = async (jobRequestId: string, selectedQuoteId: string) => {
     setStartingJobId(jobRequestId);
@@ -741,6 +747,14 @@ const Dashboard = () => {
                           decliningQuoteId={decliningQuoteId}
                           requestId={req.id}
                           onHire={handleStartJob}
+                          onPayAndHire={(requestId, quoteId, amount, providerName, workThreadId) => {
+                            const r = requests.find((x) => x.id === requestId);
+                            setPayContext({
+                              requestId, quoteId, amount, providerName,
+                              serviceName: r?.services?.name ?? "Service",
+                              workThreadId,
+                            });
+                          }}
                           onDecline={handleDeclineQuote}
                           onMessage={(threadId, name) => {
                             setChatWorkThreadId(threadId);
@@ -938,6 +952,21 @@ const Dashboard = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      <MpesaCheckout
+        open={!!payContext}
+        onOpenChange={(o) => { if (!o) setPayContext(null); }}
+        amount={payContext?.amount ?? 0}
+        workThreadId={payContext?.workThreadId ?? ""}
+        providerName={payContext?.providerName ?? ""}
+        serviceName={payContext?.serviceName ?? ""}
+        onSuccess={async () => {
+          if (payContext) {
+            await handleStartJob(payContext.requestId, payContext.quoteId);
+            setPayContext(null);
+          }
+        }}
+      />
 
       <MessageDrawer
         workThreadId={chatWorkThreadId}
