@@ -239,7 +239,7 @@ export default function QuotesPanel({
                           size="sm"
                           className="h-11 sm:h-8 text-xs justify-center"
                           disabled={startingJobId === requestId}
-                          onClick={() => onHire(requestId, quote.id)}
+                          onClick={() => onPayAndHire(requestId, quote.id, quote.price_kes, name, quote.work_thread_id ?? "")}
                         >
                           {startingJobId === requestId ? (
                             <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
