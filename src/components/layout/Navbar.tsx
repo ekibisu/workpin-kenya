@@ -53,6 +53,8 @@ const Navbar = () => {
   const { user, signOut } = useAuth();
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [fullName, setFullName] = useState<string | null>(null);
+  const { data: isAdmin } = useIsAdmin();
+  
   
 
   useEffect(() => {
