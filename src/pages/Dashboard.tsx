@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useClientJobRequests, useClientQuotes } from "@/hooks/useNewSchemaQueries";
 import Navbar from "@/components/layout/Navbar";
 import { Button } from "@/components/ui/button";
 import { Link, useLocation } from "react-router-dom";
