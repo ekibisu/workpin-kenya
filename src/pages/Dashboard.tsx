@@ -53,10 +53,17 @@ const Dashboard = () => {
   const isWalletTab = location.pathname.includes("/dashboard/wallet");
   const { unreadCount, resetCount } = useUnreadMessageCount();
 
+  const queryClient = useQueryClient();
   const [hasBusinesses, setHasBusinesses] = useState(false);
-  const [requests, setRequests] = useState<JobRequest[]>([]);
-  const [quotes, setQuotes] = useState<Quote[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: requests = [], isLoading: reqLoading } = useClientJobRequests(user?.id ?? "");
+  const { data: quotes = [], isLoading: quotesLoading } = useClientQuotes(
+    (requests as JobRequest[]).map((r) => r.id)
+  );
+  const loading = reqLoading || quotesLoading;
+  const invalidateRequests = () =>
+    queryClient.invalidateQueries({ queryKey: ["job_requests", "client", user?.id ?? ""] });
+  const invalidateQuotes = () =>
+    queryClient.invalidateQueries({ queryKey: ["quotes", "client"] });
   const [startingJobId, setStartingJobId] = useState<string | null>(null);
   const [decliningQuoteId, setDecliningQuoteId] = useState<string | null>(null);
   const [confirmingJobId, setConfirmingJobId] = useState<string | null>(null);
