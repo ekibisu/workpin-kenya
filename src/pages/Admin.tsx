@@ -228,8 +228,8 @@ function DisputesTab() {
           const currentStatus = edit.status ?? row.status;
           const currentNote = edit.admin_note ?? row.admin_note ?? "";
           return (
-            <>
-              <TableRow key={row.id} className="cursor-pointer" onClick={() => setExpanded(isOpen ? null : row.id)}>
+            <FragmentRow key={row.id}>
+              <TableRow className="cursor-pointer" onClick={() => setExpanded(isOpen ? null : row.id)}>
                 <TableCell>{isOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}</TableCell>
                 <TableCell className="font-medium">{row.reason}</TableCell>
                 <TableCell><Badge className={statusBadge(row.status)}>{row.status}</Badge></TableCell>
