@@ -14,71 +14,29 @@ import CreateBusinessForm from "./CreateBusinessForm";
 import { computeCompleteness } from "@/lib/profileCompleteness";
 import { useOwnerBusinesses, type BusinessWithMeta } from "@/hooks/useNewSchemaQueries";
 
-interface Business {
-  id: string;
-  business_name: string;
-  bio: string | null;
-  categories: string[] | null;
-  avg_rating: number | null;
-  total_reviews: number | null;
-  is_active: boolean;
-  location_name: string | null;
-  rate_kes: number | null;
-  rate_type: string | null;
-  is_verified: boolean | null;
-  verification_id_url: string | null;
-}
+type Business = BusinessWithMeta;
 
 const BusinessesPanel = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { data: businessesData = [], isLoading: loading, refetch } = useOwnerBusinesses(user?.id ?? "");
   const [businesses, setBusinesses] = useState<Business[]>([]);
-  const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [subscriptionTier, setSubscriptionTier] = useState("free");
-  const [bizMeta, setBizMeta] = useState<Record<string, { galleryCount: number; servicesCount: number; faqCount: number }>>({});
+
+  useEffect(() => {
+    setBusinesses(businessesData as Business[]);
+  }, [businessesData]);
 
   useEffect(() => {
     if (!user) return;
-    const fetch = async () => {
-      const [{ data: bizData }, { data: profile }] = await Promise.all([
-        supabase
-          .from("businesses")
-          .select("id, business_name, bio, categories, avg_rating, total_reviews, is_active, location_name, rate_kes, rate_type, is_verified, verification_id_url")
-          .eq("owner_id", user.id)
-          .order("created_at", { ascending: false }),
-        supabase
-          .from("profiles")
-          .select("subscription_tier")
-          .eq("id", user.id)
-          .maybeSingle(),
-      ]);
-      const bizList = (bizData as Business[]) || [];
-      setBusinesses(bizList);
-      setSubscriptionTier(profile?.subscription_tier || "free");
-
-      // Fetch counts for completeness
-      if (bizList.length > 0) {
-        const ids = bizList.map(b => b.id);
-        const [{ data: svcCounts }, { data: galCounts }, { data: faqCounts }] = await Promise.all([
-          supabase.from("business_services").select("business_id").in("business_id", ids),
-          supabase.from("business_gallery").select("business_id").in("business_id", ids),
-          supabase.from("business_faqs").select("business_id").in("business_id", ids),
-        ]);
-        const meta: Record<string, { galleryCount: number; servicesCount: number; faqCount: number }> = {};
-        ids.forEach(id => {
-          meta[id] = {
-            servicesCount: (svcCounts || []).filter((r: any) => r.business_id === id).length,
-            galleryCount: (galCounts || []).filter((r: any) => r.business_id === id).length,
-            faqCount: (faqCounts || []).filter((r: any) => r.business_id === id).length,
-          };
-        });
-        setBizMeta(meta);
-      }
-      setLoading(false);
-    };
-    fetch();
+    supabase
+      .from("profiles")
+      .select("subscription_tier")
+      .eq("id", user.id)
+      .maybeSingle()
+      .then(({ data }) => setSubscriptionTier(data?.subscription_tier || "free"));
   }, [user]);
 
   const maxBusinesses = subscriptionTier === "pro" ? 5 : 1;
