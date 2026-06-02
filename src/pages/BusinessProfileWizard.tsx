@@ -145,6 +145,10 @@ const BusinessProfileWizard = () => {
       setWebsiteUrl(biz.website_url || "");
       setRateKes(biz.rate_kes?.toString() || "");
       setRateType(biz.rate_type || "hourly");
+      setIdFrontUrl((biz as any).verification_id_url || "");
+      setIsVerified(!!(biz as any).is_verified);
+      setVerificationSubmittedAt((biz as any).verification_submitted_at || null);
+
 
       if (bizServices && bizServices.length > 0) {
         setServices(bizServices.map((s: any) => ({
