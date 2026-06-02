@@ -143,6 +143,11 @@ const Dashboard = () => {
   // Map job_request_id → work_thread_id for messaging & reviews
   const [workThreadMap, setWorkThreadMap] = useState<Record<string, string>>({});
 
+  const [payContext, setPayContext] = useState<{
+    requestId: string; quoteId: string; amount: number;
+    providerName: string; serviceName: string; workThreadId: string;
+  } | null>(null);
+
   const handleStartJob = async (jobRequestId: string, selectedQuoteId: string) => {
     setStartingJobId(jobRequestId);
     // Accept selected quote
