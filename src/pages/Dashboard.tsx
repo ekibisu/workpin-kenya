@@ -12,6 +12,7 @@ import {
   Search, Send,
 } from "lucide-react";
 import QuotesPanel from "@/components/dashboard/QuotesPanel";
+import MpesaCheckout from "@/components/payments/MpesaCheckout";
 import {
   AlertDialog,
   AlertDialogAction,
