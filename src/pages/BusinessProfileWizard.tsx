@@ -102,6 +102,14 @@ const BusinessProfileWizard = () => {
   const [rateKes, setRateKes] = useState("");
   const [rateType, setRateType] = useState("hourly");
 
+  // Step 6: Verify (ID upload)
+  const [idFrontUrl, setIdFrontUrl] = useState("");
+  const [idBackUrl, setIdBackUrl] = useState("");
+  const [idFrontFile, setIdFrontFile] = useState<File | null>(null);
+  const [idBackFile, setIdBackFile] = useState<File | null>(null);
+  const [isVerified, setIsVerified] = useState(false);
+  const [verificationSubmittedAt, setVerificationSubmittedAt] = useState<string | null>(null);
+
   // Load existing data
   useEffect(() => {
     if (!id || !user) return;
