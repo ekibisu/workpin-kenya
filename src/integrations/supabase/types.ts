@@ -255,6 +255,8 @@ export type Database = {
           is_active: boolean
           is_verified: boolean | null
           languages: string[] | null
+          lat: number | null
+          lng: number | null
           location_lat: number | null
           location_lng: number | null
           location_name: string | null
@@ -297,6 +299,8 @@ export type Database = {
           is_active?: boolean
           is_verified?: boolean | null
           languages?: string[] | null
+          lat?: number | null
+          lng?: number | null
           location_lat?: number | null
           location_lng?: number | null
           location_name?: string | null
@@ -339,6 +343,8 @@ export type Database = {
           is_active?: boolean
           is_verified?: boolean | null
           languages?: string[] | null
+          lat?: number | null
+          lng?: number | null
           location_lat?: number | null
           location_lng?: number | null
           location_name?: string | null
@@ -1791,6 +1797,36 @@ export type Database = {
       }
       postgis_version: { Args: never; Returns: string }
       postgis_wagyu_version: { Args: never; Returns: string }
+      search_providers: {
+        Args: {
+          p_category?: string
+          p_country?: string
+          p_lat?: number
+          p_limit?: number
+          p_lng?: number
+          p_min_rating?: number
+          p_offset?: number
+          p_radius_km?: number
+        }
+        Returns: {
+          avg_rating: number
+          bio: string
+          business_name: string
+          categories: string[]
+          distance_km: number
+          id: string
+          is_verified: boolean
+          location_name: string
+          logo_url: string
+          owner_avatar_url: string
+          owner_full_name: string
+          rate_kes: number
+          rate_type: string
+          subscription_status: string
+          total_reviews: number
+          username: string
+        }[]
+      }
       st_3dclosestpoint: {
         Args: { geom1: unknown; geom2: unknown }
         Returns: unknown
