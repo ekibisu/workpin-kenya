@@ -149,7 +149,7 @@ const Dashboard = () => {
       toast({ title: "Error", description: "Could not decline quote.", variant: "destructive" });
       return;
     }
-    setQuotes(prev => prev.map(q => q.id === quoteId ? { ...q, status: "declined" } : q));
+    invalidateQuotes();
     toast({ title: "Quote declined", description: "The provider has been notified." });
   };
 
