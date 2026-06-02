@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
@@ -15,6 +16,7 @@ import {
   BadgeCheck,
   MessageCircle,
   X,
+  Tag,
 } from "lucide-react";
 
 import SubscriptionBadge from "@/components/SubscriptionBadge";
@@ -22,7 +24,6 @@ import { useActiveCountry } from "@/contexts/CountryContext";
 
 interface Provider {
   id: string;
-  owner_id: string;
   business_name: string;
   bio: string | null;
   avg_rating: number | null;
@@ -35,60 +36,59 @@ interface Provider {
   username: string | null;
   logo_url: string | null;
   subscription_status: string | null;
-  profiles: { full_name: string | null; avatar_url: string | null } | null;
+  owner_full_name: string | null;
+  owner_avatar_url: string | null;
+  distance_km: number | null;
 }
+
+const CATEGORIES = [
+  "All",
+  "Home Maintenance",
+  "Lifestyle & Wellness",
+  "Events & Celebrations",
+  "Professional & Business",
+  "Outdoor & Heavy Duty",
+];
 
 const Providers = () => {
   const { activeCountry } = useActiveCountry();
-  const [providers, setProviders] = useState<Provider[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [locationFilter, setLocationFilter] = useState("All");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("all");
   const [minRating, setMinRating] = useState(0);
 
   useEffect(() => {
-    setLoading(true);
-    supabase
-      .from("businesses")
-      .select(`
-        id, owner_id, business_name, bio, avg_rating, total_reviews,
-        is_verified, categories, location_name, rate_kes, rate_type, username, logo_url, subscription_status,
-        profiles:profiles!businesses_owner_id_fkey ( full_name, avatar_url )
-      `)
-      .eq("is_active", true)
-      .or(`country_code.eq.${activeCountry},service_country_codes.cs.{${activeCountry}}`)
-      .order("avg_rating", { ascending: false })
-      .then(({ data }) => {
-        setProviders((data as unknown as Provider[]) ?? []);
-        setLoading(false);
+    const t = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  const { data: providers = [], isLoading } = useQuery({
+    queryKey: ["providers", activeCountry, debouncedSearch, categoryFilter, minRating],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("search_providers", {
+        p_category: categoryFilter !== "all" ? categoryFilter : null,
+        p_country: activeCountry,
+        p_min_rating: minRating,
+        p_limit: 24,
       });
-  }, [activeCountry]);
-
-  const locations = useMemo(() => {
-    const areas = providers
-      .map((p) => p.location_name?.split(",")[0]?.trim())
-      .filter(Boolean) as string[];
-    return ["All", ...new Set(areas)];
-  }, [providers]);
-
-  const filtered = useMemo(() => {
-    return providers.filter((p) => {
-      const q = search.toLowerCase();
-      const matchesSearch =
-        !q ||
-        p.business_name.toLowerCase().includes(q) ||
-        (p.categories ?? []).some((c) => c.toLowerCase().includes(q));
-      const matchesLocation =
-        locationFilter === "All" ||
-        (p.location_name ?? "").includes(locationFilter);
-      const matchesRating = (p.avg_rating ?? 0) >= minRating;
-      return matchesSearch && matchesLocation && matchesRating;
-    });
-  }, [providers, search, locationFilter, minRating]);
+      if (error) throw error;
+      let rows = (data ?? []) as Provider[];
+      if (debouncedSearch.trim()) {
+        const q = debouncedSearch.toLowerCase();
+        rows = rows.filter(
+          (p) =>
+            p.business_name.toLowerCase().includes(q) ||
+            (p.categories ?? []).some((c) => c.toLowerCase().includes(q))
+        );
+      }
+      return rows;
+    },
+    staleTime: 30_000,
+  });
 
   const clearFilters = () => {
     setSearch("");
-    setLocationFilter("All");
+    setCategoryFilter("all");
     setMinRating(0);
   };
 
@@ -121,15 +121,15 @@ const Providers = () => {
           <div className="mb-10 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between bg-card p-4 rounded-2xl border border-border shadow-sm">
             <div className="flex flex-1 flex-wrap items-center gap-3">
               <div className="flex items-center gap-2 px-3 py-2 border rounded-md bg-background text-sm">
-                <MapPin className="h-4 w-4 text-muted-foreground" />
+                <Tag className="h-4 w-4 text-muted-foreground" />
                 <select
-                  value={locationFilter}
-                  onChange={(e) => setLocationFilter(e.target.value)}
+                  value={categoryFilter}
+                  onChange={(e) => setCategoryFilter(e.target.value)}
                   className="bg-transparent outline-none cursor-pointer"
                 >
-                  {locations.map((loc) => (
-                    <option key={loc} value={loc}>
-                      {loc}
+                  {CATEGORIES.map((c) => (
+                    <option key={c} value={c === "All" ? "all" : c}>
+                      {c}
                     </option>
                   ))}
                 </select>
@@ -149,7 +149,7 @@ const Providers = () => {
                 </select>
               </div>
 
-              {(search || locationFilter !== "All" || minRating !== 0) && (
+              {(search || categoryFilter !== "all" || minRating !== 0) && (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -162,11 +162,11 @@ const Providers = () => {
             </div>
 
             <div className="text-sm text-muted-foreground font-medium">
-              Showing {filtered.length} professionals
+              Showing {providers.length} professionals
             </div>
           </div>
 
-          {loading ? (
+          {isLoading ? (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {[1, 2, 3, 4, 5, 6].map((i) => (
                 <Skeleton key={i} className="h-56 rounded-2xl" />
@@ -174,10 +174,7 @@ const Providers = () => {
             </div>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {filtered.map((provider, i) => {
-                const profileData = Array.isArray(provider.profiles)
-                  ? provider.profiles[0]
-                  : provider.profiles;
+              {providers.map((provider, i) => {
                 const initials = provider.business_name
                   .split(" ")
                   .map((w) => w[0])
@@ -185,6 +182,7 @@ const Providers = () => {
                   .toUpperCase()
                   .slice(0, 2);
                 const slug = provider.username || provider.id;
+                const avatar = provider.logo_url || provider.owner_avatar_url;
 
                 return (
                   <motion.div
@@ -197,9 +195,9 @@ const Providers = () => {
                     <Link to={`/pro/${slug}`} className="block">
                       <div className="mb-4 flex items-start gap-3">
                         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 font-heading text-sm font-bold text-primary">
-                          {(provider.logo_url || profileData?.avatar_url) ? (
+                          {avatar ? (
                             <Image
-                              src={(provider.logo_url || profileData?.avatar_url)!}
+                              src={avatar}
                               alt={provider.business_name}
                               className="h-full w-full rounded-xl object-cover"
                             />
@@ -218,7 +216,7 @@ const Providers = () => {
                             <SubscriptionBadge status={provider.subscription_status} />
                           </div>
                           <p className="text-sm text-muted-foreground">
-                            {profileData?.full_name}
+                            {provider.owner_full_name}
                           </p>
                         </div>
                       </div>
@@ -234,9 +232,14 @@ const Providers = () => {
                       </div>
 
                       {provider.location_name && (
-                        <div className="mb-3 flex items-center gap-1.5 text-sm text-muted-foreground">
+                        <div className="mb-1 flex items-center gap-1.5 text-sm text-muted-foreground">
                           <MapPin className="h-3.5 w-3.5" />
                           {provider.location_name}
+                        </div>
+                      )}
+                      {provider.distance_km != null && (
+                        <div className="mb-3 ml-5 text-xs text-muted-foreground">
+                          {provider.distance_km} km away
                         </div>
                       )}
 
@@ -269,7 +272,7 @@ const Providers = () => {
             </div>
           )}
 
-          {!loading && filtered.length === 0 && (
+          {!isLoading && providers.length === 0 && (
             <div className="py-20 text-center">
               <p className="text-lg font-medium text-muted-foreground">
                 No professionals found
