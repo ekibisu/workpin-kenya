@@ -19,6 +19,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   ChevronLeft, ChevronRight, Loader2, Save, Upload, Plus, X, Trash2,
   Eye, CheckCircle, Briefcase, Image as ImageIcon, Award, Phone, MapPin, Camera,
+  ShieldCheck, Clock as ClockIcon,
 } from "lucide-react";
 import { useMediaUpload } from "@/hooks/useMediaUpload";
 import { generateUniqueSlug } from "@/lib/slugify";
@@ -28,7 +29,7 @@ import { Link } from "react-router-dom";
 import CountrySelect from "@/components/CountrySelect";
 import CountryMultiSelect from "@/components/CountryMultiSelect";
 
-const STEPS = ["Basics", "Services", "Gallery", "Credentials", "Contact", "Preview"];
+const STEPS = ["Basics", "Services", "Gallery", "Credentials", "Contact", "Verify", "Preview"];
 
 interface ServiceOption {
   id: string;
