@@ -86,6 +86,7 @@ const RequestService = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { user } = useAuth();
+  const { activeCountry } = useActiveCountry();
 
   const [step, setStep] = useState(0);
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
