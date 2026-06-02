@@ -285,7 +285,7 @@ function DisputesTab() {
                   </TableCell>
                 </TableRow>
               )}
-            </>
+            </FragmentRow>
           );
         })}
       </TableBody>
