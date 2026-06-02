@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Link, useLocation } from "react-router-dom";
 import {
   LayoutDashboard, FileText, MessageCircle, Settings, Plus, Briefcase,
-  Search, Send,
+  Search, Send, Wallet,
 } from "lucide-react";
 import MpesaCheckout from "@/components/payments/MpesaCheckout";
 import MessageDrawer from "@/components/messaging/MessageDrawer";
