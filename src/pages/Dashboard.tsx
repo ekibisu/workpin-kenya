@@ -991,6 +991,7 @@ const Dashboard = () => {
         onOpenChange={(open) => { if (!open) setChatWorkThreadId(null); }}
         onRead={resetCount}
       />
+      <MobileNav />
     </div>
   );
 };
