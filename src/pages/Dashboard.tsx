@@ -45,6 +45,7 @@ import BusinessesPanel from "@/components/dashboard/BusinessesPanel";
 import ProviderJobFeed from "@/components/dashboard/ProviderJobFeed";
 import ProviderQuotesPanel from "@/components/dashboard/ProviderQuotesPanel";
 import questionsData from "@/data/questions.json";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 // Normalize image_urls: filter nulls, empty strings, and obviously broken URLs
 function normalizeImageUrls(urls: string[] | null | undefined): string[] {
