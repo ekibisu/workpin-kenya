@@ -230,7 +230,8 @@ const BusinessesPanel = () => {
         open={showCreate}
         onOpenChange={setShowCreate}
         onCreated={(newBiz) => {
-          setBusinesses(prev => [newBiz as Business, ...prev]);
+          setBusinesses(prev => [{ ...(newBiz as any), galleryCount: 0, servicesCount: 0, faqCount: 0 } as Business, ...prev]);
+          refetch();
           setShowCreate(false);
           toast({ title: "Business created!", description: "You can now start receiving job requests." });
         }}
