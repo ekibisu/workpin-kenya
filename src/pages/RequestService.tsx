@@ -137,7 +137,7 @@ const RequestService = () => {
 
     setSubmitting(true);
 
-    const activeCountry = (typeof window !== "undefined" && localStorage.getItem("workpin.activeCountry")) || "KE";
+    
     const { error } = await supabase
       .from("job_requests")
       .insert({
