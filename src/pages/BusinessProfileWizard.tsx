@@ -883,8 +883,92 @@ const BusinessProfileWizard = () => {
                 </Card>
               )}
 
-              {/* STEP 5: Preview */}
+              {/* STEP 5: Verify */}
               {step === 5 && (
+                <Card>
+                  <CardContent className="space-y-4 pt-6">
+                    <div>
+                      <h3 className="font-heading text-lg font-bold text-foreground">Identity Verification</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Upload a photo of your National ID. This is required to receive
+                        payouts and earn the Verified badge.
+                      </p>
+                    </div>
+
+                    {isVerified && (
+                      <div className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 p-3 text-sm dark:border-green-800 dark:bg-green-900/20">
+                        <ShieldCheck className="h-4 w-4 text-green-600" />
+                        <span className="font-medium text-foreground">Your business is verified.</span>
+                      </div>
+                    )}
+
+                    {!isVerified && verificationSubmittedAt && (
+                      <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm dark:border-amber-800 dark:bg-amber-900/20">
+                        <ClockIcon className="h-4 w-4 text-amber-600" />
+                        <span className="text-foreground">
+                          Your ID is under review. Verification usually takes 1 business day.
+                        </span>
+                      </div>
+                    )}
+
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      {[
+                        { label: "ID Front", url: idFrontUrl, file: idFrontFile, setFile: setIdFrontFile, setUrl: setIdFrontUrl },
+                        { label: "ID Back",  url: idBackUrl,  file: idBackFile,  setFile: setIdBackFile,  setUrl: setIdBackUrl  },
+                      ].map((slot) => (
+                        <div key={slot.label} className="space-y-1.5">
+                          <Label>{slot.label}</Label>
+                          {(slot.url || slot.file) ? (
+                            <div className="relative">
+                              <img
+                                src={slot.file ? URL.createObjectURL(slot.file) : slot.url}
+                                alt={`${slot.label} preview`}
+                                className="h-40 w-full rounded-xl object-cover border border-border"
+                              />
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                className="absolute top-2 right-2"
+                                onClick={() => { slot.setFile(null); slot.setUrl(""); }}
+                              >
+                                <X className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <label className="flex h-40 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-border hover:border-primary/30 transition-colors">
+                              <Upload className="mb-2 h-5 w-5 text-muted-foreground/50" />
+                              <span className="text-xs text-muted-foreground">Upload {slot.label}</span>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={(e) => {
+                                  const f = e.target.files?.[0];
+                                  if (f) slot.setFile(f);
+                                  e.target.value = "";
+                                }}
+                              />
+                            </label>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="pt-2">
+                      <button
+                        type="button"
+                        onClick={() => setStep((s) => Math.min(STEPS.length - 1, s + 1))}
+                        className="text-sm text-muted-foreground hover:text-foreground underline"
+                      >
+                        Skip for now
+                      </button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* STEP 6: Preview */}
+              {step === 6 && (
                 <div className="space-y-6">
                   {/* Mini preview */}
                   <Card className="overflow-hidden">
