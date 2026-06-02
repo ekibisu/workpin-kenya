@@ -499,7 +499,7 @@ const Dashboard = () => {
           </nav>
         </aside>
 
-        <main className="flex-1 bg-background p-6 lg:p-8">
+        <main className="flex-1 bg-background p-6 pb-16 lg:p-8 lg:pb-0">
           <div className="mb-8 flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-extrabold text-foreground">
