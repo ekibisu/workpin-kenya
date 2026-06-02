@@ -179,3 +179,120 @@ export function useUserBusinesses(userId: string) {
         enabled: !!userId,
     });
 }
+
+// ============================================
+// CLIENT JOB REQUESTS
+// ============================================
+
+export function useClientJobRequests(userId: string) {
+    return useQuery({
+        queryKey: ["job_requests", "client", userId],
+        queryFn: async () => {
+            const { data, error } = await supabase
+                .from("job_requests")
+                .select("id, description, location_name, status, created_at, image_urls, services(name, archetype)")
+                .eq("client_id", userId)
+                .order("created_at", { ascending: false });
+            if (error) throw error;
+            return (data as any[]) ?? [];
+        },
+        enabled: !!userId,
+    });
+}
+
+// ============================================
+// CLIENT QUOTES (for a list of job request ids)
+// ============================================
+
+export function useClientQuotes(requestIds: string[]) {
+    const key = requestIds.join(",");
+    return useQuery({
+        queryKey: ["quotes", "client", key],
+        queryFn: async () => {
+            if (requestIds.length === 0) return [];
+            const { data, error } = await supabase
+                .from("quotes")
+                .select(
+                    "id, price_kes, message, status, created_at, request_id, provider_id, work_thread_id, " +
+                    "profiles!quotes_provider_id_fkey(full_name), " +
+                    "job_requests!quotes_request_id_fkey(description, services(name)), " +
+                    "businesses!quotes_provider_id_fkey(avg_rating, total_reviews)"
+                )
+                .in("request_id", requestIds)
+                .order("created_at", { ascending: false });
+            if (error) throw error;
+            return ((data as any[]) ?? []).map((q) => ({
+                ...q,
+                business_ratings: q.businesses
+                    ? { avg_rating: q.businesses.avg_rating, total_reviews: q.businesses.total_reviews }
+                    : null,
+            }));
+        },
+        enabled: requestIds.length > 0,
+    });
+}
+
+// ============================================
+// OWNER BUSINESSES (with completeness metadata)
+// ============================================
+
+export interface BusinessWithMeta extends Business {
+    galleryCount: number;
+    servicesCount: number;
+    faqCount: number;
+}
+
+export function useOwnerBusinesses(userId: string) {
+    return useQuery({
+        queryKey: ["businesses", "owner", userId],
+        queryFn: async (): Promise<BusinessWithMeta[]> => {
+            const { data: bizData, error } = await supabase
+                .from("businesses")
+                .select("*")
+                .eq("owner_id", userId)
+                .order("created_at", { ascending: false });
+            if (error) throw error;
+            const list = (bizData as Business[]) ?? [];
+            if (list.length === 0) return [];
+            const ids = list.map((b) => b.id);
+            const [{ data: svc }, { data: gal }, { data: faq }] = await Promise.all([
+                supabase.from("business_services").select("business_id").in("business_id", ids),
+                supabase.from("business_gallery").select("business_id").in("business_id", ids),
+                supabase.from("business_faqs").select("business_id").in("business_id", ids),
+            ]);
+            return list.map((b) => ({
+                ...b,
+                servicesCount: (svc ?? []).filter((r: any) => r.business_id === b.id).length,
+                galleryCount: (gal ?? []).filter((r: any) => r.business_id === b.id).length,
+                faqCount: (faq ?? []).filter((r: any) => r.business_id === b.id).length,
+            }));
+        },
+        enabled: !!userId,
+    });
+}
+
+// ============================================
+// OPEN JOB FEED (for providers)
+// ============================================
+
+export function useOpenJobFeed(businessIds: string[], countries: string[]) {
+    return useQuery({
+        queryKey: ["job_feed", businessIds.join(","), countries.join(",")],
+        queryFn: async () => {
+            const { data: userRes } = await supabase.auth.getUser();
+            const uid = userRes?.user?.id;
+            let query = supabase
+                .from("job_requests")
+                .select("id, description, location_name, status, created_at, image_urls, country_code, client_id, services(name, archetype)")
+                .eq("status", "open")
+                .order("created_at", { ascending: false });
+            if (uid) query = query.neq("client_id", uid);
+            if (countries.length > 0) query = query.in("country_code", countries);
+            const { data, error } = await query;
+            if (error) throw error;
+            return (data as any[]) ?? [];
+        },
+        enabled: businessIds.length > 0,
+    });
+}
+
