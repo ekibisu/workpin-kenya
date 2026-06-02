@@ -65,6 +65,7 @@ const Dashboard = () => {
   const [editingRequest, setEditingRequest] = useState<JobRequest | null>(null);
   const [deletingRequestId, setDeletingRequestId] = useState<string | null>(null);
   const [workThreadMap, setWorkThreadMap] = useState<Record<string, string>>({});
+  const [disputeTarget, setDisputeTarget] = useState<{ workThreadId: string; jobRequestId: string } | null>(null);
 
   const [payContext, setPayContext] = useState<{
     requestId: string; quoteId: string; amount: number;
