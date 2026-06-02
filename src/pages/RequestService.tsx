@@ -11,6 +11,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ChevronLeft, ChevronRight, MapPin, CheckCircle, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useActiveCountry } from "@/contexts/CountryContext";
 import { toast } from "@/hooks/use-toast";
 import { ServicePicker } from "@/components/ServicePicker";
 import { TedQuestionForm, validateTedAnswers } from "@/components/TedQuestionForm";
@@ -85,6 +86,7 @@ const RequestService = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { user } = useAuth();
+  const { activeCountry } = useActiveCountry();
 
   const [step, setStep] = useState(0);
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
@@ -135,7 +137,7 @@ const RequestService = () => {
 
     setSubmitting(true);
 
-    const activeCountry = (typeof window !== "undefined" && localStorage.getItem("workpin.activeCountry")) || "KE";
+    
     const { error } = await supabase
       .from("job_requests")
       .insert({
