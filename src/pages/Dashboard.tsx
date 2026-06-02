@@ -45,6 +45,7 @@ import BusinessesPanel from "@/components/dashboard/BusinessesPanel";
 import ProviderJobFeed from "@/components/dashboard/ProviderJobFeed";
 import ProviderQuotesPanel from "@/components/dashboard/ProviderQuotesPanel";
 import questionsData from "@/data/questions.json";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 // Normalize image_urls: filter nulls, empty strings, and obviously broken URLs
 function normalizeImageUrls(urls: string[] | null | undefined): string[] {
@@ -529,28 +530,40 @@ const Dashboard = () => {
 
           {/* MAIN CONTENT AREA */}
           {isMessagesTab ? (
-            <div className="overflow-hidden rounded-2xl border border-border bg-card">
-              <ConversationList />
-            </div>
+            <ErrorBoundary label="messages">
+              <div className="overflow-hidden rounded-2xl border border-border bg-card">
+                <ConversationList />
+              </div>
+            </ErrorBoundary>
           ) : isSettingsTab ? (
-            <UnifiedSettings />
+            <ErrorBoundary label="settings">
+              <UnifiedSettings />
+            </ErrorBoundary>
           ) : isBusinessesTab ? (
-            <BusinessesPanel />
+            <ErrorBoundary label="businesses panel">
+              <BusinessesPanel />
+            </ErrorBoundary>
           ) : isJobFeedTab ? (
-            <div className="rounded-2xl border border-border bg-card p-6">
-              <ProviderJobFeed />
-            </div>
+            <ErrorBoundary label="job feed">
+              <div className="rounded-2xl border border-border bg-card p-6">
+                <ProviderJobFeed />
+              </div>
+            </ErrorBoundary>
           ) : isMyQuotesTab ? (
-            <div className="rounded-2xl border border-border bg-card p-6">
-              <ProviderQuotesPanel
-                onMessage={(threadId, name) => {
-                  setChatWorkThreadId(threadId);
-                  setChatRecipientName(name);
-                }}
-              />
-            </div>
+            <ErrorBoundary label="my quotes">
+              <div className="rounded-2xl border border-border bg-card p-6">
+                <ProviderQuotesPanel
+                  onMessage={(threadId, name) => {
+                    setChatWorkThreadId(threadId);
+                    setChatRecipientName(name);
+                  }}
+                />
+              </div>
+            </ErrorBoundary>
           ) : (
-            <>
+            <ErrorBoundary label="dashboard">
+              <>
+
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 {stats.map((stat) => (
                   <div key={stat.label} className="rounded-2xl border border-border bg-card p-5">
@@ -768,7 +781,9 @@ const Dashboard = () => {
                   </div>
                 )}
               </div>
-            </>
+              </>
+            </ErrorBoundary>
+
           )}
         </main>
       </div>
