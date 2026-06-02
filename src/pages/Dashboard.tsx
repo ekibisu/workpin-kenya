@@ -166,18 +166,24 @@ const Dashboard = () => {
   };
 
   const handleDeclineCompletion = async (jobRequestId: string) => {
-    setConfirmingJobId(jobRequestId);
-    const { error } = await supabase
-      .from("job_requests")
-      .update({ status: "pending" })
-      .eq("id", jobRequestId);
-    setConfirmingJobId(null);
-    if (error) {
-      toast({ title: "Error", description: "Could not decline.", variant: "destructive" });
+    let threadId = workThreadMap[jobRequestId];
+    if (!threadId && user) {
+      const { data: wt } = await supabase
+        .from("work_threads")
+        .select("id")
+        .eq("job_request_id", jobRequestId)
+        .eq("client_id", user.id)
+        .maybeSingle();
+      if (wt?.id) {
+        threadId = wt.id;
+        setWorkThreadMap((prev) => ({ ...prev, [jobRequestId]: wt.id }));
+      }
+    }
+    if (!threadId) {
+      toast({ title: "Error", description: "Could not locate conversation.", variant: "destructive" });
       return;
     }
-    setRequests(prev => prev.map(r => r.id === jobRequestId ? { ...r, status: "pending" } : r));
-    toast({ title: "Completion declined", description: "The provider has been notified." });
+    setDisputeTarget({ workThreadId: threadId, jobRequestId });
   };
 
   const handleDeleteRequest = async (requestId: string) => {
