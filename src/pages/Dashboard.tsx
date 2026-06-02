@@ -164,7 +164,7 @@ const Dashboard = () => {
       toast({ title: "Error", description: "Could not confirm completion.", variant: "destructive" });
       return;
     }
-    setRequests(prev => prev.map(r => r.id === jobRequestId ? { ...r, status: "completed" } : r));
+    invalidateRequests();
     toast({ title: "Job confirmed!", description: "The job has been marked as completed." });
     setFeedbackRequestId(jobRequestId);
     setFeedbackProviderId(providerId);
