@@ -315,13 +315,46 @@ const BusinessProfileWizard = () => {
         }).eq("id", id);
       }
 
+      if (step === 5) {
+        let frontUrl = idFrontUrl;
+        let backUrl = idBackUrl;
+        if (idFrontFile) {
+          const result = await upload({
+            file: idFrontFile,
+            context: "verification",
+            providerSlug: slug || id,
+            providerName: businessName,
+          });
+          if (result) { frontUrl = result.public_url; setIdFrontUrl(frontUrl); setIdFrontFile(null); }
+        }
+        if (idBackFile) {
+          const result = await upload({
+            file: idBackFile,
+            context: "verification",
+            providerSlug: slug || id,
+            providerName: businessName,
+          });
+          if (result) { backUrl = result.public_url; setIdBackUrl(backUrl); setIdBackFile(null); }
+        }
+        if (frontUrl || backUrl) {
+          const submittedAt = new Date().toISOString();
+          await supabase.from("businesses").update({
+            verification_id_url: frontUrl || backUrl,
+            verification_submitted_at: submittedAt,
+            is_verified: false,
+          } as any).eq("id", id);
+          setVerificationSubmittedAt(submittedAt);
+          setIsVerified(false);
+        }
+      }
+
       toast({ title: "Progress saved" });
     } catch (err: any) {
       toast({ title: "Error saving", description: err.message, variant: "destructive" });
     } finally {
       setSaving(false);
     }
-  }, [step, id, businessName, tagline, bio, locationName, countryCode, serviceCountries, slug, services, heroFile, heroUrl, gallery, yearsExperience, certifications, languages, mpesaPhone, whatsappPhone, websiteUrl, rateKes, rateType, logoFile, logoUrl]);
+  }, [step, id, businessName, tagline, bio, locationName, countryCode, serviceCountries, slug, services, heroFile, heroUrl, gallery, yearsExperience, certifications, languages, mpesaPhone, whatsappPhone, websiteUrl, rateKes, rateType, logoFile, logoUrl, idFrontFile, idBackFile, idFrontUrl, idBackUrl, upload]);
 
   const handleNext = async () => {
     await saveStep();
