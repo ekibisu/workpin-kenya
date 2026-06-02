@@ -216,76 +216,21 @@ const Dashboard = () => {
       .eq("is_active", true)
       .limit(1)
       .then(({ data }) => setHasBusinesses((data || []).length > 0));
-
-    supabase
-      .from("job_requests")
-      .select("id, description, location_name, status, created_at, image_urls, services(name, archetype)")
-      .eq("client_id", user.id)
-      .order("created_at", { ascending: false })
-      .then(({ data }) => {
-        const reqs = (data as unknown as JobRequest[]) || [];
-        setRequests(reqs);
-        const ids = reqs.map((r) => r.id);
-        if (ids.length > 0) {
-          supabase
-            .from("quotes")
-            .select("id, price_kes, message, status, created_at, request_id, provider_id, work_thread_id, profiles!quotes_provider_id_fkey(full_name), job_requests!quotes_request_id_fkey(description, services(name))")
-            .in("request_id", ids)
-            .order("created_at", { ascending: false })
-            .then(async ({ data: qData }) => {
-              const quotesData = (qData as unknown as Quote[]) || [];
-              if (quotesData.length > 0) {
-                const providerIds = [...new Set(quotesData.map(q => q.provider_id))];
-                const { data: providerRatings } = await supabase
-                  .from("businesses")
-                  .select("id, avg_rating, total_reviews")
-                  .in("id", providerIds);
-                const enriched = quotesData.map(q => ({
-                  ...q,
-                  business_ratings: providerRatings?.find(p => p.id === q.provider_id) ?? null,
-                }));
-                setQuotes(enriched);
-              } else {
-                setQuotes([]);
-              }
-              setLoading(false);
-            });
-        } else {
-          setQuotes([]);
-          setLoading(false);
-        }
-      });
   }, [user]);
 
   useEffect(() => {
     if (!user || requests.length === 0) return;
-    const requestIds = requests.map((r) => r.id);
+    const requestIds = (requests as JobRequest[]).map((r) => r.id);
     const channel = supabase
       .channel("quotes-realtime")
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "quotes" },
-        async (payload) => {
+        (payload) => {
           const newQuote = payload.new as any;
           if (!requestIds.includes(newQuote.request_id)) return;
-          const { data } = await supabase
-            .from("quotes")
-            .select("id, price_kes, message, status, created_at, request_id, provider_id, work_thread_id, profiles!quotes_provider_id_fkey(full_name), job_requests!quotes_request_id_fkey(description, services(name))")
-            .eq("id", newQuote.id)
-            .single();
-          if (data) {
-            const { data: ratings } = await supabase
-              .from("businesses")
-              .select("id, avg_rating, total_reviews")
-              .eq("id", (data as any).provider_id)
-              .single();
-            const enriched = { ...(data as unknown as Quote), business_ratings: ratings ?? null };
-            setQuotes((prev) => {
-              if (prev.some((q) => q.id === enriched.id)) return prev;
-              return [enriched, ...prev];
-            });
-            toast({ title: "New quote received", description: "A provider submitted a new quote." });
-          }
+          invalidateQuotes();
+          toast({ title: "New quote received", description: "A provider submitted a new quote." });
         }
       )
       .subscribe();
