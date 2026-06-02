@@ -24,6 +24,8 @@ interface Business {
   location_name: string | null;
   rate_kes: number | null;
   rate_type: string | null;
+  is_verified: boolean | null;
+  verification_id_url: string | null;
 }
 
 const BusinessesPanel = () => {
