@@ -25,6 +25,7 @@ import RequestsTab from "@/components/dashboard/RequestsTab";
 import EditRequestDialog from "@/components/dashboard/EditRequestDialog";
 import FeedbackDialog from "@/components/dashboard/FeedbackDialog";
 import WalletTab from "@/components/dashboard/WalletTab";
+import DisputeDialog from "@/components/dashboard/DisputeDialog";
 import type { JobRequest, Quote } from "@/components/dashboard/dashboardTypes";
 
 const sideLinks = [
@@ -64,6 +65,7 @@ const Dashboard = () => {
   const [editingRequest, setEditingRequest] = useState<JobRequest | null>(null);
   const [deletingRequestId, setDeletingRequestId] = useState<string | null>(null);
   const [workThreadMap, setWorkThreadMap] = useState<Record<string, string>>({});
+  const [disputeTarget, setDisputeTarget] = useState<{ workThreadId: string; jobRequestId: string } | null>(null);
 
   const [payContext, setPayContext] = useState<{
     requestId: string; quoteId: string; amount: number;
@@ -164,18 +166,24 @@ const Dashboard = () => {
   };
 
   const handleDeclineCompletion = async (jobRequestId: string) => {
-    setConfirmingJobId(jobRequestId);
-    const { error } = await supabase
-      .from("job_requests")
-      .update({ status: "pending" })
-      .eq("id", jobRequestId);
-    setConfirmingJobId(null);
-    if (error) {
-      toast({ title: "Error", description: "Could not decline.", variant: "destructive" });
+    let threadId = workThreadMap[jobRequestId];
+    if (!threadId && user) {
+      const { data: wt } = await supabase
+        .from("work_threads")
+        .select("id")
+        .eq("job_request_id", jobRequestId)
+        .eq("client_id", user.id)
+        .maybeSingle();
+      if (wt?.id) {
+        threadId = wt.id;
+        setWorkThreadMap((prev) => ({ ...prev, [jobRequestId]: wt.id }));
+      }
+    }
+    if (!threadId) {
+      toast({ title: "Error", description: "Could not locate conversation.", variant: "destructive" });
       return;
     }
-    setRequests(prev => prev.map(r => r.id === jobRequestId ? { ...r, status: "pending" } : r));
-    toast({ title: "Completion declined", description: "The provider has been notified." });
+    setDisputeTarget({ workThreadId: threadId, jobRequestId });
   };
 
   const handleDeleteRequest = async (requestId: string) => {
@@ -450,6 +458,23 @@ const Dashboard = () => {
         open={!!chatWorkThreadId}
         onOpenChange={(open) => { if (!open) setChatWorkThreadId(null); }}
         onRead={resetCount}
+      />
+
+      <DisputeDialog
+        open={!!disputeTarget}
+        onOpenChange={(o) => { if (!o) setDisputeTarget(null); }}
+        workThreadId={disputeTarget?.workThreadId ?? ""}
+        jobRequestId={disputeTarget?.jobRequestId ?? ""}
+        onDisputeFiled={() => {
+          if (disputeTarget) {
+            setRequests((prev) =>
+              prev.map((r) =>
+                r.id === disputeTarget.jobRequestId ? { ...r, status: "pending" } : r
+              )
+            );
+            toast({ title: "Dispute filed", description: "We'll review within 24 hours." });
+          }
+        }}
       />
       <MobileNav />
     </div>
