@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useClientJobRequests, useClientQuotes } from "@/hooks/useNewSchemaQueries";
 import Navbar from "@/components/layout/Navbar";
 import { Button } from "@/components/ui/button";
 import { Link, useLocation } from "react-router-dom";
@@ -51,10 +53,19 @@ const Dashboard = () => {
   const isWalletTab = location.pathname.includes("/dashboard/wallet");
   const { unreadCount, resetCount } = useUnreadMessageCount();
 
+  const queryClient = useQueryClient();
   const [hasBusinesses, setHasBusinesses] = useState(false);
-  const [requests, setRequests] = useState<JobRequest[]>([]);
-  const [quotes, setQuotes] = useState<Quote[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: requestsData = [], isLoading: reqLoading } = useClientJobRequests(user?.id ?? "");
+  const requests = requestsData as JobRequest[];
+  const { data: quotesData = [], isLoading: quotesLoading } = useClientQuotes(
+    requests.map((r) => r.id)
+  );
+  const quotes = quotesData as Quote[];
+  const loading = reqLoading || quotesLoading;
+  const invalidateRequests = () =>
+    queryClient.invalidateQueries({ queryKey: ["job_requests", "client", user?.id ?? ""] });
+  const invalidateQuotes = () =>
+    queryClient.invalidateQueries({ queryKey: ["quotes", "client"] });
   const [startingJobId, setStartingJobId] = useState<string | null>(null);
   const [decliningQuoteId, setDecliningQuoteId] = useState<string | null>(null);
   const [confirmingJobId, setConfirmingJobId] = useState<string | null>(null);
@@ -124,12 +135,8 @@ const Dashboard = () => {
       toast({ title: "Error", description: "Could not start job.", variant: "destructive" });
       return;
     }
-    setRequests(prev => prev.map(r => r.id === jobRequestId ? { ...r, status: "pending" } : r));
-    setQuotes(prev => prev.map(q => {
-      if (q.request_id !== jobRequestId) return q;
-      if (q.id === selectedQuoteId) return { ...q, status: "accepted", work_thread_id: threadId };
-      return { ...q, status: "declined" };
-    }));
+    invalidateRequests();
+    invalidateQuotes();
     toast({ title: "Job started!", description: "The provider has been hired." });
   };
 
@@ -144,7 +151,7 @@ const Dashboard = () => {
       toast({ title: "Error", description: "Could not decline quote.", variant: "destructive" });
       return;
     }
-    setQuotes(prev => prev.map(q => q.id === quoteId ? { ...q, status: "declined" } : q));
+    invalidateQuotes();
     toast({ title: "Quote declined", description: "The provider has been notified." });
   };
 
@@ -159,7 +166,7 @@ const Dashboard = () => {
       toast({ title: "Error", description: "Could not confirm completion.", variant: "destructive" });
       return;
     }
-    setRequests(prev => prev.map(r => r.id === jobRequestId ? { ...r, status: "completed" } : r));
+    invalidateRequests();
     toast({ title: "Job confirmed!", description: "The job has been marked as completed." });
     setFeedbackRequestId(jobRequestId);
     setFeedbackProviderId(providerId);
@@ -197,8 +204,8 @@ const Dashboard = () => {
       toast({ title: "Error", description: "Could not delete request.", variant: "destructive" });
       return;
     }
-    setRequests(prev => prev.filter(r => r.id !== requestId));
-    setQuotes(prev => prev.filter(q => q.request_id !== requestId));
+    invalidateRequests();
+    invalidateQuotes();
     toast({ title: "Request deleted" });
   };
 
@@ -211,76 +218,21 @@ const Dashboard = () => {
       .eq("is_active", true)
       .limit(1)
       .then(({ data }) => setHasBusinesses((data || []).length > 0));
-
-    supabase
-      .from("job_requests")
-      .select("id, description, location_name, status, created_at, image_urls, services(name, archetype)")
-      .eq("client_id", user.id)
-      .order("created_at", { ascending: false })
-      .then(({ data }) => {
-        const reqs = (data as unknown as JobRequest[]) || [];
-        setRequests(reqs);
-        const ids = reqs.map((r) => r.id);
-        if (ids.length > 0) {
-          supabase
-            .from("quotes")
-            .select("id, price_kes, message, status, created_at, request_id, provider_id, work_thread_id, profiles!quotes_provider_id_fkey(full_name), job_requests!quotes_request_id_fkey(description, services(name))")
-            .in("request_id", ids)
-            .order("created_at", { ascending: false })
-            .then(async ({ data: qData }) => {
-              const quotesData = (qData as unknown as Quote[]) || [];
-              if (quotesData.length > 0) {
-                const providerIds = [...new Set(quotesData.map(q => q.provider_id))];
-                const { data: providerRatings } = await supabase
-                  .from("businesses")
-                  .select("id, avg_rating, total_reviews")
-                  .in("id", providerIds);
-                const enriched = quotesData.map(q => ({
-                  ...q,
-                  business_ratings: providerRatings?.find(p => p.id === q.provider_id) ?? null,
-                }));
-                setQuotes(enriched);
-              } else {
-                setQuotes([]);
-              }
-              setLoading(false);
-            });
-        } else {
-          setQuotes([]);
-          setLoading(false);
-        }
-      });
   }, [user]);
 
   useEffect(() => {
     if (!user || requests.length === 0) return;
-    const requestIds = requests.map((r) => r.id);
+    const requestIds = (requests as JobRequest[]).map((r) => r.id);
     const channel = supabase
       .channel("quotes-realtime")
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "quotes" },
-        async (payload) => {
+        (payload) => {
           const newQuote = payload.new as any;
           if (!requestIds.includes(newQuote.request_id)) return;
-          const { data } = await supabase
-            .from("quotes")
-            .select("id, price_kes, message, status, created_at, request_id, provider_id, work_thread_id, profiles!quotes_provider_id_fkey(full_name), job_requests!quotes_request_id_fkey(description, services(name))")
-            .eq("id", newQuote.id)
-            .single();
-          if (data) {
-            const { data: ratings } = await supabase
-              .from("businesses")
-              .select("id, avg_rating, total_reviews")
-              .eq("id", (data as any).provider_id)
-              .single();
-            const enriched = { ...(data as unknown as Quote), business_ratings: ratings ?? null };
-            setQuotes((prev) => {
-              if (prev.some((q) => q.id === enriched.id)) return prev;
-              return [enriched, ...prev];
-            });
-            toast({ title: "New quote received", description: "A provider submitted a new quote." });
-          }
+          invalidateQuotes();
+          toast({ title: "New quote received", description: "A provider submitted a new quote." });
         }
       )
       .subscribe();
@@ -421,11 +373,8 @@ const Dashboard = () => {
       <EditRequestDialog
         request={editingRequest}
         onClose={() => setEditingRequest(null)}
-        onSaved={(updates) => {
-          if (!editingRequest) return;
-          setRequests((prev) =>
-            prev.map((r) => (r.id === editingRequest.id ? { ...r, ...updates } : r))
-          );
+        onSaved={() => {
+          invalidateRequests();
         }}
       />
 
@@ -467,11 +416,7 @@ const Dashboard = () => {
         jobRequestId={disputeTarget?.jobRequestId ?? ""}
         onDisputeFiled={() => {
           if (disputeTarget) {
-            setRequests((prev) =>
-              prev.map((r) =>
-                r.id === disputeTarget.jobRequestId ? { ...r, status: "pending" } : r
-              )
-            );
+            invalidateRequests();
             toast({ title: "Dispute filed", description: "We'll review within 24 hours." });
           }
         }}
