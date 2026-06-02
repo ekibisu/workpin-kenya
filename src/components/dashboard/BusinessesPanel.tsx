@@ -173,7 +173,9 @@ const BusinessesPanel = () => {
                   business_name: biz.business_name,
                   bio: biz.bio,
                   location_name: biz.location_name,
-                  ...(bizMeta[biz.id] || { galleryCount: 0, servicesCount: 0, faqCount: 0 }),
+                  galleryCount: biz.galleryCount,
+                  servicesCount: biz.servicesCount,
+                  faqCount: biz.faqCount,
                 });
                 return (
                   <div className="mt-3 space-y-1">
