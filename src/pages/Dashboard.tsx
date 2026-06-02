@@ -55,10 +55,12 @@ const Dashboard = () => {
 
   const queryClient = useQueryClient();
   const [hasBusinesses, setHasBusinesses] = useState(false);
-  const { data: requests = [], isLoading: reqLoading } = useClientJobRequests(user?.id ?? "");
-  const { data: quotes = [], isLoading: quotesLoading } = useClientQuotes(
-    (requests as JobRequest[]).map((r) => r.id)
+  const { data: requestsData = [], isLoading: reqLoading } = useClientJobRequests(user?.id ?? "");
+  const requests = requestsData as JobRequest[];
+  const { data: quotesData = [], isLoading: quotesLoading } = useClientQuotes(
+    requests.map((r) => r.id)
   );
+  const quotes = quotesData as Quote[];
   const loading = reqLoading || quotesLoading;
   const invalidateRequests = () =>
     queryClient.invalidateQueries({ queryKey: ["job_requests", "client", user?.id ?? ""] });
