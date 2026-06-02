@@ -47,6 +47,7 @@ const Dashboard = () => {
   const isBusinessesTab = location.pathname.includes("/dashboard/businesses");
   const isJobFeedTab = location.pathname.includes("/dashboard/jobs");
   const isMyQuotesTab = location.pathname.includes("/dashboard/quotes");
+  const isWalletTab = location.pathname.includes("/dashboard/wallet");
   const { unreadCount, resetCount } = useUnreadMessageCount();
 
   const [hasBusinesses, setHasBusinesses] = useState(false);
