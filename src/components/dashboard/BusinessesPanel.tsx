@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
 import {
   Plus, Briefcase, MapPin, Star, Loader2, Settings, Eye, EyeOff, Wand2,
+  BadgeCheck, Clock, ShieldAlert,
 } from "lucide-react";
 import CreateBusinessForm from "./CreateBusinessForm";
 import { computeCompleteness } from "@/lib/profileCompleteness";
