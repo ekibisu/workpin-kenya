@@ -781,7 +781,9 @@ const Dashboard = () => {
                   </div>
                 )}
               </div>
-            </>
+              </>
+            </ErrorBoundary>
+
           )}
         </main>
       </div>
