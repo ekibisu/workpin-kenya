@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
 import {
   Plus, Briefcase, MapPin, Star, Loader2, Settings, Eye, EyeOff, Wand2,
+  BadgeCheck, Clock, ShieldAlert,
 } from "lucide-react";
 import CreateBusinessForm from "./CreateBusinessForm";
 import { computeCompleteness } from "@/lib/profileCompleteness";
@@ -23,6 +24,8 @@ interface Business {
   location_name: string | null;
   rate_kes: number | null;
   rate_type: string | null;
+  is_verified: boolean | null;
+  verification_id_url: string | null;
 }
 
 const BusinessesPanel = () => {
@@ -41,7 +44,7 @@ const BusinessesPanel = () => {
       const [{ data: bizData }, { data: profile }] = await Promise.all([
         supabase
           .from("businesses")
-          .select("id, business_name, bio, categories, avg_rating, total_reviews, is_active, location_name, rate_kes, rate_type")
+          .select("id, business_name, bio, categories, avg_rating, total_reviews, is_active, location_name, rate_kes, rate_type, is_verified, verification_id_url")
           .eq("owner_id", user.id)
           .order("created_at", { ascending: false }),
         supabase
@@ -145,6 +148,28 @@ const BusinessesPanel = () => {
                   {biz.is_active ? "Active" : "Inactive"}
                 </Badge>
               </div>
+
+              <div className="mb-2 flex items-center gap-1.5 text-xs">
+                {biz.is_verified && biz.verification_id_url ? (
+                  <span className="flex items-center gap-1 font-medium text-green-600">
+                    <BadgeCheck className="h-4 w-4 text-green-500" /> Verified
+                  </span>
+                ) : biz.verification_id_url ? (
+                  <span className="flex items-center gap-1 font-medium text-amber-600">
+                    <Clock className="h-4 w-4 text-amber-500" /> Pending review
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/business/${biz.id}/setup`)}
+                    className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <ShieldAlert className="h-4 w-4 text-muted-foreground" />
+                    Get verified
+                  </button>
+                )}
+              </div>
+
 
               {biz.bio && (
                 <p className="mb-3 line-clamp-2 text-sm text-muted-foreground">{biz.bio}</p>
