@@ -365,6 +365,10 @@ const Dashboard = () => {
                 />
               </div>
             </ErrorBoundary>
+          ) : isWalletTab ? (
+            <ErrorBoundary label="wallet">
+              <WalletTab />
+            </ErrorBoundary>
           ) : (
             <ErrorBoundary label="dashboard">
               <>
