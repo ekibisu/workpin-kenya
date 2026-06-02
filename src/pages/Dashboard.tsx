@@ -459,6 +459,23 @@ const Dashboard = () => {
         onOpenChange={(open) => { if (!open) setChatWorkThreadId(null); }}
         onRead={resetCount}
       />
+
+      <DisputeDialog
+        open={!!disputeTarget}
+        onOpenChange={(o) => { if (!o) setDisputeTarget(null); }}
+        workThreadId={disputeTarget?.workThreadId ?? ""}
+        jobRequestId={disputeTarget?.jobRequestId ?? ""}
+        onDisputeFiled={() => {
+          if (disputeTarget) {
+            setRequests((prev) =>
+              prev.map((r) =>
+                r.id === disputeTarget.jobRequestId ? { ...r, status: "pending" } : r
+              )
+            );
+            toast({ title: "Dispute filed", description: "We'll review within 24 hours." });
+          }
+        }}
+      />
       <MobileNav />
     </div>
   );
