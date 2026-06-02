@@ -220,6 +220,11 @@ const Navbar = () => {
                     <Link to="/dashboard/settings" onClick={() => setIsOpen(false)} className="flex items-center gap-2 rounded-lg px-4 py-3 text-sm font-medium text-muted-foreground hover:bg-accent">
                       <Settings className="h-4 w-4" /> Account Settings
                     </Link>
+                    {isAdmin && (
+                      <Link to="/admin" onClick={() => setIsOpen(false)} className="flex items-center gap-2 rounded-lg px-4 py-3 text-sm font-medium text-muted-foreground hover:bg-accent">
+                        <Shield className="h-4 w-4" /> Admin
+                      </Link>
+                    )}
                     <Button variant="ghost" onClick={() => { handleSignOut(); setIsOpen(false); }} className="justify-start text-destructive hover:text-destructive">
                       <LogOut className="mr-1 h-4 w-4" /> Log out
                     </Button>
