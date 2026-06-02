@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Link, useLocation } from "react-router-dom";
 import {
   LayoutDashboard, FileText, MessageCircle, Settings, Plus, Briefcase,
-  Search, Send,
+  Search, Send, Wallet,
 } from "lucide-react";
 import MpesaCheckout from "@/components/payments/MpesaCheckout";
 import MessageDrawer from "@/components/messaging/MessageDrawer";
@@ -24,6 +24,7 @@ import StatsGrid from "@/components/dashboard/StatsGrid";
 import RequestsTab from "@/components/dashboard/RequestsTab";
 import EditRequestDialog from "@/components/dashboard/EditRequestDialog";
 import FeedbackDialog from "@/components/dashboard/FeedbackDialog";
+import WalletTab from "@/components/dashboard/WalletTab";
 import type { JobRequest, Quote } from "@/components/dashboard/dashboardTypes";
 
 const sideLinks = [
@@ -31,6 +32,7 @@ const sideLinks = [
   { label: "My Requests", icon: FileText, href: "/dashboard/requests" },
   { label: "Job Feed", icon: Search, href: "/dashboard/jobs", providerOnly: true },
   { label: "My Quotes", icon: Send, href: "/dashboard/quotes", providerOnly: true },
+  { label: "Wallet", icon: Wallet, href: "/dashboard/wallet", providerOnly: true },
   { label: "My Businesses", icon: Briefcase, href: "/dashboard/businesses" },
   { label: "Messages", icon: MessageCircle, href: "/dashboard/messages" },
   { label: "Settings", icon: Settings, href: "/dashboard/settings" },
@@ -45,6 +47,7 @@ const Dashboard = () => {
   const isBusinessesTab = location.pathname.includes("/dashboard/businesses");
   const isJobFeedTab = location.pathname.includes("/dashboard/jobs");
   const isMyQuotesTab = location.pathname.includes("/dashboard/quotes");
+  const isWalletTab = location.pathname.includes("/dashboard/wallet");
   const { unreadCount, resetCount } = useUnreadMessageCount();
 
   const [hasBusinesses, setHasBusinesses] = useState(false);
@@ -304,7 +307,7 @@ const Dashboard = () => {
           <div className="mb-8 flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-extrabold text-foreground">
-                {isMessagesTab ? "Messages" : isSettingsTab ? "Account Settings" : isBusinessesTab ? "My Businesses" : isJobFeedTab ? "Job Feed" : isMyQuotesTab ? "My Quotes" : "Dashboard"}
+                {isMessagesTab ? "Messages" : isSettingsTab ? "Account Settings" : isBusinessesTab ? "My Businesses" : isJobFeedTab ? "Job Feed" : isMyQuotesTab ? "My Quotes" : isWalletTab ? "Wallet" : "Dashboard"}
               </h1>
               <p className="text-sm text-muted-foreground">
                 {isMessagesTab
@@ -317,10 +320,12 @@ const Dashboard = () => {
                         ? "Browse open requests and submit quotes."
                         : isMyQuotesTab
                           ? "Track quotes you've sent to clients."
-                          : "Welcome back! Here's your activity overview."}
+                          : isWalletTab
+                            ? "Track your earnings and request payouts."
+                            : "Welcome back! Here's your activity overview."}
               </p>
             </div>
-            {!isMessagesTab && !isSettingsTab && !isBusinessesTab && !isJobFeedTab && !isMyQuotesTab && (
+            {!isMessagesTab && !isSettingsTab && !isBusinessesTab && !isJobFeedTab && !isMyQuotesTab && !isWalletTab && (
               <Button asChild>
                 <Link to="/request">
                   <Plus className="h-4 w-4" />New Request
@@ -359,6 +364,10 @@ const Dashboard = () => {
                   }}
                 />
               </div>
+            </ErrorBoundary>
+          ) : isWalletTab ? (
+            <ErrorBoundary label="wallet">
+              <WalletTab />
             </ErrorBoundary>
           ) : (
             <ErrorBoundary label="dashboard">

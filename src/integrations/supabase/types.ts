@@ -827,6 +827,36 @@ export type Database = {
           },
         ]
       }
+      payout_requests: {
+        Row: {
+          amount_kes: number
+          created_at: string
+          id: string
+          mpesa_phone: string
+          processed_at: string | null
+          provider_id: string
+          status: string
+        }
+        Insert: {
+          amount_kes: number
+          created_at?: string
+          id?: string
+          mpesa_phone: string
+          processed_at?: string | null
+          provider_id: string
+          status?: string
+        }
+        Update: {
+          amount_kes?: number
+          created_at?: string
+          id?: string
+          mpesa_phone?: string
+          processed_at?: string | null
+          provider_id?: string
+          status?: string
+        }
+        Relationships: []
+      }
       pending_subscription_payments: {
         Row: {
           amount_kes: number
