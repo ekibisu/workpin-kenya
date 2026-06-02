@@ -46,6 +46,7 @@ import ProviderJobFeed from "@/components/dashboard/ProviderJobFeed";
 import ProviderQuotesPanel from "@/components/dashboard/ProviderQuotesPanel";
 import questionsData from "@/data/questions.json";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import MobileNav from "@/components/layout/MobileNav";
 
 // Normalize image_urls: filter nulls, empty strings, and obviously broken URLs
 function normalizeImageUrls(urls: string[] | null | undefined): string[] {
@@ -499,7 +500,7 @@ const Dashboard = () => {
           </nav>
         </aside>
 
-        <main className="flex-1 bg-background p-6 lg:p-8">
+        <main className="flex-1 bg-background p-6 pb-16 lg:p-8 lg:pb-0">
           <div className="mb-8 flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-extrabold text-foreground">
@@ -990,6 +991,7 @@ const Dashboard = () => {
         onOpenChange={(open) => { if (!open) setChatWorkThreadId(null); }}
         onRead={resetCount}
       />
+      <MobileNav />
     </div>
   );
 };
