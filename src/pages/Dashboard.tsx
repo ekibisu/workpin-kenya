@@ -202,8 +202,8 @@ const Dashboard = () => {
       toast({ title: "Error", description: "Could not delete request.", variant: "destructive" });
       return;
     }
-    setRequests(prev => prev.filter(r => r.id !== requestId));
-    setQuotes(prev => prev.filter(q => q.request_id !== requestId));
+    invalidateRequests();
+    invalidateQuotes();
     toast({ title: "Request deleted" });
   };
 
