@@ -149,6 +149,28 @@ const BusinessesPanel = () => {
                 </Badge>
               </div>
 
+              <div className="mb-2 flex items-center gap-1.5 text-xs">
+                {biz.is_verified && biz.verification_id_url ? (
+                  <span className="flex items-center gap-1 font-medium text-green-600">
+                    <BadgeCheck className="h-4 w-4 text-green-500" /> Verified
+                  </span>
+                ) : biz.verification_id_url ? (
+                  <span className="flex items-center gap-1 font-medium text-amber-600">
+                    <Clock className="h-4 w-4 text-amber-500" /> Pending review
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/business/${biz.id}/setup`)}
+                    className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <ShieldAlert className="h-4 w-4 text-muted-foreground" />
+                    Get verified
+                  </button>
+                )}
+              </div>
+
+
               {biz.bio && (
                 <p className="mb-3 line-clamp-2 text-sm text-muted-foreground">{biz.bio}</p>
               )}
