@@ -44,7 +44,7 @@ const BusinessesPanel = () => {
       const [{ data: bizData }, { data: profile }] = await Promise.all([
         supabase
           .from("businesses")
-          .select("id, business_name, bio, categories, avg_rating, total_reviews, is_active, location_name, rate_kes, rate_type")
+          .select("id, business_name, bio, categories, avg_rating, total_reviews, is_active, location_name, rate_kes, rate_type, is_verified, verification_id_url")
           .eq("owner_id", user.id)
           .order("created_at", { ascending: false }),
         supabase
