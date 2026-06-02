@@ -276,6 +276,8 @@ export type Database = {
           total_reviews: number | null
           updated_at: string
           username: string | null
+          verification_id_url: string | null
+          verification_submitted_at: string | null
           website_url: string | null
           whatsapp_phone: string | null
           years_experience: number | null
@@ -316,6 +318,8 @@ export type Database = {
           total_reviews?: number | null
           updated_at?: string
           username?: string | null
+          verification_id_url?: string | null
+          verification_submitted_at?: string | null
           website_url?: string | null
           whatsapp_phone?: string | null
           years_experience?: number | null
@@ -356,6 +360,8 @@ export type Database = {
           total_reviews?: number | null
           updated_at?: string
           username?: string | null
+          verification_id_url?: string | null
+          verification_submitted_at?: string | null
           website_url?: string | null
           whatsapp_phone?: string | null
           years_experience?: number | null
@@ -451,6 +457,7 @@ export type Database = {
       }
       disputes: {
         Row: {
+          admin_note: string | null
           created_at: string
           description: string | null
           evidence_urls: string[] | null
@@ -461,6 +468,7 @@ export type Database = {
           work_thread_id: string
         }
         Insert: {
+          admin_note?: string | null
           created_at?: string
           description?: string | null
           evidence_urls?: string[] | null
@@ -471,6 +479,7 @@ export type Database = {
           work_thread_id: string
         }
         Update: {
+          admin_note?: string | null
           created_at?: string
           description?: string | null
           evidence_urls?: string[] | null
@@ -829,6 +838,7 @@ export type Database = {
       }
       payout_requests: {
         Row: {
+          admin_note: string | null
           amount_kes: number
           created_at: string
           id: string
@@ -838,6 +848,7 @@ export type Database = {
           status: string
         }
         Insert: {
+          admin_note?: string | null
           amount_kes: number
           created_at?: string
           id?: string
@@ -847,6 +858,7 @@ export type Database = {
           status?: string
         }
         Update: {
+          admin_note?: string | null
           amount_kes?: number
           created_at?: string
           id?: string
