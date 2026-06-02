@@ -746,6 +746,39 @@ export type Database = {
           },
         ]
       }
+      notifications: {
+        Row: {
+          body: string
+          created_at: string
+          data: Json
+          id: string
+          kind: string
+          read_at: string | null
+          title: string
+          user_id: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          data?: Json
+          id?: string
+          kind?: string
+          read_at?: string | null
+          title: string
+          user_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          data?: Json
+          id?: string
+          kind?: string
+          read_at?: string | null
+          title?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       payments: {
         Row: {
           amount_kes: number
@@ -793,6 +826,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      pending_subscription_payments: {
+        Row: {
+          amount_kes: number
+          business_id: string
+          checkout_request_id: string
+          created_at: string
+          id: string
+          initiated_by: string
+          period: string
+          plan_id: string
+        }
+        Insert: {
+          amount_kes: number
+          business_id: string
+          checkout_request_id: string
+          created_at?: string
+          id?: string
+          initiated_by: string
+          period: string
+          plan_id: string
+        }
+        Update: {
+          amount_kes?: number
+          business_id?: string
+          checkout_request_id?: string
+          created_at?: string
+          id?: string
+          initiated_by?: string
+          period?: string
+          plan_id?: string
+        }
+        Relationships: []
       }
       profile_views: {
         Row: {
