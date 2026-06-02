@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import CreateBusinessForm from "./CreateBusinessForm";
 import { computeCompleteness } from "@/lib/profileCompleteness";
+import { useOwnerBusinesses, type BusinessWithMeta } from "@/hooks/useNewSchemaQueries";
 
 interface Business {
   id: string;
