@@ -414,11 +414,7 @@ const Dashboard = () => {
         jobRequestId={disputeTarget?.jobRequestId ?? ""}
         onDisputeFiled={() => {
           if (disputeTarget) {
-            setRequests((prev) =>
-              prev.map((r) =>
-                r.id === disputeTarget.jobRequestId ? { ...r, status: "pending" } : r
-              )
-            );
+            invalidateRequests();
             toast({ title: "Dispute filed", description: "We'll review within 24 hours." });
           }
         }}
