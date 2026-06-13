@@ -1760,6 +1760,20 @@ export type Database = {
           score: number
         }[]
       }
+      normalize_ke_phone: { Args: { p_phone: string }; Returns: string }
+      notify_user: {
+        Args: {
+          p_channels?: string[]
+          p_data: Json
+          p_message: string
+          p_subject: string
+          p_template: string
+          p_to_email: string
+          p_to_phone: string
+          p_user_id: string
+        }
+        Returns: undefined
+      }
       populate_geometry_columns:
         | { Args: { tbl_oid: unknown; use_typmod?: boolean }; Returns: number }
         | { Args: { use_typmod?: boolean }; Returns: string }
