@@ -28,6 +28,7 @@ import { useSubscriptionLimits, isUnlimited } from "@/hooks/useSubscriptionLimit
 import { Link } from "react-router-dom";
 import CountrySelect from "@/components/CountrySelect";
 import CountryMultiSelect from "@/components/CountryMultiSelect";
+import MapPicker from "@/components/MapPicker";
 
 const STEPS = ["Basics", "Services", "Gallery", "Credentials", "Contact", "Verify", "Preview"];
 
@@ -73,6 +74,8 @@ const BusinessProfileWizard = () => {
   const [tagline, setTagline] = useState("");
   const [bio, setBio] = useState("");
   const [locationName, setLocationName] = useState("");
+  const [lat, setLat] = useState<number | null>(null);
+  const [lng, setLng] = useState<number | null>(null);
   const [countryCode, setCountryCode] = useState("KE");
   const [serviceCountries, setServiceCountries] = useState<string[]>(["KE"]);
   const [slug, setSlug] = useState("");
@@ -132,6 +135,8 @@ const BusinessProfileWizard = () => {
       setTagline(biz.tagline || "");
       setBio(biz.bio || "");
       setLocationName(biz.location_name || "");
+      setLat((biz as any).lat ?? null);
+      setLng((biz as any).lng ?? null);
       setCountryCode((biz as any).country_code || "KE");
       setServiceCountries(((biz as any).service_country_codes && (biz as any).service_country_codes.length > 0) ? (biz as any).service_country_codes : [(biz as any).country_code || "KE"]);
       setSlug(biz.username || "");
@@ -215,6 +220,8 @@ const BusinessProfileWizard = () => {
           tagline: tagline.trim() || null,
           bio: bio.trim() || null,
           location_name: locationName.trim() || null,
+          lat,
+          lng,
           country_code: countryCode,
           service_country_codes: serviceCountries.length > 0 ? serviceCountries : [countryCode],
           username: finalSlug || null,
@@ -524,6 +531,22 @@ const BusinessProfileWizard = () => {
                     <div className="space-y-1.5">
                       <Label className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5" /> Location</Label>
                       <Input value={locationName} onChange={e => setLocationName(e.target.value)} placeholder="e.g. Westlands, Nairobi" />
+                      <div className="overflow-hidden rounded-lg border border-border">
+                        <MapPicker
+                          lat={lat}
+                          lng={lng}
+                          onChange={(newLat, newLng, newName) => {
+                            setLat(newLat);
+                            setLng(newLng);
+                            if (newName && !locationName.trim()) setLocationName(newName);
+                          }}
+                        />
+                      </div>
+                      {(lat === null || lng === null) && (
+                        <p className="text-xs text-muted-foreground">
+                          Add your location on the map so nearby clients can find you.
+                        </p>
+                      )}
                     </div>
                     <div className="space-y-1.5">
                       <Label>Primary Country</Label>
