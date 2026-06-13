@@ -170,6 +170,7 @@ function DisputesTab() {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [edits, setEdits] = useState<Record<string, { status?: string; admin_note?: string }>>({});
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [actionBusyId, setActionBusyId] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["admin-disputes"],
@@ -188,7 +189,25 @@ function DisputesTab() {
           .in("id", filerIds);
         profMap = Object.fromEntries((profs || []).map((p) => [p.id, p]));
       }
-      return (rows || []).map((r) => ({ ...r, filer: profMap[r.filed_by_id] }));
+      const threadIds = Array.from(new Set((rows || []).map((r) => r.work_thread_id))).filter(Boolean);
+      let payMap: Record<string, { id: string; status: string; amount_kes: number }> = {};
+      if (threadIds.length) {
+        const { data: pays } = await supabase
+          .from("payments")
+          .select("id, status, amount_kes, work_thread_id, created_at")
+          .in("work_thread_id", threadIds)
+          .order("created_at", { ascending: false });
+        for (const p of pays || []) {
+          if (!payMap[p.work_thread_id] && (p.status === "held" || p.status === "paid" || p.status === "released" || p.status === "refunded")) {
+            payMap[p.work_thread_id] = { id: p.id, status: p.status, amount_kes: p.amount_kes };
+          }
+        }
+      }
+      return (rows || []).map((r) => ({
+        ...r,
+        filer: profMap[r.filed_by_id],
+        payment: payMap[r.work_thread_id] ?? null,
+      }));
     },
   });
 
@@ -204,6 +223,42 @@ function DisputesTab() {
     if (error) return toast({ title: "Error", description: error.message, variant: "destructive" });
     toast({ title: "Dispute updated" });
     setEdits((p) => { const n = { ...p }; delete n[id]; return n; });
+    qc.invalidateQueries({ queryKey: ["admin-disputes"] });
+  };
+
+  const refundClient = async (disputeId: string, paymentId: string, note: string) => {
+    if (!confirm("Refund the client? The provider will not be paid.")) return;
+    setActionBusyId(disputeId);
+    const { error: rpcErr } = await supabase.rpc("refund_payment", { p_payment_id: paymentId });
+    if (rpcErr) {
+      setActionBusyId(null);
+      return toast({ title: "Refund failed", description: rpcErr.message, variant: "destructive" });
+    }
+    await supabase.from("disputes").update({ status: "resolved", admin_note: note }).eq("id", disputeId);
+    setActionBusyId(null);
+    toast({ title: "Client refunded" });
+    setEdits((p) => { const n = { ...p }; delete n[disputeId]; return n; });
+    qc.invalidateQueries({ queryKey: ["admin-disputes"] });
+  };
+
+  const releaseToProvider = async (disputeId: string, paymentId: string, note: string) => {
+    if (!confirm("Release escrow to the provider?")) return;
+    setActionBusyId(disputeId);
+    const { error: updErr } = await supabase
+      .from("disputes")
+      .update({ status: "resolved", admin_note: note })
+      .eq("id", disputeId);
+    if (updErr) {
+      setActionBusyId(null);
+      return toast({ title: "Error", description: updErr.message, variant: "destructive" });
+    }
+    const { error: rpcErr } = await supabase.rpc("release_escrow", { p_payment_id: paymentId });
+    setActionBusyId(null);
+    if (rpcErr) {
+      return toast({ title: "Release failed", description: rpcErr.message, variant: "destructive" });
+    }
+    toast({ title: "Escrow released to provider" });
+    setEdits((p) => { const n = { ...p }; delete n[disputeId]; return n; });
     qc.invalidateQueries({ queryKey: ["admin-disputes"] });
   };
 
@@ -281,6 +336,30 @@ function DisputesTab() {
                           {savingId === row.id && <Loader2 className="mr-1 h-3 w-3 animate-spin" />} Save
                         </Button>
                       </div>
+                      {row.payment && (row.payment.status === "held" || row.payment.status === "paid") && (
+                        <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
+                          <p className="text-xs font-semibold uppercase text-muted-foreground mr-2">
+                            Resolve escrow (KES {row.payment.amount_kes}):
+                          </p>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            disabled={actionBusyId === row.id}
+                            onClick={() => refundClient(row.id, row.payment.id, currentNote)}
+                          >
+                            {actionBusyId === row.id && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+                            Refund client
+                          </Button>
+                          <Button
+                            size="sm"
+                            disabled={actionBusyId === row.id}
+                            onClick={() => releaseToProvider(row.id, row.payment.id, currentNote)}
+                          >
+                            {actionBusyId === row.id && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+                            Release to provider
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>

@@ -24,6 +24,7 @@ interface RequestsTabProps {
   quotes: Quote[];
   loading: boolean;
   workThreadMap: Record<string, string>;
+  openDisputeRequestIds?: Set<string>;
   startingJobId: string | null;
   decliningQuoteId: string | null;
   confirmingJobId: string | null;
@@ -43,7 +44,7 @@ interface RequestsTabProps {
 }
 
 export default function RequestsTab({
-  requests, quotes, loading, workThreadMap,
+  requests, quotes, loading, workThreadMap, openDisputeRequestIds,
   startingJobId, decliningQuoteId, confirmingJobId, deletingRequestId,
   onHire, onDecline, onConfirmComplete, onDeclineComplete,
   onMessage, onEdit, onDelete, onPayAndHire, onCacheThread,
@@ -191,34 +192,42 @@ export default function RequestsTab({
                       </div>
                     )}
                     {req.status === "completion_pending" && (
-                      <div className="mt-3 rounded-lg border border-yellow-200 bg-yellow-50 p-3 dark:border-yellow-800 dark:bg-yellow-900/20">
-                        <p className="mb-2 text-sm font-medium text-foreground">
-                          The provider has marked this job as complete. Confirm?
-                        </p>
-                        <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            disabled={confirmingJobId === req.id}
-                            onClick={() => {
-                              const quote = quotes.find((q) => q.request_id === req.id);
-                              onConfirmComplete(req.id, quote?.provider_id || "");
-                            }}
-                          >
-                            {confirmingJobId === req.id
-                              ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-                              : <CheckCircle className="mr-1 h-3.5 w-3.5" />}
-                            Yes, Completed
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={confirmingJobId === req.id}
-                            onClick={() => onDeclineComplete(req.id)}
-                          >
-                            Not Yet
-                          </Button>
+                      openDisputeRequestIds?.has(req.id) ? (
+                        <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-900/20">
+                          <p className="text-sm text-foreground">
+                            This job has a pending dispute. Our team will follow up once it's resolved.
+                          </p>
                         </div>
-                      </div>
+                      ) : (
+                        <div className="mt-3 rounded-lg border border-yellow-200 bg-yellow-50 p-3 dark:border-yellow-800 dark:bg-yellow-900/20">
+                          <p className="mb-2 text-sm font-medium text-foreground">
+                            The provider has marked this job as complete. Confirm?
+                          </p>
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              disabled={confirmingJobId === req.id}
+                              onClick={() => {
+                                const quote = quotes.find((q) => q.request_id === req.id);
+                                onConfirmComplete(req.id, quote?.provider_id || "");
+                              }}
+                            >
+                              {confirmingJobId === req.id
+                                ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                                : <CheckCircle className="mr-1 h-3.5 w-3.5" />}
+                              Yes, Completed
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={confirmingJobId === req.id}
+                              onClick={() => onDeclineComplete(req.id)}
+                            >
+                              Not Yet
+                            </Button>
+                          </div>
+                        </div>
+                      )
                     )}
                   </div>
 
