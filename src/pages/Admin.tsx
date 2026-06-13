@@ -336,6 +336,30 @@ function DisputesTab() {
                           {savingId === row.id && <Loader2 className="mr-1 h-3 w-3 animate-spin" />} Save
                         </Button>
                       </div>
+                      {row.payment && (row.payment.status === "held" || row.payment.status === "paid") && (
+                        <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
+                          <p className="text-xs font-semibold uppercase text-muted-foreground mr-2">
+                            Resolve escrow (KES {row.payment.amount_kes}):
+                          </p>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            disabled={actionBusyId === row.id}
+                            onClick={() => refundClient(row.id, row.payment.id, currentNote)}
+                          >
+                            {actionBusyId === row.id && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+                            Refund client
+                          </Button>
+                          <Button
+                            size="sm"
+                            disabled={actionBusyId === row.id}
+                            onClick={() => releaseToProvider(row.id, row.payment.id, currentNote)}
+                          >
+                            {actionBusyId === row.id && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+                            Release to provider
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
