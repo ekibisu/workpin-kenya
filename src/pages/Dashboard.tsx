@@ -166,6 +166,12 @@ const Dashboard = () => {
       toast({ title: "Error", description: "Could not confirm completion.", variant: "destructive" });
       return;
     }
+    const threadId = workThreadMap[jobRequestId];
+    if (threadId) {
+      await supabase.from("work_threads")
+        .update({ status: "completed" })
+        .eq("id", threadId);
+    }
     invalidateRequests();
     toast({ title: "Job confirmed!", description: "The job has been marked as completed." });
     setFeedbackRequestId(jobRequestId);

@@ -58,7 +58,7 @@ export default function SubmitQuoteForm({
           client_id: job.client_id,
           provider_id: selectedBizId,
           job_request_id: job.id,
-          status: "inquiry",
+          status: "quoted",
         })
         .select("id")
         .single();

@@ -58,11 +58,15 @@ export default function FeedbackDialog({
       rating,
       body: comment || null,
     });
-    setSubmitting(false);
     if (error) {
+      setSubmitting(false);
       toast({ title: "Error", description: "Could not submit feedback.", variant: "destructive" });
       return;
     }
+    await supabase.from("work_threads")
+      .update({ status: "reviewed" })
+      .eq("id", threadId);
+    setSubmitting(false);
     onClose();
     toast({ title: "Thank you!", description: "Your feedback has been submitted." });
   };
