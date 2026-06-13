@@ -371,6 +371,7 @@ const Dashboard = () => {
                   quotes={quotes}
                   loading={loading}
                   workThreadMap={workThreadMap}
+                  openDisputeRequestIds={openDisputeRequestIds}
                   startingJobId={startingJobId}
                   decliningQuoteId={decliningQuoteId}
                   confirmingJobId={confirmingJobId}
