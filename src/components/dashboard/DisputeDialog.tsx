@@ -105,6 +105,11 @@ export default function DisputeDialog({
         .eq("id", jobRequestId);
       if (updateErr) throw updateErr;
 
+      await supabase
+        .from("work_threads")
+        .update({ status: "disputed" })
+        .eq("id", workThreadId);
+
       toast({
         title: "Dispute filed",
         description: "We'll be in touch within 24 hours.",

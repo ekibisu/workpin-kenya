@@ -99,14 +99,24 @@ const ConversationList = ({ highlightThreadId }: ConversationListProps) => {
                                         {conv.service_name}
                                     </p>
                                 )}
-                                {conv.thread_status && conv.thread_status !== "active" && (
-                                    <Badge
-                                        variant={conv.thread_status === "inquiry" ? "secondary" : "outline"}
-                                        className="mb-0.5 h-4 text-[9px] px-1.5"
-                                    >
-                                        {conv.thread_status === "inquiry" ? "Inquiry" : conv.thread_status}
-                                    </Badge>
-                                )}
+                                {conv.thread_status && conv.thread_status !== "active" && (() => {
+                                    const s = conv.thread_status;
+                                    const map: Record<string, { label: string; variant: "secondary" | "outline" | "destructive"; className?: string }> = {
+                                        quoted: { label: "Quote sent", variant: "secondary" },
+                                        completed: { label: "Completed", variant: "outline", className: "text-muted-foreground" },
+                                        reviewed: { label: "Reviewed", variant: "outline", className: "text-green-600 border-green-600/40" },
+                                        disputed: { label: "Disputed", variant: "destructive" },
+                                    };
+                                    const cfg = map[s] ?? { label: s, variant: "outline" as const };
+                                    return (
+                                        <Badge
+                                            variant={cfg.variant}
+                                            className={`mb-0.5 h-4 text-[9px] px-1.5 ${cfg.className ?? ""}`}
+                                        >
+                                            {cfg.label}
+                                        </Badge>
+                                    );
+                                })()}
 
                                 <div className="flex items-center justify-between gap-2">
                                     <p className="truncate text-xs text-muted-foreground">
