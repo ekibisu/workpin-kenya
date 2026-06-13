@@ -8,6 +8,9 @@ import { Badge } from "@/components/ui/badge";
 import { Check, Crown, Zap, Star } from "lucide-react";
 import { motion } from "framer-motion";
 import { useActiveCountry } from "@/contexts/CountryContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
+import SubscriptionCheckout from "@/components/payments/SubscriptionCheckout";
 
 interface Plan {
   id: string;
@@ -34,10 +37,14 @@ const tierAccents: Record<string, string> = {
 
 const Pricing = () => {
   const { country } = useActiveCountry();
+  const { user } = useAuth();
+  const { toast } = useToast();
   const currency = country?.currency_code || "KES";
   const [plans, setPlans] = useState<Plan[]>([]);
   const [annual, setAnnual] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [businessId, setBusinessId] = useState<string | null>(null);
+  const [upgradeTarget, setUpgradeTarget] = useState<Plan | null>(null);
 
   useEffect(() => {
     supabase
@@ -57,6 +64,18 @@ const Pricing = () => {
         setLoading(false);
       });
   }, []);
+
+  useEffect(() => {
+    if (!user) { setBusinessId(null); return; }
+    supabase
+      .from("businesses")
+      .select("id")
+      .eq("owner_id", user.id)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => setBusinessId(data?.id ?? null));
+  }, [user]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -161,15 +180,33 @@ const Pricing = () => {
                       ))}
                     </ul>
 
-                    <Button
-                      asChild
-                      variant={isPro ? "default" : "outline"}
-                      className={`w-full ${isPro ? "shadow-brand-3d" : ""}`}
-                    >
-                      <Link to={plan.price_monthly_kes === 0 ? "/register" : `/register?plan=${plan.name.toLowerCase()}`}>
-                        {plan.price_monthly_kes === 0 ? "Get Started Free" : `Choose ${plan.name}`}
-                      </Link>
-                    </Button>
+                    {plan.price_monthly_kes === 0 ? (
+                      <Button
+                        asChild
+                        variant={isPro ? "default" : "outline"}
+                        className={`w-full ${isPro ? "shadow-brand-3d" : ""}`}
+                      >
+                        <Link to="/register">Get Started Free</Link>
+                      </Button>
+                    ) : user && businessId ? (
+                      <Button
+                        variant={isPro ? "default" : "outline"}
+                        className={`w-full ${isPro ? "shadow-brand-3d" : ""}`}
+                        onClick={() => setUpgradeTarget(plan)}
+                      >
+                        Upgrade to {plan.name}
+                      </Button>
+                    ) : (
+                      <Button
+                        asChild
+                        variant={isPro ? "default" : "outline"}
+                        className={`w-full ${isPro ? "shadow-brand-3d" : ""}`}
+                      >
+                        <Link to={`/register?plan=${plan.name.toLowerCase()}`}>
+                          Choose {plan.name}
+                        </Link>
+                      </Button>
+                    )}
                   </motion.div>
                 );
               })}
@@ -204,6 +241,18 @@ const Pricing = () => {
       </section>
 
       <Footer />
+
+      <SubscriptionCheckout
+        open={!!upgradeTarget}
+        onOpenChange={(o) => { if (!o) setUpgradeTarget(null); }}
+        plan={upgradeTarget}
+        period={annual ? "annual" : "monthly"}
+        businessId={businessId}
+        onSuccess={() => {
+          setUpgradeTarget(null);
+          toast({ title: "Plan upgraded!", description: "Your new plan is now active." });
+        }}
+      />
     </div>
   );
 };
