@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
-import { Bell, ShieldAlert, Mail, MessageSquare, Smartphone, Loader2 } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Bell, ShieldAlert, Mail, MessageSquare, Smartphone, Loader2, CreditCard } from "lucide-react";
 import ChangePasswordCard from "@/components/settings/ChangePasswordCard";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -77,6 +79,22 @@ const UnifiedSettings = () => {
   useEffect(() => {
     if (prefs) setNotifications(mapPrefsToState(prefs));
   }, [prefs]);
+
+  const { data: currentSub } = useQuery({
+    queryKey: ["current_subscription", bizId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("business_subscriptions")
+        .select("id, status, period, expires_at, plan_id, subscription_plans(name)")
+        .eq("business_id", bizId!)
+        .eq("status", "active")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!bizId,
+  });
 
   // Load first business is_active
   useEffect(() => {
