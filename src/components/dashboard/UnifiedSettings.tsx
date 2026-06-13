@@ -194,6 +194,42 @@ const UnifiedSettings = () => {
         </div>
       </div>
 
+      {/* Billing */}
+      <div className="rounded-xl border border-border bg-card overflow-hidden">
+        <div className="flex items-center gap-3 border-b border-border p-5">
+          <CreditCard className="h-5 w-5 text-primary" />
+          <h2 className="font-semibold text-foreground">Billing</h2>
+        </div>
+        <div className="p-5 flex items-center justify-between gap-4">
+          <div>
+            <p className="text-sm font-medium text-foreground">
+              Current plan:{" "}
+              <Badge variant="secondary" className="ml-1">
+                {(currentSub as any)?.subscription_plans?.name ?? "Free"}
+              </Badge>
+              {currentSub?.period && (
+                <span className="ml-2 text-xs text-muted-foreground capitalize">
+                  ({currentSub.period})
+                </span>
+              )}
+            </p>
+            {currentSub?.expires_at && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                Renews on {new Date(currentSub.expires_at).toLocaleDateString()}
+              </p>
+            )}
+            {!currentSub && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                Upgrade to unlock more features and reach more clients.
+              </p>
+            )}
+          </div>
+          <Button asChild size="sm">
+            <Link to="/pricing">Upgrade</Link>
+          </Button>
+        </div>
+      </div>
+
       {/* Change Password */}
       <ChangePasswordCard />
 
