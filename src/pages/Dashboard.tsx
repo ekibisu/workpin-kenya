@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useClientJobRequests, useClientQuotes } from "@/hooks/useNewSchemaQueries";
 import Navbar from "@/components/layout/Navbar";
 import { Button } from "@/components/ui/button";
@@ -77,6 +77,33 @@ const Dashboard = () => {
   const [deletingRequestId, setDeletingRequestId] = useState<string | null>(null);
   const [workThreadMap, setWorkThreadMap] = useState<Record<string, string>>({});
   const [disputeTarget, setDisputeTarget] = useState<{ workThreadId: string; jobRequestId: string } | null>(null);
+
+  const threadIds = useMemo(() => Object.values(workThreadMap), [workThreadMap]);
+  const { data: openDisputes = [] } = useQuery({
+    queryKey: ["open_disputes", user?.id ?? "", threadIds.sort().join(",")],
+    queryFn: async () => {
+      if (!threadIds.length) return [];
+      const { data, error } = await supabase
+        .from("disputes")
+        .select("id, work_thread_id")
+        .in("work_thread_id", threadIds)
+        .in("status", ["open", "investigating"]);
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: threadIds.length > 0,
+  });
+  const openDisputeRequestIds = useMemo(() => {
+    const threadToRequest: Record<string, string> = {};
+    for (const [reqId, threadId] of Object.entries(workThreadMap)) {
+      threadToRequest[threadId] = reqId;
+    }
+    return new Set(
+      openDisputes
+        .map((d) => threadToRequest[d.work_thread_id])
+        .filter((x): x is string => !!x)
+    );
+  }, [openDisputes, workThreadMap]);
 
   const [payContext, setPayContext] = useState<{
     requestId: string; quoteId: string; amount: number;
