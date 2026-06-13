@@ -1800,6 +1800,8 @@ export type Database = {
       }
       postgis_version: { Args: never; Returns: string }
       postgis_wagyu_version: { Args: never; Returns: string }
+      refund_payment: { Args: { p_payment_id: string }; Returns: undefined }
+      release_escrow: { Args: { p_payment_id: string }; Returns: undefined }
       search_providers: {
         Args: {
           p_category?: string
