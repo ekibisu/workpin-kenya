@@ -8,6 +8,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { supabase } from "@/integrations/supabase/client";
 import { useActiveCountry } from "@/contexts/CountryContext";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
+import NotificationBell from "@/components/layout/NotificationBell";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -118,6 +119,7 @@ const Navbar = () => {
 
         <div className="hidden items-center gap-3 md:flex">
           <CountrySwitcher />
+          {user && <NotificationBell />}
           {user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
