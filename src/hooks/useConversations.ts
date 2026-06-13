@@ -18,6 +18,7 @@ export interface Conversation {
     last_message_at: string | null;
     unread_count: number;
     thread_status: string;
+    job_request_status: string | null;
 }
 
 /**
@@ -64,13 +65,15 @@ export function useConversations() {
         // 4. Fetch job_requests with service names for threads that have a job_request_id
         const jobRequestIds = threads.map((t) => t.job_request_id).filter(Boolean) as string[];
         const serviceNameMap: Record<string, string> = {};
+        const jobStatusMap: Record<string, string> = {};
         if (jobRequestIds.length > 0) {
             const { data: jobReqs } = await supabase
                 .from("job_requests")
-                .select("id, service_id, services!service_requests_service_id_fkey(name)")
+                .select("id, service_id, status, services!service_requests_service_id_fkey(name)")
                 .in("id", jobRequestIds);
             for (const jr of (jobReqs as any[]) || []) {
                 serviceNameMap[jr.id] = jr.services?.name ?? null;
+                jobStatusMap[jr.id] = jr.status ?? null;
             }
         }
 
@@ -122,6 +125,7 @@ export function useConversations() {
                 last_message_at: latest?.created_at ?? null,
                 unread_count: unreadMap[t.id] || 0,
                 thread_status: t.status,
+                job_request_status: t.job_request_id ? jobStatusMap[t.job_request_id] ?? null : null,
             };
         });
 
