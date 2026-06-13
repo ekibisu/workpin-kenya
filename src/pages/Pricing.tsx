@@ -180,15 +180,33 @@ const Pricing = () => {
                       ))}
                     </ul>
 
-                    <Button
-                      asChild
-                      variant={isPro ? "default" : "outline"}
-                      className={`w-full ${isPro ? "shadow-brand-3d" : ""}`}
-                    >
-                      <Link to={plan.price_monthly_kes === 0 ? "/register" : `/register?plan=${plan.name.toLowerCase()}`}>
-                        {plan.price_monthly_kes === 0 ? "Get Started Free" : `Choose ${plan.name}`}
-                      </Link>
-                    </Button>
+                    {plan.price_monthly_kes === 0 ? (
+                      <Button
+                        asChild
+                        variant={isPro ? "default" : "outline"}
+                        className={`w-full ${isPro ? "shadow-brand-3d" : ""}`}
+                      >
+                        <Link to="/register">Get Started Free</Link>
+                      </Button>
+                    ) : user && businessId ? (
+                      <Button
+                        variant={isPro ? "default" : "outline"}
+                        className={`w-full ${isPro ? "shadow-brand-3d" : ""}`}
+                        onClick={() => setUpgradeTarget(plan)}
+                      >
+                        Upgrade to {plan.name}
+                      </Button>
+                    ) : (
+                      <Button
+                        asChild
+                        variant={isPro ? "default" : "outline"}
+                        className={`w-full ${isPro ? "shadow-brand-3d" : ""}`}
+                      >
+                        <Link to={`/register?plan=${plan.name.toLowerCase()}`}>
+                          Choose {plan.name}
+                        </Link>
+                      </Button>
+                    )}
                   </motion.div>
                 );
               })}
@@ -223,6 +241,18 @@ const Pricing = () => {
       </section>
 
       <Footer />
+
+      <SubscriptionCheckout
+        open={!!upgradeTarget}
+        onOpenChange={(o) => { if (!o) setUpgradeTarget(null); }}
+        plan={upgradeTarget}
+        period={annual ? "annual" : "monthly"}
+        businessId={businessId}
+        onSuccess={() => {
+          setUpgradeTarget(null);
+          toast({ title: "Plan upgraded!", description: "Your new plan is now active." });
+        }}
+      />
     </div>
   );
 };
