@@ -1,19 +1,33 @@
-## Goal
+## Fix work_threads status lifecycle
 
-Gate the "Hire" action behind an M-Pesa STK push using the existing `MpesaCheckout` component. Payment must succeed before `handleStartJob` runs.
+### Issue A — invalid "inquiry" status
 
-## Changes
+**`src/components/dashboard/SubmitQuoteForm.tsx`**
+- Change `status: "inquiry"` to `status: "quoted"` in the `work_threads` insert.
 
-### `src/components/dashboard/QuotesPanel.tsx`
-- Add prop `onPayAndHire(requestId, quoteId, amount, providerName, workThreadId)` to `QuotesPanelProps` and the destructured props.
-- In both views (compact accordion + card), swap the existing `onClick={() => onHire(requestId, quote.id)}` on the Hire button to call `onPayAndHire(requestId, quote.id, quote.price_kes, name, quote.work_thread_id ?? "")`.
-- Keep `onHire` in the props (unchanged signature) — Dashboard still uses it from `onSuccess`.
+**`src/components/messaging/ConversationList.tsx`**
+- Replace the single inquiry badge with status-specific badges:
+  - `quoted` → "Quote sent" (secondary)
+  - `active` → no badge
+  - `completed` → "Completed" (outline, muted)
+  - `reviewed` → "Reviewed" (outline, green text)
+  - `disputed` → "Disputed" (destructive)
 
-### `src/pages/Dashboard.tsx`
-- Add `import MpesaCheckout from "@/components/payments/MpesaCheckout"`.
-- Add `payContext` state (shape per spec).
-- Pass `onPayAndHire` to the `QuotesPanel` instance at line ~737 (resolves `serviceName` from `requests.find(r => r.id === requestId)?.services?.name`).
-- Render `<MpesaCheckout ... />` immediately before `<MessageDrawer ... />` (line ~942). On `onSuccess`, call `handleStartJob(payContext.requestId, payContext.quoteId)` then clear `payContext`.
+**`src/hooks/useConversations.ts`**
+- No logic change needed (already passes through `status`), but verify no leftover `"inquiry"` literal exists.
 
-## Out of scope
-- `handleStartJob` logic, `MpesaCheckout` internals, backend changes.
+### Issue B — status never advances past "active"
+
+**`src/pages/Dashboard.tsx` (`handleConfirmCompletion`)**
+- After updating `job_requests.status = "completed"`, also update the matching `work_threads` row to `status: "completed"` using `workThreadMap[jobRequestId]`.
+
+**`src/components/dashboard/FeedbackDialog.tsx`**
+- Add `workThreadId: string | null` prop (resolved by Dashboard from `workThreadMap[requestId]` — keep existing `workThreadMap` fallback lookup for safety).
+- After inserting the review, update `work_threads.status = "reviewed"` for that thread.
+- Update the `<FeedbackDialog>` usage in `Dashboard.tsx` to pass `workThreadId`.
+
+**`src/components/dashboard/DisputeDialog.tsx`**
+- After inserting the dispute, update `work_threads.status = "disputed"` using the existing `workThreadId` prop (already passed in).
+
+### Scope
+Frontend-only — no DB migration. Existing constraint already permits all target values.
