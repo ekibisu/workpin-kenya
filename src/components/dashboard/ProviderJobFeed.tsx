@@ -360,14 +360,20 @@ export default function ProviderJobFeed() {
         </div>
       )}
 
-      {/* Quote submission dialog */}
-      {quoteJob && (
+      {/* Quote submission / edit dialog */}
+      {(quoteJob || editQuote) && (
         <SubmitQuoteForm
-          job={quoteJob}
+          job={(editQuote?.job ?? quoteJob) as OpenJob}
           businesses={businesses}
-          open={!!quoteJob}
-          onOpenChange={(open) => { if (!open) setQuoteJob(null); }}
+          open={!!quoteJob || !!editQuote}
+          onOpenChange={(open) => {
+            if (!open) {
+              setQuoteJob(null);
+              setEditQuote(null);
+            }
+          }}
           onSubmitted={handleQuoteSubmitted}
+          editingQuote={editQuote?.quote ?? null}
         />
       )}
     </div>
