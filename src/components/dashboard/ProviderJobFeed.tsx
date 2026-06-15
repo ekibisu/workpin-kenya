@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import {
-  MapPin, Clock, ImageIcon, MessageSquareQuote, Search, Loader2, Inbox,
+  MapPin, Clock, ImageIcon, MessageSquareQuote, Search, Loader2, Inbox, Pencil,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
