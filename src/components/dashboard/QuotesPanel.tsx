@@ -162,7 +162,7 @@ export default function QuotesPanel({
             const isDeclined = quote.status === "declined";
             const isAccepted = quote.status === "accepted";
             const isPending = quote.status === "pending";
-            const name = quote.profiles?.full_name || "Provider";
+            const name = quote.business_name || "Provider";
             const initials = getInitials(name);
             const color = getAvatarColor(name);
             const rating = quote.business_ratings?.avg_rating;
