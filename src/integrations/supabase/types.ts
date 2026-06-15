@@ -566,7 +566,7 @@ export type Database = {
             foreignKeyName: "fixed_price_services_provider_id_fkey"
             columns: ["provider_id"]
             isOneToOne: false
-            referencedRelation: "profiles"
+            referencedRelation: "businesses"
             referencedColumns: ["id"]
           },
         ]
@@ -1054,7 +1054,7 @@ export type Database = {
             foreignKeyName: "provider_templates_provider_id_fkey"
             columns: ["provider_id"]
             isOneToOne: false
-            referencedRelation: "profiles"
+            referencedRelation: "businesses"
             referencedColumns: ["id"]
           },
         ]
@@ -1086,7 +1086,7 @@ export type Database = {
             foreignKeyName: "provider_wallets_provider_id_fkey"
             columns: ["provider_id"]
             isOneToOne: true
-            referencedRelation: "profiles"
+            referencedRelation: "businesses"
             referencedColumns: ["id"]
           },
         ]
@@ -1130,7 +1130,7 @@ export type Database = {
             foreignKeyName: "quotes_provider_id_fkey"
             columns: ["provider_id"]
             isOneToOne: false
-            referencedRelation: "profiles"
+            referencedRelation: "businesses"
             referencedColumns: ["id"]
           },
           {
@@ -1392,7 +1392,7 @@ export type Database = {
             foreignKeyName: "wallet_transactions_provider_id_fkey"
             columns: ["provider_id"]
             isOneToOne: false
-            referencedRelation: "profiles"
+            referencedRelation: "businesses"
             referencedColumns: ["id"]
           },
         ]
@@ -1444,7 +1444,7 @@ export type Database = {
             foreignKeyName: "work_threads_provider_id_fkey"
             columns: ["provider_id"]
             isOneToOne: false
-            referencedRelation: "profiles"
+            referencedRelation: "businesses"
             referencedColumns: ["id"]
           },
         ]
