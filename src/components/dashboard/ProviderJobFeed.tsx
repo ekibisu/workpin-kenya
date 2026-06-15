@@ -44,17 +44,26 @@ function parseDescription(raw: string): string {
   }
 }
 
+interface ExistingQuote {
+  id: string;
+  price_kes: number;
+  message: string | null;
+  timeline: string | null;
+  status: string;
+}
+
 export default function ProviderJobFeed() {
   const { user } = useAuth();
   const { limits, planName } = useSubscriptionLimits(user?.id);
   const [jobs, setJobs] = useState<OpenJob[]>([]);
   const [businesses, setBusinesses] = useState<Business[]>([]);
-  const [quotedRequestIds, setQuotedRequestIds] = useState<Set<string>>(new Set());
+  const [quotedQuotes, setQuotedQuotes] = useState<Map<string, ExistingQuote>>(new Map());
   const [quotesThisMonth, setQuotesThisMonth] = useState(0);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [quoteJob, setQuoteJob] = useState<OpenJob | null>(null);
+  const [editQuote, setEditQuote] = useState<{ job: OpenJob; quote: ExistingQuote } | null>(null);
 
   // Load businesses + open jobs + already-quoted IDs
   useEffect(() => {
