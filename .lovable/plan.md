@@ -1,20 +1,16 @@
-## Group ConversationList by thread status
+## Status
 
-### 1. `src/hooks/useConversations.ts`
-- Extend the job_requests fetch to also select `status`. Build `jobStatusMap[jr.id] = jr.status`.
-- Add `job_request_status: string | null` to the `Conversation` interface and populate it from the map.
+✅ **Database wiped already.** All transactional tables truncated and every `auth.users` row deleted. Reference data (services, countries, regions, subscription_plans, app_config) preserved.
 
-### 2. `src/components/messaging/ConversationList.tsx`
-- Determine viewer side per conversation: `isClient = conv.client_id === user.id` (use `useAuth()`).
-- Bucket conversations into:
-  - **Disputed** — `thread_status === "disputed"` (header has red `Flag` icon from lucide-react).
-  - **Awaiting your response** — clients only, when `thread_status === "quoted"` OR `job_request_status === "completion_pending"`.
-  - **Active jobs** — `thread_status === "active"`, plus `quoted` for providers (so providers still see their open quotes here).
-  - **Completed** — `thread_status` in `["completed","reviewed"]`. Rendered inside a `<Collapsible>` (from `@/components/ui/collapsible`), trigger shows count, default `open={false}`.
-- Hide any section whose bucket is empty. Render the existing conversation row markup unchanged within each bucket.
-- Reuse the existing inline status-badge map (quoted / completed / reviewed / disputed) introduced in the previous change — no new tokens.
-- Empty state (no conversations at all) keeps the current centered placeholder.
+⏳ **Storage not yet emptied.** 22 files remain in the `media` bucket (0 in `dispute-evidence`). Direct SQL `DELETE` on `storage.objects` is blocked by a Supabase protection trigger, so files must be removed via the Storage API.
 
-### Notes
-- Frontend-only; no migration. `Collapsible` already exists in the shadcn set.
-- Sorting within each bucket preserves the existing `updated_at DESC` order coming from the hook.
+## Remaining step — needs build mode
+
+Switch to **build mode** and I will:
+
+1. Create a one-shot edge function `supabase/functions/wipe-storage/index.ts` that uses the service-role client to list and `.remove()` every object in `media` and `dispute-evidence` (chunked, recursive through subfolders).
+2. Register it in `supabase/config.toml` with `verify_jwt = false`.
+3. Invoke it once and report how many files were deleted per bucket.
+4. Delete the edge function afterwards so it isn't left exposed.
+
+Reply with build mode enabled (toggle at top of chat) and I'll run those steps.
