@@ -49,10 +49,10 @@ export default function MpesaCheckout({
 
     const tick = async () => {
       if (cancelled) return;
-      const { data } = await (supabase as any)
+      const { data } = await supabase
         .from("payments")
         .select("id, status")
-        .eq("checkout_request_id", checkoutRequestId)
+        .eq("mpesa_checkout_request_id", checkoutRequestId)
         .maybeSingle();
 
       if (cancelled) return;
