@@ -267,7 +267,7 @@ export default function ProviderJobFeed() {
       ) : (
         <div className="space-y-3">
           {filtered.map((job) => {
-            const alreadyQuoted = quotedRequestIds.has(job.id);
+            const existingQuote = quotedQuotes.get(job.id);
             const imgCount = (job.image_urls || []).filter(Boolean).length;
 
             return (
