@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -25,13 +25,20 @@ interface SubmitQuoteFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSubmitted: (requestId: string) => void;
+  editingQuote?: {
+    id: string;
+    price_kes: number;
+    message: string | null;
+    timeline: string | null;
+  } | null;
 }
 
 export default function SubmitQuoteForm({
-  job, businesses, open, onOpenChange, onSubmitted,
+  job, businesses, open, onOpenChange, onSubmitted, editingQuote,
 }: SubmitQuoteFormProps) {
   const { user } = useAuth();
   const { toast } = useToast();
+  const isEdit = !!editingQuote;
   const [selectedBizId, setSelectedBizId] = useState(
     businesses.length === 1 ? businesses[0].id : ""
   );
@@ -40,8 +47,25 @@ export default function SubmitQuoteForm({
   const [timeline, setTimeline] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
+  // Pre-fill / reset on open
+  useEffect(() => {
+    if (open) {
+      if (editingQuote) {
+        setPriceKes(String(editingQuote.price_kes ?? ""));
+        setMessage(editingQuote.message ?? "");
+        setTimeline(editingQuote.timeline ?? "");
+      } else {
+        setPriceKes("");
+        setMessage("");
+        setTimeline("");
+        setSelectedBizId(businesses.length === 1 ? businesses[0].id : "");
+      }
+    }
+  }, [open, editingQuote, businesses]);
+
   const handleSubmit = async () => {
-    if (!user || !selectedBizId || !priceKes) return;
+    if (!user || !priceKes) return;
+    if (!isEdit && !selectedBizId) return;
     const price = Number(priceKes);
     if (isNaN(price) || price <= 0) {
       toast({ title: "Invalid price", description: "Enter a valid amount in KES.", variant: "destructive" });
@@ -51,36 +75,50 @@ export default function SubmitQuoteForm({
     setSubmitting(true);
 
     try {
-      // 1. Create inquiry work_thread
-      const { data: thread, error: threadErr } = await supabase
-        .from("work_threads")
-        .insert({
-          client_id: job.client_id,
-          provider_id: selectedBizId,
-          job_request_id: job.id,
-          status: "quoted",
-        })
-        .select("id")
-        .single();
+      if (isEdit && editingQuote) {
+        const { error } = await supabase
+          .from("quotes")
+          .update({
+            price_kes: price,
+            message: message.trim() || null,
+            timeline: timeline.trim() || null,
+          })
+          .eq("id", editingQuote.id);
+        if (error) throw error;
+        toast({ title: "Quote updated." });
+        onSubmitted(job.id);
+      } else {
+        // 1. Create inquiry work_thread
+        const { data: thread, error: threadErr } = await supabase
+          .from("work_threads")
+          .insert({
+            client_id: job.client_id,
+            provider_id: selectedBizId,
+            job_request_id: job.id,
+            status: "quoted",
+          })
+          .select("id")
+          .single();
 
-      if (threadErr) throw threadErr;
+        if (threadErr) throw threadErr;
 
-      // 2. Insert quote
-      const { error: quoteErr } = await supabase
-        .from("quotes")
-        .insert({
-          request_id: job.id,
-          provider_id: selectedBizId,
-          price_kes: price,
-          message: message.trim() || null,
-          timeline: timeline.trim() || null,
-          work_thread_id: thread.id,
-        });
+        // 2. Insert quote
+        const { error: quoteErr } = await supabase
+          .from("quotes")
+          .insert({
+            request_id: job.id,
+            provider_id: selectedBizId,
+            price_kes: price,
+            message: message.trim() || null,
+            timeline: timeline.trim() || null,
+            work_thread_id: thread.id,
+          });
 
-      if (quoteErr) throw quoteErr;
+        if (quoteErr) throw quoteErr;
 
-      toast({ title: "Quote submitted!", description: "The client will be notified." });
-      onSubmitted(job.id);
+        toast({ title: "Quote submitted!", description: "The client will be notified." });
+        onSubmitted(job.id);
+      }
     } catch (err: any) {
       console.error("Quote submission error:", err);
       toast({
@@ -102,14 +140,14 @@ export default function SubmitQuoteForm({
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="text-base">
-            Submit Quote
+            {isEdit ? "Edit Quote" : "Submit Quote"}
             <span className="ml-1 font-normal text-muted-foreground">— {serviceName}</span>
           </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
-          {/* Business selector */}
-          {businesses.length > 1 && (
+          {/* Business selector — hidden when editing */}
+          {!isEdit && businesses.length > 1 && (
             <div className="space-y-1.5">
               <Label className="text-sm">Quote as</Label>
               <Select value={selectedBizId} onValueChange={setSelectedBizId}>
@@ -166,11 +204,11 @@ export default function SubmitQuoteForm({
             Cancel
           </Button>
           <Button
-            disabled={submitting || !selectedBizId || !priceKes}
+            disabled={submitting || (!isEdit && !selectedBizId) || !priceKes}
             onClick={handleSubmit}
           >
             {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Submit Quote
+            {isEdit ? "Save changes" : "Submit Quote"}
           </Button>
         </DialogFooter>
       </DialogContent>
