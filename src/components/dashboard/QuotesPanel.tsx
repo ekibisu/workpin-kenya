@@ -25,7 +25,7 @@ interface QuoteData {
   request_id: string;
   provider_id: string;
   work_thread_id: string | null;
-  profiles: { full_name: string | null } | null;
+  business_name?: string | null;
   business_ratings?: {
     avg_rating: number | null;
     total_reviews: number | null;
@@ -162,7 +162,7 @@ export default function QuotesPanel({
             const isDeclined = quote.status === "declined";
             const isAccepted = quote.status === "accepted";
             const isPending = quote.status === "pending";
-            const name = quote.profiles?.full_name || "Provider";
+            const name = quote.business_name || "Provider";
             const initials = getInitials(name);
             const color = getAvatarColor(name);
             const rating = quote.business_ratings?.avg_rating;
@@ -282,7 +282,7 @@ export default function QuotesPanel({
             const isDeclined = quote.status === "declined";
             const isAccepted = quote.status === "accepted";
             const isPending = quote.status === "pending";
-            const name = quote.profiles?.full_name || "Provider";
+            const name = quote.business_name || "Provider";
             const initials = getInitials(name);
 
             return (
