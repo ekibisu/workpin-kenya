@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import {
-  MapPin, Clock, ImageIcon, MessageSquareQuote, Search, Loader2, Inbox,
+  MapPin, Clock, ImageIcon, MessageSquareQuote, Search, Loader2, Inbox, Pencil,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -44,17 +44,26 @@ function parseDescription(raw: string): string {
   }
 }
 
+interface ExistingQuote {
+  id: string;
+  price_kes: number;
+  message: string | null;
+  timeline: string | null;
+  status: string;
+}
+
 export default function ProviderJobFeed() {
   const { user } = useAuth();
   const { limits, planName } = useSubscriptionLimits(user?.id);
   const [jobs, setJobs] = useState<OpenJob[]>([]);
   const [businesses, setBusinesses] = useState<Business[]>([]);
-  const [quotedRequestIds, setQuotedRequestIds] = useState<Set<string>>(new Set());
+  const [quotedQuotes, setQuotedQuotes] = useState<Map<string, ExistingQuote>>(new Map());
   const [quotesThisMonth, setQuotesThisMonth] = useState(0);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [quoteJob, setQuoteJob] = useState<OpenJob | null>(null);
+  const [editQuote, setEditQuote] = useState<{ job: OpenJob; quote: ExistingQuote } | null>(null);
 
   // Load businesses + open jobs + already-quoted IDs
   useEffect(() => {
@@ -96,9 +105,21 @@ export default function ProviderJobFeed() {
       const bizIds = biz.map((b) => b.id);
       const { data: quotedData } = await supabase
         .from("quotes")
-        .select("request_id, created_at")
+        .select("id, request_id, price_kes, message, timeline, status, created_at")
         .in("provider_id", bizIds);
-      setQuotedRequestIds(new Set((quotedData || []).map((q) => q.request_id)));
+      const map = new Map<string, ExistingQuote>(
+        (quotedData ?? []).map((q: any) => [
+          q.request_id,
+          {
+            id: q.id,
+            price_kes: q.price_kes,
+            message: q.message,
+            timeline: q.timeline,
+            status: q.status,
+          },
+        ])
+      );
+      setQuotedQuotes(map);
 
       // Count quotes this calendar month
       const monthStart = new Date();
@@ -138,10 +159,33 @@ export default function ProviderJobFeed() {
     return result;
   }, [jobs, categoryFilter, searchTerm]);
 
-  const handleQuoteSubmitted = (requestId: string) => {
-    setQuotedRequestIds((prev) => new Set(prev).add(requestId));
-    setQuotesThisMonth((n) => n + 1);
+  const handleQuoteSubmitted = async (requestId: string) => {
+    const bizIds = businesses.map((b) => b.id);
+    const wasEdit = !!editQuote;
+    if (bizIds.length > 0) {
+      const { data: q } = await supabase
+        .from("quotes")
+        .select("id, price_kes, message, timeline, status")
+        .eq("request_id", requestId)
+        .in("provider_id", bizIds)
+        .maybeSingle();
+      if (q) {
+        setQuotedQuotes((prev) => {
+          const next = new Map(prev);
+          next.set(requestId, {
+            id: q.id,
+            price_kes: q.price_kes,
+            message: q.message,
+            timeline: q.timeline,
+            status: q.status,
+          });
+          return next;
+        });
+      }
+    }
+    if (!wasEdit) setQuotesThisMonth((n) => n + 1);
     setQuoteJob(null);
+    setEditQuote(null);
   };
 
   const monthlyLimit = limits.max_quotes_per_month;
@@ -223,7 +267,7 @@ export default function ProviderJobFeed() {
       ) : (
         <div className="space-y-3">
           {filtered.map((job) => {
-            const alreadyQuoted = quotedRequestIds.has(job.id);
+            const existingQuote = quotedQuotes.get(job.id);
             const imgCount = (job.image_urls || []).filter(Boolean).length;
 
             return (
@@ -275,10 +319,28 @@ export default function ProviderJobFeed() {
                   </div>
 
                   <div className="shrink-0">
-                    {alreadyQuoted ? (
-                      <Badge variant="outline" className="text-xs whitespace-nowrap">
-                        Quoted
-                      </Badge>
+                    {existingQuote ? (
+                      existingQuote.status === "pending" ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setEditQuote({ job, quote: existingQuote })}
+                        >
+                          <Pencil className="mr-1 h-3.5 w-3.5" />
+                          Edit quote
+                        </Button>
+                      ) : (
+                        <Badge
+                          variant={existingQuote.status === "accepted" ? "default" : "secondary"}
+                          className="text-xs whitespace-nowrap"
+                        >
+                          {existingQuote.status === "accepted"
+                            ? "Accepted"
+                            : existingQuote.status === "declined"
+                            ? "Declined"
+                            : "Quoted"}
+                        </Badge>
+                      )
                     ) : (
                       <Button
                         size="sm"
@@ -298,14 +360,20 @@ export default function ProviderJobFeed() {
         </div>
       )}
 
-      {/* Quote submission dialog */}
-      {quoteJob && (
+      {/* Quote submission / edit dialog */}
+      {(quoteJob || editQuote) && (
         <SubmitQuoteForm
-          job={quoteJob}
+          job={(editQuote?.job ?? quoteJob) as OpenJob}
           businesses={businesses}
-          open={!!quoteJob}
-          onOpenChange={(open) => { if (!open) setQuoteJob(null); }}
+          open={!!quoteJob || !!editQuote}
+          onOpenChange={(open) => {
+            if (!open) {
+              setQuoteJob(null);
+              setEditQuote(null);
+            }
+          }}
           onSubmitted={handleQuoteSubmitted}
+          editingQuote={editQuote?.quote ?? null}
         />
       )}
     </div>
