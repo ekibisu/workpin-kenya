@@ -159,10 +159,33 @@ export default function ProviderJobFeed() {
     return result;
   }, [jobs, categoryFilter, searchTerm]);
 
-  const handleQuoteSubmitted = (requestId: string) => {
-    setQuotedRequestIds((prev) => new Set(prev).add(requestId));
-    setQuotesThisMonth((n) => n + 1);
+  const handleQuoteSubmitted = async (requestId: string) => {
+    const bizIds = businesses.map((b) => b.id);
+    const wasEdit = !!editQuote;
+    if (bizIds.length > 0) {
+      const { data: q } = await supabase
+        .from("quotes")
+        .select("id, price_kes, message, timeline, status")
+        .eq("request_id", requestId)
+        .in("provider_id", bizIds)
+        .maybeSingle();
+      if (q) {
+        setQuotedQuotes((prev) => {
+          const next = new Map(prev);
+          next.set(requestId, {
+            id: q.id,
+            price_kes: q.price_kes,
+            message: q.message,
+            timeline: q.timeline,
+            status: q.status,
+          });
+          return next;
+        });
+      }
+    }
+    if (!wasEdit) setQuotesThisMonth((n) => n + 1);
     setQuoteJob(null);
+    setEditQuote(null);
   };
 
   const monthlyLimit = limits.max_quotes_per_month;
