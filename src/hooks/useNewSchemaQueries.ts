@@ -214,15 +214,15 @@ export function useClientQuotes(requestIds: string[]) {
                 .from("quotes")
                 .select(
                     "id, price_kes, message, status, created_at, request_id, provider_id, work_thread_id, " +
-                    "profiles!quotes_provider_id_fkey(full_name), " +
                     "job_requests!quotes_request_id_fkey(description, services(name)), " +
-                    "businesses!quotes_provider_id_fkey(avg_rating, total_reviews)"
+                    "businesses!quotes_provider_id_fkey(business_name, avg_rating, total_reviews, owner_id)"
                 )
                 .in("request_id", requestIds)
                 .order("created_at", { ascending: false });
             if (error) throw error;
             return ((data as any[]) ?? []).map((q) => ({
                 ...q,
+                business_name: q.businesses?.business_name ?? null,
                 business_ratings: q.businesses
                     ? { avg_rating: q.businesses.avg_rating, total_reviews: q.businesses.total_reviews }
                     : null,
