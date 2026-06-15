@@ -319,10 +319,28 @@ export default function ProviderJobFeed() {
                   </div>
 
                   <div className="shrink-0">
-                    {alreadyQuoted ? (
-                      <Badge variant="outline" className="text-xs whitespace-nowrap">
-                        Quoted
-                      </Badge>
+                    {existingQuote ? (
+                      existingQuote.status === "pending" ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setEditQuote({ job, quote: existingQuote })}
+                        >
+                          <Pencil className="mr-1 h-3.5 w-3.5" />
+                          Edit quote
+                        </Button>
+                      ) : (
+                        <Badge
+                          variant={existingQuote.status === "accepted" ? "default" : "secondary"}
+                          className="text-xs whitespace-nowrap"
+                        >
+                          {existingQuote.status === "accepted"
+                            ? "Accepted"
+                            : existingQuote.status === "declined"
+                            ? "Declined"
+                            : "Quoted"}
+                        </Badge>
+                      )
                     ) : (
                       <Button
                         size="sm"
