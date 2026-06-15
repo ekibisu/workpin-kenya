@@ -105,9 +105,21 @@ export default function ProviderJobFeed() {
       const bizIds = biz.map((b) => b.id);
       const { data: quotedData } = await supabase
         .from("quotes")
-        .select("request_id, created_at")
+        .select("id, request_id, price_kes, message, timeline, status, created_at")
         .in("provider_id", bizIds);
-      setQuotedRequestIds(new Set((quotedData || []).map((q) => q.request_id)));
+      const map = new Map<string, ExistingQuote>(
+        (quotedData ?? []).map((q: any) => [
+          q.request_id,
+          {
+            id: q.id,
+            price_kes: q.price_kes,
+            message: q.message,
+            timeline: q.timeline,
+            status: q.status,
+          },
+        ])
+      );
+      setQuotedQuotes(map);
 
       // Count quotes this calendar month
       const monthStart = new Date();
