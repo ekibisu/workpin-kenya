@@ -39,7 +39,7 @@ interface QuotesPanelProps {
   decliningQuoteId: string | null;
   requestId: string;
   onHire: (requestId: string, quoteId: string) => void;
-  onPayAndHire: (requestId: string, quoteId: string, amount: number, providerName: string, workThreadId: string) => void;
+  onRequestHire: (requestId: string, quoteId: string, amount: number, providerName: string, workThreadId: string) => void;
   onDecline: (quoteId: string) => void;
   onMessage: (workThreadId: string, recipientName: string) => void;
 }
