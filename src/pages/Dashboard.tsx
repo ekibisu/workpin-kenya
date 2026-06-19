@@ -405,9 +405,9 @@ const Dashboard = () => {
                   onCacheThread={(reqId, threadId) =>
                     setWorkThreadMap((prev) => ({ ...prev, [reqId]: threadId }))
                   }
-                  onPayAndHire={(requestId, quoteId, amount, providerName, workThreadId) => {
+                  onRequestHire={(requestId, quoteId, amount, providerName, workThreadId) => {
                     const r = requests.find((x) => x.id === requestId);
-                    setPayContext({
+                    setHireConfirmTarget({
                       requestId, quoteId, amount, providerName,
                       serviceName: r?.services?.name ?? "Service",
                       workThreadId,
