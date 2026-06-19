@@ -285,6 +285,15 @@ const Dashboard = () => {
           toast({ title: "New quote received", description: "A provider submitted a new quote." });
         }
       )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "quotes" },
+        (payload) => {
+          const updated = payload.new as any;
+          if (!requestIds.includes(updated.request_id)) return;
+          invalidateQuotes();
+        }
+      )
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [user, requests, toast]);
