@@ -66,7 +66,7 @@ function getInitials(name: string | null) {
 
 export default function QuotesPanel({
   quotes, requestStatus, startingJobId, decliningQuoteId, requestId,
-  onHire, onPayAndHire, onDecline, onMessage,
+  onHire, onRequestHire, onDecline, onMessage,
 }: QuotesPanelProps) {
   const [sortBy, setSortBy] = useState<SortOption>("price_asc");
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
