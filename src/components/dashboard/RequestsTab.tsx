@@ -47,7 +47,7 @@ export default function RequestsTab({
   requests, quotes, loading, workThreadMap, openDisputeRequestIds,
   startingJobId, decliningQuoteId, confirmingJobId, deletingRequestId,
   onHire, onDecline, onConfirmComplete, onDeclineComplete,
-  onMessage, onEdit, onDelete, onPayAndHire, onCacheThread,
+  onMessage, onEdit, onDelete, onRequestHire, onCacheThread,
 }: RequestsTabProps) {
   const { user } = useAuth();
 
@@ -238,8 +238,8 @@ export default function RequestsTab({
                     decliningQuoteId={decliningQuoteId}
                     requestId={req.id}
                     onHire={onHire}
-                    onPayAndHire={(requestId, quoteId, amount, providerName, workThreadId) =>
-                      onPayAndHire(requestId, quoteId, amount, providerName, workThreadId)
+                    onRequestHire={(requestId, quoteId, amount, providerName, workThreadId) =>
+                      onRequestHire(requestId, quoteId, amount, providerName, workThreadId)
                     }
                     onDecline={onDecline}
                     onMessage={onMessage}
