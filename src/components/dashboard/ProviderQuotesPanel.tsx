@@ -1,12 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Loader2, Inbox, MessageCircle } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { Loader2, Inbox, MessageCircle, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
+import SubmitQuoteForm from "./SubmitQuoteForm";
 
 interface OutgoingQuote {
   id: string;
@@ -46,36 +45,38 @@ export default function ProviderQuotesPanel({ onMessage }: ProviderQuotesPanelPr
   const { user } = useAuth();
   const [quotes, setQuotes] = useState<OutgoingQuote[]>([]);
   const [loading, setLoading] = useState(true);
+  const [editQuote, setEditQuote] = useState<OutgoingQuote | null>(null);
+
+  const load = useCallback(async () => {
+    if (!user) return;
+    setLoading(true);
+
+    const { data: bizData } = await supabase
+      .from("businesses")
+      .select("id")
+      .eq("owner_id", user.id)
+      .eq("is_active", true);
+    const bizIds = (bizData || []).map((b) => b.id);
+
+    if (bizIds.length === 0) {
+      setQuotes([]);
+      setLoading(false);
+      return;
+    }
+
+    const { data: quotesData } = await supabase
+      .from("quotes")
+      .select("id, price_kes, message, status, created_at, timeline, request_id, provider_id, work_thread_id, job_requests!quotes_request_id_fkey(description, services(name))")
+      .in("provider_id", bizIds)
+      .order("created_at", { ascending: false });
+
+    setQuotes((quotesData as unknown as OutgoingQuote[]) || []);
+    setLoading(false);
+  }, [user]);
 
   useEffect(() => {
-    if (!user) return;
-
-    const load = async () => {
-      // Get user's business IDs
-      const { data: bizData } = await supabase
-        .from("businesses")
-        .select("id")
-        .eq("owner_id", user.id)
-        .eq("is_active", true);
-      const bizIds = (bizData || []).map((b) => b.id);
-
-      if (bizIds.length === 0) {
-        setLoading(false);
-        return;
-      }
-
-      const { data: quotesData } = await supabase
-        .from("quotes")
-        .select("id, price_kes, message, status, created_at, timeline, request_id, provider_id, work_thread_id, job_requests!quotes_request_id_fkey(description, services(name))")
-        .in("provider_id", bizIds)
-        .order("created_at", { ascending: false });
-
-      setQuotes((quotesData as unknown as OutgoingQuote[]) || []);
-      setLoading(false);
-    };
-
     load();
-  }, [user]);
+  }, [load]);
 
   if (loading) {
     return (
@@ -98,63 +99,103 @@ export default function ProviderQuotesPanel({ onMessage }: ProviderQuotesPanelPr
   }
 
   return (
-    <div className="space-y-3">
-      {quotes.map((quote) => {
-        const serviceName = quote.job_requests?.services?.name || "Service";
-        const desc = quote.job_requests?.description
-          ? parseDescription(quote.job_requests.description)
-          : "";
+    <>
+      <div className="space-y-3">
+        {quotes.map((quote) => {
+          const serviceName = quote.job_requests?.services?.name || "Service";
+          const desc = quote.job_requests?.description
+            ? parseDescription(quote.job_requests.description)
+            : "";
 
-        return (
-          <div
-            key={quote.id}
-            className={cn(
-              "rounded-xl border border-border bg-card p-4 transition-colors",
-              quote.status === "declined" && "opacity-60"
-            )}
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-semibold text-foreground">{serviceName}</span>
-                  <span className={cn(
-                    "rounded-full px-2 py-0.5 text-xs font-medium capitalize",
-                    STATUS_STYLES[quote.status] || "bg-muted text-muted-foreground"
-                  )}>
-                    {quote.status}
-                  </span>
+          return (
+            <div
+              key={quote.id}
+              className={cn(
+                "rounded-xl border border-border bg-card p-4 transition-colors",
+                quote.status === "declined" && "opacity-60"
+              )}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-semibold text-foreground">{serviceName}</span>
+                    <span className={cn(
+                      "rounded-full px-2 py-0.5 text-xs font-medium capitalize",
+                      STATUS_STYLES[quote.status] || "bg-muted text-muted-foreground"
+                    )}>
+                      {quote.status}
+                    </span>
+                  </div>
+
+                  {desc && (
+                    <p className="mt-1 line-clamp-1 text-sm text-muted-foreground">{desc}</p>
+                  )}
+
+                  <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                    <span className="font-bold text-primary">
+                      KES {Number(quote.price_kes).toLocaleString()}
+                    </span>
+                    {quote.timeline && <span>Timeline: {quote.timeline}</span>}
+                    <span>
+                      {formatDistanceToNow(new Date(quote.created_at), { addSuffix: true })}
+                    </span>
+                  </div>
                 </div>
 
-                {desc && (
-                  <p className="mt-1 line-clamp-1 text-sm text-muted-foreground">{desc}</p>
-                )}
+                <div className="flex shrink-0 items-center gap-1">
+                  {quote.status === "pending" && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="shrink-0"
+                      onClick={() => setEditQuote(quote)}
+                    >
+                      <Pencil className="mr-1 h-3.5 w-3.5" />
+                      Edit
+                    </Button>
+                  )}
 
-                <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-                  <span className="font-bold text-primary">
-                    KES {Number(quote.price_kes).toLocaleString()}
-                  </span>
-                  {quote.timeline && <span>Timeline: {quote.timeline}</span>}
-                  <span>
-                    {formatDistanceToNow(new Date(quote.created_at), { addSuffix: true })}
-                  </span>
+                  {quote.work_thread_id && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="shrink-0"
+                      onClick={() => onMessage(quote.work_thread_id!, serviceName)}
+                    >
+                      <MessageCircle className="mr-1 h-3.5 w-3.5" />
+                      Message
+                    </Button>
+                  )}
                 </div>
               </div>
-
-              {quote.work_thread_id && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="shrink-0"
-                  onClick={() => onMessage(quote.work_thread_id!, serviceName)}
-                >
-                  <MessageCircle className="mr-1 h-3.5 w-3.5" />
-                  Message
-                </Button>
-              )}
             </div>
-          </div>
-        );
-      })}
-    </div>
+          );
+        })}
+      </div>
+
+      <SubmitQuoteForm
+        open={!!editQuote}
+        onOpenChange={(o) => { if (!o) setEditQuote(null); }}
+        job={{
+          id: editQuote?.request_id ?? "",
+          client_id: "",
+          services: editQuote?.job_requests?.services
+            ? { name: editQuote.job_requests.services.name, category: "" }
+            : null,
+          description: editQuote?.job_requests?.description ?? "",
+        }}
+        businesses={[]}
+        editingQuote={editQuote ? {
+          id: editQuote.id,
+          price_kes: editQuote.price_kes,
+          message: editQuote.message,
+          timeline: editQuote.timeline,
+        } : null}
+        onSubmitted={() => {
+          setEditQuote(null);
+          load();
+        }}
+      />
+    </>
   );
 }
