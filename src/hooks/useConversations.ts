@@ -135,7 +135,9 @@ export function useConversations() {
 
         // 6. Assemble final list
         const enriched: Conversation[] = threads.map((t) => {
-            const otherId = t.client_id === user.id ? t.provider_id : t.client_id;
+            const otherId = t.client_id === user.id
+                ? (bizOwnerMap[t.provider_id]?.owner_id ?? "")
+                : t.client_id;
             const profile = profileMap[otherId];
             const latest = latestMap[t.id];
             const service = t.job_request_id ? serviceNameMap[t.job_request_id] ?? null : null;
@@ -148,7 +150,9 @@ export function useConversations() {
                 status: t.status,
                 created_at: t.created_at,
                 updated_at: t.updated_at,
-                other_party_name: profile?.full_name ?? null,
+                other_party_name: t.client_id === user.id
+                    ? (bizOwnerMap[t.provider_id]?.business_name ?? profile?.full_name ?? null)
+                    : profile?.full_name ?? null,
                 other_party_avatar: profile?.avatar_url ?? null,
                 service_name: service,
                 last_message_body: latest?.content ?? null,
