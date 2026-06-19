@@ -36,7 +36,7 @@ interface RequestsTabProps {
   onMessage: (threadId: string, recipientName: string) => void;
   onEdit: (request: JobRequest) => void;
   onDelete: (requestId: string) => void | Promise<void>;
-  onPayAndHire: (
+  onRequestHire: (
     requestId: string, quoteId: string, amount: number,
     providerName: string, workThreadId: string
   ) => void;
