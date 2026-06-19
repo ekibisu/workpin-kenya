@@ -39,7 +39,7 @@ interface QuotesPanelProps {
   decliningQuoteId: string | null;
   requestId: string;
   onHire: (requestId: string, quoteId: string) => void;
-  onPayAndHire: (requestId: string, quoteId: string, amount: number, providerName: string, workThreadId: string) => void;
+  onRequestHire: (requestId: string, quoteId: string, amount: number, providerName: string, workThreadId: string) => void;
   onDecline: (quoteId: string) => void;
   onMessage: (workThreadId: string, recipientName: string) => void;
 }
@@ -66,7 +66,7 @@ function getInitials(name: string | null) {
 
 export default function QuotesPanel({
   quotes, requestStatus, startingJobId, decliningQuoteId, requestId,
-  onHire, onPayAndHire, onDecline, onMessage,
+  onHire, onRequestHire, onDecline, onMessage,
 }: QuotesPanelProps) {
   const [sortBy, setSortBy] = useState<SortOption>("price_asc");
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
@@ -239,7 +239,7 @@ export default function QuotesPanel({
                           size="sm"
                           className="h-11 sm:h-8 text-xs justify-center"
                           disabled={startingJobId === requestId}
-                          onClick={() => onPayAndHire(requestId, quote.id, quote.price_kes, name, quote.work_thread_id ?? "")}
+                          onClick={() => onRequestHire(requestId, quote.id, quote.price_kes, name, quote.work_thread_id ?? "")}
                         >
                           {startingJobId === requestId ? (
                             <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
@@ -310,7 +310,7 @@ export default function QuotesPanel({
                         </Button>
                         <Button size="sm" className="h-7 text-xs"
                           disabled={startingJobId === requestId}
-                          onClick={() => onPayAndHire(requestId, quote.id, quote.price_kes, name, quote.work_thread_id ?? "")}
+                          onClick={() => onRequestHire(requestId, quote.id, quote.price_kes, name, quote.work_thread_id ?? "")}
                         >
                           {startingJobId === requestId ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle className="h-3 w-3" />}
                           Hire
