@@ -28,6 +28,7 @@ import EditRequestDialog from "@/components/dashboard/EditRequestDialog";
 import FeedbackDialog from "@/components/dashboard/FeedbackDialog";
 import WalletTab from "@/components/dashboard/WalletTab";
 import DisputeDialog from "@/components/dashboard/DisputeDialog";
+import ConfirmHireDialog from "@/components/dashboard/ConfirmHireDialog";
 import type { JobRequest, Quote } from "@/components/dashboard/dashboardTypes";
 
 const sideLinks = [
