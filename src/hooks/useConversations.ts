@@ -35,11 +35,21 @@ export function useConversations() {
     const fetchConversations = async () => {
         if (!user) return;
 
-        // 1. Fetch all work_threads where this user is either client or provider
+        // 1a. Get this user's business ids (empty if they're not a provider)
+        const { data: myBusinesses } = await supabase
+            .from("businesses")
+            .select("id")
+            .eq("owner_id", user.id);
+        const myBusinessIds = (myBusinesses ?? []).map((b) => b.id);
+
+        // 1b. Fetch threads where the user is the client OR owns the provider business
+        const orFilter = myBusinessIds.length > 0
+            ? `client_id.eq.${user.id},provider_id.in.(${myBusinessIds.join(",")})`
+            : `client_id.eq.${user.id}`;
         const { data: threads, error } = await supabase
             .from("work_threads")
             .select("id, job_request_id, client_id, provider_id, status, created_at, updated_at")
-            .or(`client_id.eq.${user.id},provider_id.eq.${user.id}`)
+            .or(orFilter)
             .order("updated_at", { ascending: false });
 
         if (error || !threads) {
@@ -47,17 +57,37 @@ export function useConversations() {
             return;
         }
 
-        // 2. Collect other-party user IDs
-        const otherPartyIds = threads.map((t) =>
-            t.client_id === user.id ? t.provider_id : t.client_id
-        );
+        // 2. For threads where current user is the client, resolve the
+        //    provider business -> owner profile id (and business name).
+        const businessIdsNeeded = threads
+            .filter((t) => t.client_id === user.id)
+            .map((t) => t.provider_id);
+        const uniqueBusinessIds = [...new Set(businessIdsNeeded)];
+        const { data: bizOwners } = uniqueBusinessIds.length > 0
+            ? await supabase
+                .from("businesses")
+                .select("id, owner_id, business_name")
+                .in("id", uniqueBusinessIds)
+            : { data: [] as { id: string; owner_id: string; business_name: string | null }[] };
+        const bizOwnerMap: Record<string, { id: string; owner_id: string; business_name: string | null }> =
+            Object.fromEntries((bizOwners ?? []).map((b) => [b.id, b]));
+
+        const otherPartyIds = threads
+            .map((t) =>
+                t.client_id === user.id
+                    ? (bizOwnerMap[t.provider_id]?.owner_id ?? null)
+                    : t.client_id
+            )
+            .filter(Boolean) as string[];
         const uniqueOtherIds = [...new Set(otherPartyIds)];
 
         // 3. Fetch profiles for other parties
-        const { data: profiles } = await supabase
-            .from("profiles")
-            .select("id, full_name, avatar_url")
-            .in("id", uniqueOtherIds);
+        const { data: profiles } = uniqueOtherIds.length > 0
+            ? await supabase
+                .from("profiles")
+                .select("id, full_name, avatar_url")
+                .in("id", uniqueOtherIds)
+            : { data: [] as { id: string; full_name: string | null; avatar_url: string | null }[] };
         const profileMap = Object.fromEntries(
             (profiles || []).map((p) => [p.id, p])
         );
@@ -105,7 +135,9 @@ export function useConversations() {
 
         // 6. Assemble final list
         const enriched: Conversation[] = threads.map((t) => {
-            const otherId = t.client_id === user.id ? t.provider_id : t.client_id;
+            const otherId = t.client_id === user.id
+                ? (bizOwnerMap[t.provider_id]?.owner_id ?? "")
+                : t.client_id;
             const profile = profileMap[otherId];
             const latest = latestMap[t.id];
             const service = t.job_request_id ? serviceNameMap[t.job_request_id] ?? null : null;
@@ -118,7 +150,9 @@ export function useConversations() {
                 status: t.status,
                 created_at: t.created_at,
                 updated_at: t.updated_at,
-                other_party_name: profile?.full_name ?? null,
+                other_party_name: t.client_id === user.id
+                    ? (bizOwnerMap[t.provider_id]?.business_name ?? profile?.full_name ?? null)
+                    : profile?.full_name ?? null,
                 other_party_avatar: profile?.avatar_url ?? null,
                 service_name: service,
                 last_message_body: latest?.content ?? null,
