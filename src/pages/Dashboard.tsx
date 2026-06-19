@@ -113,21 +113,6 @@ const Dashboard = () => {
   const handleStartJob = async (jobRequestId: string, selectedQuoteId: string) => {
     setStartingJobId(jobRequestId);
     const acceptedQuote = quotes.find(q => q.id === selectedQuoteId);
-    const { error: acceptErr } = await supabase
-      .from("quotes")
-      .update({ status: "accepted" })
-      .eq("id", selectedQuoteId);
-    if (acceptErr) {
-      setStartingJobId(null);
-      toast({ title: "Error", description: "Could not accept quote.", variant: "destructive" });
-      return;
-    }
-    const otherQuoteIds = quotes
-      .filter(q => q.request_id === jobRequestId && q.id !== selectedQuoteId && q.status === "pending")
-      .map(q => q.id);
-    if (otherQuoteIds.length > 0) {
-      await supabase.from("quotes").update({ status: "declined" }).in("id", otherQuoteIds);
-    }
 
     let threadId = acceptedQuote?.work_thread_id;
     if (threadId) {
@@ -166,6 +151,37 @@ const Dashboard = () => {
     invalidateQuotes();
     toast({ title: "Job started!", description: "The provider has been hired." });
   };
+
+  const [hireConfirmTarget, setHireConfirmTarget] = useState<{
+    requestId: string; quoteId: string; amount: number;
+    providerName: string; serviceName: string; workThreadId: string;
+  } | null>(null);
+  const [confirmingHire, setConfirmingHire] = useState(false);
+
+  const handleConfirmHire = async () => {
+    if (!hireConfirmTarget) return;
+    setConfirmingHire(true);
+    const { requestId, quoteId } = hireConfirmTarget;
+    const { error: acceptErr } = await supabase
+      .from("quotes").update({ status: "accepted" }).eq("id", quoteId);
+    if (acceptErr) {
+      setConfirmingHire(false);
+      toast({ title: "Error", description: "Could not accept quote.", variant: "destructive" });
+      return;
+    }
+    const otherQuoteIds = quotes
+      .filter(q => q.request_id === requestId && q.id !== quoteId && q.status === "pending")
+      .map(q => q.id);
+    if (otherQuoteIds.length > 0) {
+      await supabase.from("quotes").update({ status: "declined" }).in("id", otherQuoteIds);
+    }
+    invalidateQuotes();
+    setConfirmingHire(false);
+    const target = hireConfirmTarget;
+    setHireConfirmTarget(null);
+    setPayContext({ ...target });
+  };
+
 
   const handleDeclineQuote = async (quoteId: string) => {
     setDecliningQuoteId(quoteId);
