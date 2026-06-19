@@ -576,6 +576,8 @@ export type Database = {
           budget_max_kes: number | null
           budget_min_kes: number | null
           client_id: string
+          completion_pending_at: string | null
+          completion_reminder_sent_at: string | null
           country_code: string
           created_at: string
           description: string
@@ -594,6 +596,8 @@ export type Database = {
           budget_max_kes?: number | null
           budget_min_kes?: number | null
           client_id: string
+          completion_pending_at?: string | null
+          completion_reminder_sent_at?: string | null
           country_code?: string
           created_at?: string
           description: string
@@ -612,6 +616,8 @@ export type Database = {
           budget_max_kes?: number | null
           budget_min_kes?: number | null
           client_id?: string
+          completion_pending_at?: string | null
+          completion_reminder_sent_at?: string | null
           country_code?: string
           created_at?: string
           description?: string
@@ -1622,6 +1628,7 @@ export type Database = {
             }
             Returns: string
           }
+      auto_release_overdue_completions: { Args: never; Returns: undefined }
       disablelongtransactions: { Args: never; Returns: string }
       dropgeometrycolumn:
         | {
@@ -1861,6 +1868,7 @@ export type Database = {
           username: string
         }[]
       }
+      send_completion_reminders: { Args: never; Returns: undefined }
       st_3dclosestpoint: {
         Args: { geom1: unknown; geom2: unknown }
         Returns: unknown
