@@ -437,6 +437,16 @@ const Dashboard = () => {
         onClose={() => setFeedbackRequestId(null)}
       />
 
+      <ConfirmHireDialog
+        open={!!hireConfirmTarget}
+        onOpenChange={(o) => { if (!o) setHireConfirmTarget(null); }}
+        providerName={hireConfirmTarget?.providerName ?? ""}
+        serviceName={hireConfirmTarget?.serviceName ?? ""}
+        priceKes={hireConfirmTarget?.amount ?? 0}
+        onConfirm={handleConfirmHire}
+        confirming={confirmingHire}
+      />
+
       <MpesaCheckout
         open={!!payContext}
         onOpenChange={(o) => { if (!o) setPayContext(null); }}
