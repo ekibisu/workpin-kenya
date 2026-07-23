@@ -273,16 +273,8 @@ const Dashboard = () => {
     toast({ title: "Request deleted" });
   };
 
-  useEffect(() => {
-    if (!user) return;
-    supabase
-      .from("businesses")
-      .select("id")
-      .eq("owner_id", user.id)
-      .eq("is_active", true)
-      .limit(1)
-      .then(({ data }) => setHasBusinesses((data || []).length > 0));
-  }, [user]);
+
+
 
   useEffect(() => {
     if (!user || requests.length === 0) return;
