@@ -55,7 +55,21 @@ const Dashboard = () => {
   const { unreadCount, resetCount } = useUnreadMessageCount();
 
   const queryClient = useQueryClient();
-  const [hasBusinesses, setHasBusinesses] = useState(false);
+  const { data: hasBusinesses, isLoading: businessesLoading } = useQuery({
+    queryKey: ["dashboard_has_businesses", user?.id ?? ""],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("businesses")
+        .select("id")
+        .eq("owner_id", user!.id)
+        .eq("is_active", true)
+        .limit(1);
+      return (data || []).length > 0;
+    },
+    enabled: !!user?.id,
+    staleTime: 5 * 60 * 1000,
+  });
+  const roleResolved = !!user && !businessesLoading;
   const { data: requestsData = [], isLoading: reqLoading } = useClientJobRequests(user?.id ?? "");
   const requests = requestsData as JobRequest[];
   const { data: quotesData = [], isLoading: quotesLoading } = useClientQuotes(
