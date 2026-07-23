@@ -28,18 +28,24 @@ const Settings = () => {
   const [saving, setSaving] = useState(false);
   const [countryCode, setCountryCode] = useState("KE");
   const [regionId, setRegionId] = useState<string | null>(null);
+  const [mpesaPhone, setMpesaPhone] = useState<string>("");
+  const [savedMpesaPhone, setSavedMpesaPhone] = useState<string>("");
+  const [savingPayout, setSavingPayout] = useState(false);
 
   useEffect(() => {
     if (!user) return;
     supabase
       .from("profiles")
-      .select("country_code, region_id")
+      .select("country_code, region_id, mpesa_phone")
       .eq("id", user.id)
       .maybeSingle()
       .then(({ data }) => {
         if (data) {
           setCountryCode((data as any).country_code || "KE");
           setRegionId((data as any).region_id || null);
+          const p = (data as any).mpesa_phone || "";
+          setMpesaPhone(p);
+          setSavedMpesaPhone(p);
         }
         setLoading(false);
       });
@@ -59,6 +65,32 @@ const Settings = () => {
     }
     setActiveCountry(countryCode);
     toast({ title: "Preferences saved" });
+  };
+
+  const savePayout = async () => {
+    if (!user) return;
+    const normalized = normalizeKePhone(mpesaPhone);
+    if (!normalized) {
+      toast({
+        title: "Invalid phone number",
+        description: "Enter a Kenyan number like 0712345678 or 254712345678.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setSavingPayout(true);
+    const { error } = await supabase
+      .from("profiles")
+      .update({ mpesa_phone: normalized } as any)
+      .eq("id", user.id);
+    setSavingPayout(false);
+    if (error) {
+      toast({ title: "Could not save", description: error.message, variant: "destructive" });
+      return;
+    }
+    setMpesaPhone(normalized);
+    setSavedMpesaPhone(normalized);
+    toast({ title: "Payout method saved" });
   };
 
   if (authLoading || loading) {
