@@ -310,21 +310,28 @@ const Dashboard = () => {
       <div className="flex flex-1">
         <aside className="hidden w-60 shrink-0 border-r border-border bg-card p-4 lg:block">
           <nav className="space-y-1">
-            {sideLinks
-              .filter((link) => !('providerOnly' in link && link.providerOnly) || hasBusinesses)
-              .map((link) => {
-                const isActive = location.pathname === link.href || (link.href === "/dashboard" && location.pathname === "/dashboard/");
-                return (
-                  <Link key={link.label} to={link.href} className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${isActive ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"}`}>
-                    <link.icon className="h-4 w-4" />{link.label}
-                    {link.label === "Messages" && unreadCount > 0 && (
-                      <Badge variant="destructive" className="ml-auto h-5 min-w-5 justify-center px-1.5 text-[10px]">
-                        {unreadCount}
-                      </Badge>
-                    )}
-                  </Link>
-                );
-              })}
+            {!roleResolved
+              ? Array.from({ length: 6 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="h-9 rounded-lg bg-muted/50 animate-pulse"
+                  />
+                ))
+              : sideLinks
+                  .filter((link) => !('providerOnly' in link && link.providerOnly) || hasBusinesses)
+                  .map((link) => {
+                    const isActive = location.pathname === link.href || (link.href === "/dashboard" && location.pathname === "/dashboard/");
+                    return (
+                      <Link key={link.label} to={link.href} className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${isActive ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"}`}>
+                        <link.icon className="h-4 w-4" />{link.label}
+                        {link.label === "Messages" && unreadCount > 0 && (
+                          <Badge variant="destructive" className="ml-auto h-5 min-w-5 justify-center px-1.5 text-[10px]">
+                            {unreadCount}
+                          </Badge>
+                        )}
+                      </Link>
+                    );
+                  })}
           </nav>
         </aside>
 
