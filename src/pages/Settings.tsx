@@ -3,14 +3,23 @@ import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, Save } from "lucide-react";
+import { Loader2, Save, Smartphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import CountrySelect from "@/components/CountrySelect";
 import RegionSelect from "@/components/RegionSelect";
 import { toast } from "@/hooks/use-toast";
 import { useActiveCountry } from "@/contexts/CountryContext";
+
+const KE_PHONE_RE = /^(?:(?:\+?254)|0)(7\d{8}|1\d{8})$/;
+const normalizeKePhone = (v: string) => {
+  const digits = v.replace(/\s|-/g, "");
+  const m = digits.match(KE_PHONE_RE);
+  if (!m) return null;
+  return "254" + m[1];
+};
 
 const Settings = () => {
   const { user, loading: authLoading } = useAuth();
