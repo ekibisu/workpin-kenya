@@ -149,6 +149,48 @@ const Settings = () => {
               </Button>
             </CardContent>
           </Card>
+
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Smartphone className="h-5 w-5 text-primary" />
+                Payout Method
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="mpesa-phone">M-Pesa Phone Number</Label>
+                <Input
+                  id="mpesa-phone"
+                  type="tel"
+                  inputMode="tel"
+                  placeholder="0712345678"
+                  value={mpesaPhone}
+                  onChange={(e) => setMpesaPhone(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Kenyan Safaricom number (e.g. 0712345678 or 254712345678). Payouts from your wallet will be sent here.
+                </p>
+                {savedMpesaPhone && (
+                  <p className="text-xs text-primary">
+                    Current: {savedMpesaPhone}
+                  </p>
+                )}
+              </div>
+              <Button
+                onClick={savePayout}
+                disabled={savingPayout || mpesaPhone === savedMpesaPhone}
+                className="shadow-brand-3d"
+              >
+                {savingPayout ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="mr-2 h-4 w-4" />
+                )}
+                Save Payout Method
+              </Button>
+            </CardContent>
+          </Card>
         </div>
       </main>
       <Footer />
