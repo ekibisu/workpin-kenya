@@ -48,6 +48,8 @@ export default function ProviderQuotesPanel({ onMessage }: ProviderQuotesPanelPr
   const [quotes, setQuotes] = useState<OutgoingQuote[]>([]);
   const [loading, setLoading] = useState(true);
   const [editQuote, setEditQuote] = useState<OutgoingQuote | null>(null);
+  const [completingId, setCompletingId] = useState<string | null>(null);
+
 
   const load = useCallback(async () => {
     if (!user) return;
