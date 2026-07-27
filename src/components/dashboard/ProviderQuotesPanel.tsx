@@ -82,6 +82,23 @@ export default function ProviderQuotesPanel({ onMessage }: ProviderQuotesPanelPr
     load();
   }, [load]);
 
+  const handleMarkComplete = async (quote: OutgoingQuote) => {
+    setCompletingId(quote.id);
+    const { error } = await supabase
+      .from("job_requests")
+      .update({ status: "completion_pending" })
+      .eq("id", quote.request_id);
+    setCompletingId(null);
+
+    if (error) {
+      toast.error("Could not mark job complete", { description: error.message });
+      return;
+    }
+    toast.success("Marked as complete — waiting for client confirmation.");
+    load();
+  };
+
+
   if (loading) {
     return (
       <div className="flex justify-center py-16">
