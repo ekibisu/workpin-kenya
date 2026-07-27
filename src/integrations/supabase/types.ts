@@ -1768,6 +1768,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_accepted_provider_for_request: {
+        Args: { _request_id: string; _user_id: string }
+        Returns: boolean
+      }
       longtransactionsenabled: { Args: never; Returns: boolean }
       match_providers: {
         Args: {
