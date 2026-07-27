@@ -70,7 +70,7 @@ export default function ProviderQuotesPanel({ onMessage }: ProviderQuotesPanelPr
 
     const { data: quotesData } = await supabase
       .from("quotes")
-      .select("id, price_kes, message, status, created_at, timeline, request_id, provider_id, work_thread_id, job_requests!quotes_request_id_fkey(description, services(name))")
+      .select("id, price_kes, message, status, created_at, timeline, request_id, provider_id, work_thread_id, job_requests!quotes_request_id_fkey(description, status, services(name))")
       .in("provider_id", bizIds)
       .order("created_at", { ascending: false });
 
