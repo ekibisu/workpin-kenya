@@ -127,6 +127,11 @@ export default function ProviderQuotesPanel({ onMessage }: ProviderQuotesPanelPr
           const desc = quote.job_requests?.description
             ? parseDescription(quote.job_requests.description)
             : "";
+          const jobStatus = quote.job_requests?.status;
+          const canMarkComplete =
+            quote.status === "accepted" &&
+            !!jobStatus &&
+            !["completion_pending", "completed", "cancelled"].includes(jobStatus);
 
           return (
             <div
