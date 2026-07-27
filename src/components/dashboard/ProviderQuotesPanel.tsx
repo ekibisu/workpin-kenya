@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Loader2, Inbox, MessageCircle, Pencil } from "lucide-react";
+import { Loader2, Inbox, MessageCircle, Pencil, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatDistanceToNow } from "date-fns";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import SubmitQuoteForm from "./SubmitQuoteForm";
 
@@ -19,6 +20,7 @@ interface OutgoingQuote {
   work_thread_id: string | null;
   job_requests: {
     description: string;
+    status: string;
     services: { name: string } | null;
   } | null;
 }
@@ -46,6 +48,8 @@ export default function ProviderQuotesPanel({ onMessage }: ProviderQuotesPanelPr
   const [quotes, setQuotes] = useState<OutgoingQuote[]>([]);
   const [loading, setLoading] = useState(true);
   const [editQuote, setEditQuote] = useState<OutgoingQuote | null>(null);
+  const [completingId, setCompletingId] = useState<string | null>(null);
+
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -66,7 +70,7 @@ export default function ProviderQuotesPanel({ onMessage }: ProviderQuotesPanelPr
 
     const { data: quotesData } = await supabase
       .from("quotes")
-      .select("id, price_kes, message, status, created_at, timeline, request_id, provider_id, work_thread_id, job_requests!quotes_request_id_fkey(description, services(name))")
+      .select("id, price_kes, message, status, created_at, timeline, request_id, provider_id, work_thread_id, job_requests!quotes_request_id_fkey(description, status, services(name))")
       .in("provider_id", bizIds)
       .order("created_at", { ascending: false });
 
@@ -77,6 +81,23 @@ export default function ProviderQuotesPanel({ onMessage }: ProviderQuotesPanelPr
   useEffect(() => {
     load();
   }, [load]);
+
+  const handleMarkComplete = async (quote: OutgoingQuote) => {
+    setCompletingId(quote.id);
+    const { error } = await supabase
+      .from("job_requests")
+      .update({ status: "completion_pending" })
+      .eq("id", quote.request_id);
+    setCompletingId(null);
+
+    if (error) {
+      toast.error("Could not mark job complete", { description: error.message });
+      return;
+    }
+    toast.success("Marked as complete — waiting for client confirmation.");
+    load();
+  };
+
 
   if (loading) {
     return (
@@ -106,6 +127,11 @@ export default function ProviderQuotesPanel({ onMessage }: ProviderQuotesPanelPr
           const desc = quote.job_requests?.description
             ? parseDescription(quote.job_requests.description)
             : "";
+          const jobStatus = quote.job_requests?.status;
+          const canMarkComplete =
+            quote.status === "accepted" &&
+            !!jobStatus &&
+            !["completion_pending", "completed", "cancelled"].includes(jobStatus);
 
           return (
             <div
@@ -154,6 +180,29 @@ export default function ProviderQuotesPanel({ onMessage }: ProviderQuotesPanelPr
                       Edit
                     </Button>
                   )}
+
+                  {canMarkComplete && (
+                    <Button
+                      size="sm"
+                      className="shrink-0"
+                      disabled={completingId === quote.id}
+                      onClick={() => handleMarkComplete(quote)}
+                    >
+                      {completingId === quote.id ? (
+                        <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
+                      )}
+                      Mark job complete
+                    </Button>
+                  )}
+
+                  {quote.status === "accepted" && jobStatus === "completion_pending" && (
+                    <span className="shrink-0 text-xs text-muted-foreground">
+                      Awaiting client confirmation
+                    </span>
+                  )}
+
 
                   {quote.work_thread_id && (
                     <Button
