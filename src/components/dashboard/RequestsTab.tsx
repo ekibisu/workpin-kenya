@@ -29,7 +29,6 @@ interface RequestsTabProps {
   decliningQuoteId: string | null;
   confirmingJobId: string | null;
   deletingRequestId: string | null;
-  onHire: (requestId: string, quoteId: string) => void | Promise<void>;
   onDecline: (quoteId: string) => void | Promise<void>;
   onConfirmComplete: (requestId: string, providerId: string) => void | Promise<void>;
   onDeclineComplete: (requestId: string) => void | Promise<void>;
@@ -46,7 +45,7 @@ interface RequestsTabProps {
 export default function RequestsTab({
   requests, quotes, loading, workThreadMap, openDisputeRequestIds,
   startingJobId, decliningQuoteId, confirmingJobId, deletingRequestId,
-  onHire, onDecline, onConfirmComplete, onDeclineComplete,
+  onDecline, onConfirmComplete, onDeclineComplete,
   onMessage, onEdit, onDelete, onRequestHire, onCacheThread,
 }: RequestsTabProps) {
   const { user } = useAuth();
@@ -237,7 +236,6 @@ export default function RequestsTab({
                     startingJobId={startingJobId}
                     decliningQuoteId={decliningQuoteId}
                     requestId={req.id}
-                    onHire={onHire}
                     onRequestHire={(requestId, quoteId, amount, providerName, workThreadId) =>
                       onRequestHire(requestId, quoteId, amount, providerName, workThreadId)
                     }

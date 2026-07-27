@@ -421,7 +421,6 @@ const Dashboard = () => {
                   decliningQuoteId={decliningQuoteId}
                   confirmingJobId={confirmingJobId}
                   deletingRequestId={deletingRequestId}
-                  onHire={handleStartJob}
                   onDecline={handleDeclineQuote}
                   onConfirmComplete={handleConfirmCompletion}
                   onDeclineComplete={handleDeclineCompletion}

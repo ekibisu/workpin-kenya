@@ -38,7 +38,6 @@ interface QuotesPanelProps {
   startingJobId: string | null;
   decliningQuoteId: string | null;
   requestId: string;
-  onHire: (requestId: string, quoteId: string) => void;
   onRequestHire: (requestId: string, quoteId: string, amount: number, providerName: string, workThreadId: string) => void;
   onDecline: (quoteId: string) => void;
   onMessage: (workThreadId: string, recipientName: string) => void;
@@ -66,7 +65,7 @@ function getInitials(name: string | null) {
 
 export default function QuotesPanel({
   quotes, requestStatus, startingJobId, decliningQuoteId, requestId,
-  onHire, onRequestHire, onDecline, onMessage,
+  onRequestHire, onDecline, onMessage,
 }: QuotesPanelProps) {
   const [sortBy, setSortBy] = useState<SortOption>("price_asc");
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
