@@ -190,7 +190,13 @@ const Dashboard = () => {
     if (otherQuoteIds.length > 0) {
       await supabase.from("quotes").update({ status: "declined" }).in("id", otherQuoteIds);
     }
+    const { error: reqErr } = await supabase
+      .from("job_requests")
+      .update({ status: "pending" })
+      .eq("id", requestId);
+    if (reqErr) console.error("Failed to update job request status:", reqErr);
     invalidateQuotes();
+    invalidateRequests();
     setConfirmingHire(false);
     const target = hireConfirmTarget;
     setHireConfirmTarget(null);
