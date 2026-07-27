@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Loader2, Inbox, MessageCircle, Pencil } from "lucide-react";
+import { Loader2, Inbox, MessageCircle, Pencil, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatDistanceToNow } from "date-fns";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import SubmitQuoteForm from "./SubmitQuoteForm";
 
