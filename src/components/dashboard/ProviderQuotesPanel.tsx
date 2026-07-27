@@ -20,6 +20,7 @@ interface OutgoingQuote {
   work_thread_id: string | null;
   job_requests: {
     description: string;
+    status: string;
     services: { name: string } | null;
   } | null;
 }
