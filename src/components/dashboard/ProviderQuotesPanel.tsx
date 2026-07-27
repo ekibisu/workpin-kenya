@@ -181,6 +181,29 @@ export default function ProviderQuotesPanel({ onMessage }: ProviderQuotesPanelPr
                     </Button>
                   )}
 
+                  {canMarkComplete && (
+                    <Button
+                      size="sm"
+                      className="shrink-0"
+                      disabled={completingId === quote.id}
+                      onClick={() => handleMarkComplete(quote)}
+                    >
+                      {completingId === quote.id ? (
+                        <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
+                      )}
+                      Mark job complete
+                    </Button>
+                  )}
+
+                  {quote.status === "accepted" && jobStatus === "completion_pending" && (
+                    <span className="shrink-0 text-xs text-muted-foreground">
+                      Awaiting client confirmation
+                    </span>
+                  )}
+
+
                   {quote.work_thread_id && (
                     <Button
                       variant="ghost"
