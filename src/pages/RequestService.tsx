@@ -326,7 +326,7 @@ const RequestService = () => {
                 </Card>
               )}
             </motion.div>
-          </AnimatePresence>
+          </div>
 
           {/* Navigation */}
           <div className="mt-8 flex items-center justify-between">
