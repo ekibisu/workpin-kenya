@@ -137,6 +137,7 @@ const RequestService = () => {
   const providerServiceIds = providerInfo?.serviceIds ?? [];
 
   useEffect(() => {
+    if (resumedDraft) return;
     const nameParam = searchParams.get("service");
     if (!nameParam || !allServices) return;
     const match = allServices.find(
@@ -146,19 +147,24 @@ const RequestService = () => {
       setSelectedServiceId(match.id);
       setStep(1);
     }
-  }, [allServices, searchParams]);
+  }, [allServices, searchParams, resumedDraft]);
 
   // If the provider offers exactly one service, pre-select it
   useEffect(() => {
+    if (resumedDraft) return;
     if (searchParams.get("service")) return;
     if (providerServiceIds.length === 1) {
       setSelectedServiceId((prev) => prev ?? providerServiceIds[0]);
     }
-  }, [providerServiceIds.join(","), searchParams]);
+  }, [providerServiceIds.join(","), searchParams, resumedDraft]);
 
-  const [tedAnswers, setTedAnswers] = useState<Record<string, string>>({});
-  const [uploadedImageUrls, setUploadedImageUrls] = useState<string[]>([]);
-  const [location, setLocation] = useState("");
+  const [tedAnswers, setTedAnswers] = useState<Record<string, string>>(
+    resumedDraft?.answers ?? {}
+  );
+  const [uploadedImageUrls, setUploadedImageUrls] = useState<string[]>(
+    resumedDraft?.imageUrls ?? []
+  );
+  const [location, setLocation] = useState(resumedDraft?.location ?? "");
   const [submitting, setSubmitting] = useState(false);
 
   // Fetch selected service details (name + archetype)
