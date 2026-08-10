@@ -348,7 +348,13 @@ const RequestService = () => {
                     value={tedAnswers}
                     onChange={setTedAnswers}
                     onImagesChange={setUploadedImageUrls}
+                    isAuthenticated={!!user}
+                    draftSessionId={draftSessionId}
+                    imageUrls={uploadedImageUrls}
+                    pendingPhotoIds={pendingPhotoIds}
+                    onPendingPhotosChange={setPendingPhotoIds}
                   />
+
                 </div>
               )}
 
