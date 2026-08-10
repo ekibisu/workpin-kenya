@@ -200,18 +200,27 @@ const RequestService = () => {
     flushedPendingRef.current = true;
 
     (async () => {
+      let urls = [...(resumedDraft?.imageUrls ?? [])];
+      let remaining = [...ids];
+
       for (const id of ids) {
         try {
           const record = await getPendingPhoto(id);
-          if (!record) continue;
+          if (!record) {
+            remaining = remaining.filter((p) => p !== id);
+            setPendingPhotoIds((prev) => prev.filter((p) => p !== id));
+            continue;
+          }
           const file = new File([record.blob], record.fileName, { type: record.mimeType });
           const result = await uploadMediaFile({
             file,
             context: "request-image",
             tags: ["request-image"],
           });
+          urls = [...urls, result.public_url];
           setUploadedImageUrls((prev) => [...prev, result.public_url]);
           await deletePendingPhoto(id);
+          remaining = remaining.filter((p) => p !== id);
           setPendingPhotoIds((prev) => prev.filter((p) => p !== id));
         } catch {
           toast({
@@ -221,8 +230,20 @@ const RequestService = () => {
           });
         }
       }
+
+      // Keep the persisted draft in sync with what the UI now shows.
+      saveRequestDraft({
+        serviceId: resumedDraft?.serviceId ?? null,
+        providerId: resumedDraft?.providerId ?? null,
+        answers: resumedDraft?.answers ?? {},
+        imageUrls: urls,
+        draftSessionId: resumedDraft?.draftSessionId ?? draftSessionId,
+        pendingPhotoIds: remaining,
+        location: resumedDraft?.location ?? "",
+        step: resumedDraft?.step ?? 0,
+      });
     })();
-  }, [user, resumedDraft]);
+  }, [user, resumedDraft, draftSessionId]);
 
   // ── Validation ──────────────────────────────────────────────────────────────
 
