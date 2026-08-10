@@ -19,6 +19,11 @@ import { TedQuestionForm, validateTedAnswers } from "@/components/TedQuestionFor
 import { useService, useServices } from "@/hooks/useServices";
 import questionsData from "@/data/questions.json";
 import Image from "@/components/ui/Image";
+import {
+  clearRequestDraft,
+  loadRequestDraft,
+  saveRequestDraft,
+} from "@/lib/requestDraft";
 
 
 const STEP_LABELS = ["Pick a Service", "About the Job", "Location", "Review & Post"];
