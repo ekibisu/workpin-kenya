@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { ChevronLeft, ChevronRight, MapPin, CheckCircle, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -90,6 +90,7 @@ const RequestService = () => {
   const { activeCountry } = useActiveCountry();
 
   const [step, setStep] = useState(0);
+  const [direction, setDirection] = useState(1);
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
 
   // Pre-select service from ?service= query param (deep-link from /services page)
@@ -226,13 +227,12 @@ const RequestService = () => {
             </div>
           </div>
 
-          <AnimatePresence mode="wait">
+          <div>
             <motion.div
               key={step}
-              initial={{ opacity: 0, x: 24 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -24 }}
-              transition={{ duration: 0.18 }}
+              initial={{ x: direction >= 0 ? 24 : -24 }}
+              animate={{ x: 0 }}
+              transition={{ duration: 0.18, ease: "easeOut" }}
             >
               {/* ── STEP 1: Pick a Service ──────────────────────────────────── */}
               {step === 0 && (
@@ -326,13 +326,16 @@ const RequestService = () => {
                 </Card>
               )}
             </motion.div>
-          </AnimatePresence>
+          </div>
 
           {/* Navigation */}
           <div className="mt-8 flex items-center justify-between">
             <Button
               variant="ghost"
-              onClick={() => setStep((s) => Math.max(0, s - 1))}
+              onClick={() => {
+                setDirection(-1);
+                setStep((s) => Math.max(0, s - 1));
+              }}
               disabled={step === 0}
             >
               <ChevronLeft className="h-4 w-4" />
@@ -340,7 +343,13 @@ const RequestService = () => {
             </Button>
 
             {step < STEP_LABELS.length - 1 ? (
-              <Button onClick={() => setStep((s) => s + 1)} disabled={!canNext()}>
+              <Button
+                onClick={() => {
+                  setDirection(1);
+                  setStep((s) => s + 1);
+                }}
+                disabled={!canNext()}
+              >
                 Next
                 <ChevronRight className="h-4 w-4" />
               </Button>
