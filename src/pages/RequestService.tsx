@@ -239,7 +239,12 @@ const RequestService = () => {
                 <ServicePicker
                   value={selectedServiceId}
                   onChange={(id) => setSelectedServiceId(id)}
+                  highlightedIds={providerServiceIds}
+                  highlightLabel={
+                    providerInfo?.name ? `Offered by ${providerInfo.name}` : "Offered by this pro"
+                  }
                 />
+
               )}
 
               {/* ── STEP 2: TED Questions ───────────────────────────────────── */}
