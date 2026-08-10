@@ -93,6 +93,29 @@ const RequestService = () => {
 
   // Pre-select service from ?service= query param (deep-link from /services page)
   const { data: allServices } = useServices();
+
+  // Provider deep-link (?provider=<businessId>): look up services they actually offer
+  const providerId = searchParams.get("provider");
+  const { data: providerInfo } = useQuery({
+    queryKey: ["provider-services", providerId],
+    enabled: !!providerId,
+    queryFn: async () => {
+      const [{ data: biz }, { data: rows }] = await Promise.all([
+        supabase.from("businesses").select("business_name").eq("id", providerId!).maybeSingle(),
+        supabase
+          .from("business_services")
+          .select("service_id")
+          .eq("business_id", providerId!)
+          .eq("is_active", true),
+      ]);
+      const ids = (rows ?? [])
+        .map((r: { service_id: string | null }) => r.service_id)
+        .filter((id): id is string => !!id);
+      return { name: biz?.business_name ?? null, serviceIds: Array.from(new Set(ids)) };
+    },
+  });
+  const providerServiceIds = providerInfo?.serviceIds ?? [];
+
   useEffect(() => {
     const nameParam = searchParams.get("service");
     if (!nameParam || !allServices) return;
@@ -104,6 +127,15 @@ const RequestService = () => {
       setStep(1);
     }
   }, [allServices, searchParams]);
+
+  // If the provider offers exactly one service, pre-select it
+  useEffect(() => {
+    if (searchParams.get("service")) return;
+    if (providerServiceIds.length === 1) {
+      setSelectedServiceId((prev) => prev ?? providerServiceIds[0]);
+    }
+  }, [providerServiceIds.join(","), searchParams]);
+
   const [tedAnswers, setTedAnswers] = useState<Record<string, string>>({});
   const [uploadedImageUrls, setUploadedImageUrls] = useState<string[]>([]);
   const [location, setLocation] = useState("");
