@@ -1,6 +1,11 @@
 // Persisted "Post a Job" wizard draft, used to survive the
 // logged-out -> /auth -> logged-in handoff.
 
+import {
+  deletePendingPhotosByDraftSessionId,
+  sweepExpiredPendingPhotos,
+} from "@/lib/pendingPhotoStore";
+
 export const REQUEST_DRAFT_KEY = "workpin_pending_request_draft";
 
 export interface RequestDraft {
@@ -8,6 +13,10 @@ export interface RequestDraft {
   providerId: string | null;
   answers: Record<string, string>;
   imageUrls: string[];
+  /** Scopes guest photos held in IndexedDB to this wizard session. */
+  draftSessionId: string;
+  /** IndexedDB ids of guest photos awaiting upload after login. */
+  pendingPhotoIds: string[];
   location: string;
   step: number;
   savedAt: number;
@@ -35,7 +44,11 @@ export function loadRequestDraft(): RequestDraft | null {
       clearRequestDraft();
       return null;
     }
-    return parsed;
+    return {
+      ...parsed,
+      draftSessionId: parsed.draftSessionId ?? "",
+      pendingPhotoIds: parsed.pendingPhotoIds ?? [],
+    };
   } catch {
     return null;
   }
@@ -47,10 +60,30 @@ export function hasRequestDraft(): boolean {
 
 export function clearRequestDraft() {
   try {
+    const raw = localStorage.getItem(REQUEST_DRAFT_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw) as Partial<RequestDraft>;
+      if (parsed?.draftSessionId) {
+        // Fire-and-forget: drop any guest photos tied to this draft.
+        void deletePendingPhotosByDraftSessionId(parsed.draftSessionId);
+      }
+    }
+  } catch {
+    // ignore malformed draft
+  }
+  try {
     localStorage.removeItem(REQUEST_DRAFT_KEY);
   } catch {
     // ignore
   }
+}
+
+/** Purge guest photos left behind by visitors who never came back. Runs once per session. */
+let sweptThisSession = false;
+export function sweepStalePendingPhotos() {
+  if (sweptThisSession) return;
+  sweptThisSession = true;
+  void sweepExpiredPendingPhotos(MAX_AGE_MS);
 }
 
 /** Where to send a user right after a successful sign-in / sign-up. */
