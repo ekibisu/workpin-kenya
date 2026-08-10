@@ -96,9 +96,20 @@ const RequestService = () => {
   const { user } = useAuth();
   const { activeCountry } = useActiveCountry();
 
-  const [step, setStep] = useState(0);
+  // Resume an in-progress draft saved before a logged-out user was sent to /auth.
+  const [resumedDraft] = useState(() => {
+    const isResume = new URLSearchParams(window.location.search).get("resume") === "1";
+    if (isResume) return loadRequestDraft();
+    // Starting a fresh request — drop any stale draft so it can't resurface later.
+    clearRequestDraft();
+    return null;
+  });
+
+  const [step, setStep] = useState(resumedDraft?.step ?? 0);
   const [direction, setDirection] = useState(1);
-  const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
+  const [selectedServiceId, setSelectedServiceId] = useState<string | null>(
+    resumedDraft?.serviceId ?? null
+  );
 
   // Pre-select service from ?service= query param (deep-link from /services page)
   const { data: allServices } = useServices();
