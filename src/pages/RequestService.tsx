@@ -171,6 +171,13 @@ const RequestService = () => {
   const [uploadedImageUrls, setUploadedImageUrls] = useState<string[]>(
     resumedDraft?.imageUrls ?? []
   );
+  const [draftSessionId] = useState<string>(
+    () => resumedDraft?.draftSessionId || newDraftSessionId()
+  );
+  const [pendingPhotoIds, setPendingPhotoIds] = useState<string[]>(
+    resumedDraft?.pendingPhotoIds ?? []
+  );
+
   const [location, setLocation] = useState(resumedDraft?.location ?? "");
   const [submitting, setSubmitting] = useState(false);
 
