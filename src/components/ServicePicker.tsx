@@ -174,10 +174,11 @@ const ARCHETYPE_ORDER: ServiceArchetype[] = [
 interface ServiceCardProps {
   service: Service
   selected: boolean
+  highlighted?: boolean
   onSelect: () => void
 }
 
-function ServiceCard({ service, selected, onSelect }: ServiceCardProps) {
+function ServiceCard({ service, selected, highlighted, onSelect }: ServiceCardProps) {
   const Icon = resolveIcon(service.icon, service.name)
 
   return (
@@ -188,7 +189,9 @@ function ServiceCard({ service, selected, onSelect }: ServiceCardProps) {
         'group relative flex flex-col items-center gap-2 rounded-xl border bg-white p-3 text-center transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500',
         selected
           ? 'border-2 border-emerald-600 bg-emerald-50/40 shadow-sm'
-          : 'border-slate-100 hover:border-emerald-600 hover:shadow-sm',
+          : highlighted
+            ? 'border-2 border-emerald-300 bg-emerald-50/20'
+            : 'border-slate-100 hover:border-emerald-600 hover:shadow-sm',
       ].join(' ')}
     >
       {selected && (
@@ -212,6 +215,7 @@ function ServiceCard({ service, selected, onSelect }: ServiceCardProps) {
   )
 }
 
+
 // ── ArchetypeSection ──────────────────────────────────────────────────────────
 
 interface ArchetypeSectionProps {
@@ -220,6 +224,7 @@ interface ArchetypeSectionProps {
   value: string | null
   onChange: (id: string) => void
   defaultOpen: boolean
+  highlightedIds?: string[]
 }
 
 function ArchetypeSection({
@@ -228,6 +233,7 @@ function ArchetypeSection({
   value,
   onChange,
   defaultOpen,
+  highlightedIds,
 }: ArchetypeSectionProps) {
   const [open, setOpen] = useState(defaultOpen)
   const Icon = ARCHETYPE_ICONS[archetype]
@@ -262,6 +268,7 @@ function ArchetypeSection({
               key={service.id}
               service={service}
               selected={value === service.id}
+              highlighted={highlightedIds?.includes(service.id)}
               onSelect={() => onChange(service.id)}
             />
           ))}
@@ -270,6 +277,8 @@ function ArchetypeSection({
     </Collapsible>
   )
 }
+
+
 
 // ── Loading skeleton ──────────────────────────────────────────────────────────
 
@@ -295,15 +304,23 @@ function LoadingSkeleton() {
 interface ServicePickerProps {
   value: string | null
   onChange: (id: string) => void
+  /** Service ids offered by a specific provider — surfaced first and highlighted */
+  highlightedIds?: string[]
+  highlightLabel?: string
 }
 
-export function ServicePicker({ value, onChange }: ServicePickerProps) {
+export function ServicePicker({ value, onChange, highlightedIds, highlightLabel }: ServicePickerProps) {
   const [search, setSearch] = useState('')
   const { data: grouped, isLoading } = useServicesByArchetype()
 
   if (isLoading) return <LoadingSkeleton />
 
   const query = search.trim().toLowerCase()
+
+  const allServices = ARCHETYPE_ORDER.flatMap((a) => grouped?.[a] ?? [])
+  const offered = (highlightedIds ?? [])
+    .map((id) => allServices.find((s) => s.id === id))
+    .filter((s): s is Service => Boolean(s))
 
   return (
     <div className="space-y-3">
@@ -317,6 +334,26 @@ export function ServicePicker({ value, onChange }: ServicePickerProps) {
           className="border-slate-200 pl-9 shadow-sm focus-visible:ring-emerald-500"
         />
       </div>
+
+      {/* Provider's offered services */}
+      {!query && offered.length > 0 && (
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50/40 p-2">
+          <p className="px-2 pb-2 text-xs font-semibold text-emerald-800">
+            {highlightLabel ?? 'Offered by this pro'}
+          </p>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {offered.map((service) => (
+              <ServiceCard
+                key={service.id}
+                service={service}
+                selected={value === service.id}
+                highlighted
+                onSelect={() => onChange(service.id)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Archetype sections */}
       <div className="space-y-2">
@@ -333,11 +370,13 @@ export function ServicePicker({ value, onChange }: ServicePickerProps) {
               services={filtered}
               value={value}
               onChange={onChange}
+              highlightedIds={highlightedIds}
               defaultOpen={index === 0}
             />
           )
         })}
       </div>
+
 
       {/* Empty state */}
       {query &&
