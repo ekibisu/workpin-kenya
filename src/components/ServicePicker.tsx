@@ -224,6 +224,7 @@ interface ArchetypeSectionProps {
   value: string | null
   onChange: (id: string) => void
   defaultOpen: boolean
+  highlightedIds?: string[]
 }
 
 function ArchetypeSection({
@@ -232,6 +233,7 @@ function ArchetypeSection({
   value,
   onChange,
   defaultOpen,
+  highlightedIds,
 }: ArchetypeSectionProps) {
   const [open, setOpen] = useState(defaultOpen)
   const Icon = ARCHETYPE_ICONS[archetype]
@@ -266,9 +268,16 @@ function ArchetypeSection({
               key={service.id}
               service={service}
               selected={value === service.id}
+              highlighted={highlightedIds?.includes(service.id)}
               onSelect={() => onChange(service.id)}
             />
           ))}
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
+  )
+}
+
         </div>
       </CollapsibleContent>
     </Collapsible>
