@@ -227,12 +227,11 @@ const RequestService = () => {
             </div>
           </div>
 
-          <AnimatePresence mode="wait" initial={false}>
+          <div>
             <motion.div
               key={step}
-              initial={{ opacity: 0, x: direction >= 0 ? 24 : -24 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: direction >= 0 ? -24 : 24 }}
+              initial={{ x: direction >= 0 ? 24 : -24 }}
+              animate={{ x: 0 }}
               transition={{ duration: 0.18, ease: "easeOut" }}
             >
               {/* ── STEP 1: Pick a Service ──────────────────────────────────── */}
