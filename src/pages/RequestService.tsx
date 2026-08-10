@@ -189,6 +189,41 @@ const RequestService = () => {
     (selectedService?.name ? SERVICE_ARCHETYPE_MAP[selectedService.name] : null) ||
     "home_maintenance";
 
+  // ── Upload guest photos once the user signs in ───────────────────────────────
+
+  const flushedPendingRef = useRef(false);
+  useEffect(() => {
+    if (!user) return;
+    if (flushedPendingRef.current) return;
+    const ids = resumedDraft?.pendingPhotoIds ?? [];
+    if (ids.length === 0) return;
+    flushedPendingRef.current = true;
+
+    (async () => {
+      for (const id of ids) {
+        try {
+          const record = await getPendingPhoto(id);
+          if (!record) continue;
+          const file = new File([record.blob], record.fileName, { type: record.mimeType });
+          const result = await uploadMediaFile({
+            file,
+            context: "request-image",
+            tags: ["request-image"],
+          });
+          setUploadedImageUrls((prev) => [...prev, result.public_url]);
+          await deletePendingPhoto(id);
+          setPendingPhotoIds((prev) => prev.filter((p) => p !== id));
+        } catch {
+          toast({
+            title: "One photo couldn't be uploaded",
+            description: "You can re-add it before posting.",
+            variant: "destructive",
+          });
+        }
+      }
+    })();
+  }, [user, resumedDraft]);
+
   // ── Validation ──────────────────────────────────────────────────────────────
 
   const canNext = () => {
@@ -207,9 +242,12 @@ const RequestService = () => {
         providerId,
         answers: tedAnswers,
         imageUrls: uploadedImageUrls,
+        draftSessionId,
+        pendingPhotoIds,
         location,
         step: STEP_LABELS.length - 1,
       });
+
       toast({ title: "Please log in first", variant: "destructive" });
       navigate("/auth");
       return;
