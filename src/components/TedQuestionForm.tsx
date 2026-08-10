@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ImagePlus, X, Loader2 } from 'lucide-react'
 import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
@@ -11,7 +11,13 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { uploadMediaFile } from '@/hooks/useMediaUpload'
+import {
+  deletePendingPhoto,
+  getPendingPhoto,
+  savePendingPhoto,
+} from '@/lib/pendingPhotoStore'
 import questionsData from '@/data/questions.json'
+
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
