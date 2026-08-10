@@ -346,6 +346,11 @@ interface TedQuestionFormProps {
   value: Record<string, string>
   onChange: (answers: Record<string, string>) => void
   onImagesChange: (urls: string[]) => void
+  isAuthenticated?: boolean
+  draftSessionId?: string
+  imageUrls?: string[]
+  pendingPhotoIds?: string[]
+  onPendingPhotosChange?: (ids: string[]) => void
 }
 
 export function TedQuestionForm({
@@ -354,6 +359,11 @@ export function TedQuestionForm({
   value,
   onChange,
   onImagesChange,
+  isAuthenticated = true,
+  draftSessionId,
+  imageUrls,
+  pendingPhotoIds,
+  onPendingPhotosChange,
 }: TedQuestionFormProps) {
   const archetypeData = (questionsData as any).archetypes?.[archetypeId]
   const questions: Question[] = archetypeData?.questions ?? []
@@ -374,10 +384,20 @@ export function TedQuestionForm({
         if (q.type === 'image_upload') {
           return (
             <div key={q.id} className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
-              <ImageUploadField question={q} onImagesChange={onImagesChange} serviceName={serviceName} />
+              <ImageUploadField
+                question={q}
+                onImagesChange={onImagesChange}
+                serviceName={serviceName}
+                isAuthenticated={isAuthenticated}
+                draftSessionId={draftSessionId}
+                initialImageUrls={imageUrls}
+                initialPendingPhotoIds={pendingPhotoIds}
+                onPendingPhotosChange={onPendingPhotosChange}
+              />
             </div>
           )
         }
+
 
         return (
           <div key={q.id} className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
