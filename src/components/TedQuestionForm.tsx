@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ImagePlus, X, Loader2 } from 'lucide-react'
 import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
@@ -11,7 +11,13 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { uploadMediaFile } from '@/hooks/useMediaUpload'
+import {
+  deletePendingPhoto,
+  getPendingPhoto,
+  savePendingPhoto,
+} from '@/lib/pendingPhotoStore'
 import questionsData from '@/data/questions.json'
+
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -54,16 +60,67 @@ function QuestionLabel({ question }: { question: Question }) {
 
 // ── Image upload field ───────────────────────────────────────────────────────
 
+interface Preview {
+  url: string
+  uploading: boolean
+  pending?: boolean
+  error?: boolean
+}
+
 interface ImageUploadFieldProps {
   question: ImageQuestion
   onImagesChange: (urls: string[]) => void
   serviceName?: string | null
+  isAuthenticated?: boolean
+  draftSessionId?: string
+  initialImageUrls?: string[]
+  initialPendingPhotoIds?: string[]
+  onPendingPhotosChange?: (ids: string[]) => void
 }
 
-function ImageUploadField({ question, onImagesChange, serviceName }: ImageUploadFieldProps) {
+function ImageUploadField({
+  question,
+  onImagesChange,
+  serviceName,
+  isAuthenticated = true,
+  draftSessionId,
+  initialImageUrls,
+  initialPendingPhotoIds,
+  onPendingPhotosChange,
+}: ImageUploadFieldProps) {
   const inputRef = useRef<HTMLInputElement>(null)
-  const [previews, setPreviews] = useState<{ url: string; uploading: boolean; error?: boolean }[]>([])
-  const [uploadedUrls, setUploadedUrls] = useState<string[]>([])
+  const [previews, setPreviews] = useState<Preview[]>([])
+  const [uploadedUrls, setUploadedUrls] = useState<string[]>(initialImageUrls ?? [])
+  const [pendingIds, setPendingIds] = useState<string[]>(initialPendingPhotoIds ?? [])
+
+  // Rehydrate thumbnails for a resumed draft (already-uploaded URLs + pending blobs).
+  useEffect(() => {
+    let cancelled = false
+    const objectUrls: string[] = []
+
+    const run = async () => {
+      const fromUrls: Preview[] = (initialImageUrls ?? []).map((url) => ({ url, uploading: false }))
+      const fromPending: Preview[] = []
+      for (const id of initialPendingPhotoIds ?? []) {
+        const record = await getPendingPhoto(id)
+        if (!record) continue
+        const objUrl = URL.createObjectURL(record.blob)
+        objectUrls.push(objUrl)
+        fromPending.push({ url: objUrl, uploading: false, pending: true })
+      }
+      if (cancelled) return
+      const all = [...fromUrls, ...fromPending]
+      if (all.length > 0) setPreviews(all)
+    }
+
+    void run()
+    return () => {
+      cancelled = true
+      objectUrls.forEach((u) => URL.revokeObjectURL(u))
+    }
+    // Rehydrate once on mount only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const handleSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(e.target.files ?? [])
@@ -72,13 +129,37 @@ function ImageUploadField({ question, onImagesChange, serviceName }: ImageUpload
     if (toAdd.length === 0) return
 
     // Optimistic previews
-    const newPreviews: { url: string; uploading: boolean; error?: boolean }[] = toAdd.map((f) => ({ url: URL.createObjectURL(f), uploading: true }))
+    const newPreviews: Preview[] = toAdd.map((f) => ({ url: URL.createObjectURL(f), uploading: true }))
     const nextPreviews = [...previews, ...newPreviews]
     setPreviews(nextPreviews)
 
-    // Upload each file and collect public URLs
-    const newUrls: string[] = [...uploadedUrls]
     const finalPreviews = [...nextPreviews]
+
+    // ── Guest: stash the blob locally, upload after sign-in ──────────────────
+    if (!isAuthenticated) {
+      const newIds: string[] = [...pendingIds]
+      await Promise.all(
+        toAdd.map(async (file, idx) => {
+          const previewIdx = previews.length + idx
+          try {
+            const record = await savePendingPhoto(file, draftSessionId ?? 'anonymous-draft')
+            newIds.push(record.id)
+            finalPreviews[previewIdx] = { ...finalPreviews[previewIdx], uploading: false, pending: true }
+          } catch {
+            finalPreviews[previewIdx] = { ...finalPreviews[previewIdx], uploading: false, error: true }
+          }
+        })
+      )
+
+      setPreviews([...finalPreviews])
+      setPendingIds(newIds)
+      onPendingPhotosChange?.(newIds)
+      if (inputRef.current) inputRef.current.value = ''
+      return
+    }
+
+    // ── Authenticated: upload each file and collect public URLs ──────────────
+    const newUrls: string[] = [...uploadedUrls]
 
     await Promise.all(
       toAdd.map(async (file, idx) => {
@@ -107,14 +188,29 @@ function ImageUploadField({ question, onImagesChange, serviceName }: ImageUpload
   }
 
   const remove = (idx: number) => {
+    const target = previews[idx]
     const nextPreviews = previews.filter((_, i) => i !== idx)
-    const nextUrls = uploadedUrls.filter((_, i) => i !== idx)
     setPreviews(nextPreviews)
+
+    if (target?.pending) {
+      // Pending previews are appended after uploaded ones.
+      const pendingIdx = previews.slice(0, idx).filter((p) => p.pending).length
+      const removedId = pendingIds[pendingIdx]
+      if (removedId) void deletePendingPhoto(removedId)
+      const nextIds = pendingIds.filter((_, i) => i !== pendingIdx)
+      setPendingIds(nextIds)
+      onPendingPhotosChange?.(nextIds)
+      return
+    }
+
+    const uploadedIdx = previews.slice(0, idx).filter((p) => !p.pending).length
+    const nextUrls = uploadedUrls.filter((_, i) => i !== uploadedIdx)
     setUploadedUrls(nextUrls)
     onImagesChange(nextUrls)
   }
 
   const canAdd = previews.length < question.max_files
+
 
   return (
     <div className="space-y-2">
@@ -135,11 +231,17 @@ function ImageUploadField({ question, onImagesChange, serviceName }: ImageUpload
                 <Loader2 className="h-5 w-5 animate-spin text-gray-600" />
               </div>
             )}
+            {p.pending && !p.error && (
+              <span className="absolute bottom-0 left-0 right-0 bg-slate-900/70 py-0.5 text-center text-[9px] font-medium text-white">
+                Pending
+              </span>
+            )}
             {p.error && (
               <div className="absolute inset-0 flex items-center justify-center bg-red-50/80">
                 <span className="text-xs text-red-600">Failed</span>
               </div>
             )}
+
             {!p.uploading && (
               <button
                 type="button"
@@ -244,6 +346,11 @@ interface TedQuestionFormProps {
   value: Record<string, string>
   onChange: (answers: Record<string, string>) => void
   onImagesChange: (urls: string[]) => void
+  isAuthenticated?: boolean
+  draftSessionId?: string
+  imageUrls?: string[]
+  pendingPhotoIds?: string[]
+  onPendingPhotosChange?: (ids: string[]) => void
 }
 
 export function TedQuestionForm({
@@ -252,6 +359,11 @@ export function TedQuestionForm({
   value,
   onChange,
   onImagesChange,
+  isAuthenticated = true,
+  draftSessionId,
+  imageUrls,
+  pendingPhotoIds,
+  onPendingPhotosChange,
 }: TedQuestionFormProps) {
   const archetypeData = (questionsData as any).archetypes?.[archetypeId]
   const questions: Question[] = archetypeData?.questions ?? []
@@ -272,10 +384,20 @@ export function TedQuestionForm({
         if (q.type === 'image_upload') {
           return (
             <div key={q.id} className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
-              <ImageUploadField question={q} onImagesChange={onImagesChange} serviceName={serviceName} />
+              <ImageUploadField
+                question={q}
+                onImagesChange={onImagesChange}
+                serviceName={serviceName}
+                isAuthenticated={isAuthenticated}
+                draftSessionId={draftSessionId}
+                initialImageUrls={imageUrls}
+                initialPendingPhotoIds={pendingPhotoIds}
+                onPendingPhotosChange={onPendingPhotosChange}
+              />
             </div>
           )
         }
+
 
         return (
           <div key={q.id} className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
