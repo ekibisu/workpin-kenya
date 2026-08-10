@@ -302,7 +302,13 @@ const RequestService = () => {
                       <div className="flex justify-between">
                         <dt className="text-muted-foreground">Service</dt>
                         <dd className="font-medium">{selectedService?.name ?? "—"}</dd>
-                      </div>
+                      {/* Provider (deep-link) */}
+                      {providerInfo?.name && (
+                        <div className="flex justify-between border-t border-border pt-3">
+                          <dt className="text-muted-foreground">Requested pro</dt>
+                          <dd className="font-medium">{providerInfo.name}</dd>
+                        </div>
+                      )}
 
                       {/* TED answers */}
                       {summariseAnswers(archetypeId, tedAnswers).map(
@@ -314,14 +320,32 @@ const RequestService = () => {
                         )
                       )}
 
-                      {/* Location */}
-                      {location && (
-                        <div className="flex justify-between border-t border-border pt-3">
-                          <dt className="text-muted-foreground">Location</dt>
-                          <dd className="font-medium">{location}</dd>
+                      {/* Photos */}
+                      {uploadedImageUrls.length > 0 && (
+                        <div className="border-t border-border pt-3">
+                          <dt className="mb-1.5 text-muted-foreground">
+                            Photos ({uploadedImageUrls.length})
+                          </dt>
+                          <dd className="flex flex-wrap gap-2">
+                            {uploadedImageUrls.map((url) => (
+                              <Image
+                                key={url}
+                                src={url}
+                                alt="Job photo"
+                                className="h-16 w-16 rounded-md border border-border object-cover"
+                              />
+                            ))}
+                          </dd>
                         </div>
                       )}
+
+                      {/* Location */}
+                      <div className="flex justify-between border-t border-border pt-3">
+                        <dt className="text-muted-foreground">Location</dt>
+                        <dd className="font-medium">{location || "Not specified"}</dd>
+                      </div>
                     </dl>
+
                   </CardContent>
                 </Card>
               )}
