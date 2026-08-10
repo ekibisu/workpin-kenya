@@ -174,10 +174,11 @@ const ARCHETYPE_ORDER: ServiceArchetype[] = [
 interface ServiceCardProps {
   service: Service
   selected: boolean
+  highlighted?: boolean
   onSelect: () => void
 }
 
-function ServiceCard({ service, selected, onSelect }: ServiceCardProps) {
+function ServiceCard({ service, selected, highlighted, onSelect }: ServiceCardProps) {
   const Icon = resolveIcon(service.icon, service.name)
 
   return (
@@ -188,7 +189,9 @@ function ServiceCard({ service, selected, onSelect }: ServiceCardProps) {
         'group relative flex flex-col items-center gap-2 rounded-xl border bg-white p-3 text-center transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500',
         selected
           ? 'border-2 border-emerald-600 bg-emerald-50/40 shadow-sm'
-          : 'border-slate-100 hover:border-emerald-600 hover:shadow-sm',
+          : highlighted
+            ? 'border-2 border-emerald-300 bg-emerald-50/20'
+            : 'border-slate-100 hover:border-emerald-600 hover:shadow-sm',
       ].join(' ')}
     >
       {selected && (
@@ -211,6 +214,7 @@ function ServiceCard({ service, selected, onSelect }: ServiceCardProps) {
     </button>
   )
 }
+
 
 // ── ArchetypeSection ──────────────────────────────────────────────────────────
 
