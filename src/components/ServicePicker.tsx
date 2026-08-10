@@ -278,11 +278,7 @@ function ArchetypeSection({
   )
 }
 
-        </div>
-      </CollapsibleContent>
-    </Collapsible>
-  )
-}
+
 
 // ── Loading skeleton ──────────────────────────────────────────────────────────
 
