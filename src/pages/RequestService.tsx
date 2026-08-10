@@ -227,6 +227,7 @@ const RequestService = () => {
     }
 
     setSubmitting(false);
+    clearRequestDraft();
     toast({ title: "Kazi imewekwa! Providers watajulishwa." });
     navigate("/dashboard");
   };
