@@ -24,6 +24,13 @@ import {
   loadRequestDraft,
   saveRequestDraft,
 } from "@/lib/requestDraft";
+import {
+  deletePendingPhoto,
+  getPendingPhoto,
+  newDraftSessionId,
+} from "@/lib/pendingPhotoStore";
+import { uploadMediaFile } from "@/hooks/useMediaUpload";
+
 
 
 const STEP_LABELS = ["Pick a Service", "About the Job", "Location", "Review & Post"];
