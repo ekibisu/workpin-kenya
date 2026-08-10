@@ -18,6 +18,8 @@ import { ServicePicker } from "@/components/ServicePicker";
 import { TedQuestionForm, validateTedAnswers } from "@/components/TedQuestionForm";
 import { useService, useServices } from "@/hooks/useServices";
 import questionsData from "@/data/questions.json";
+import Image from "@/components/ui/Image";
+
 
 const STEP_LABELS = ["Pick a Service", "About the Job", "Location", "Review & Post"];
 
@@ -304,6 +306,15 @@ const RequestService = () => {
                         <dd className="font-medium">{selectedService?.name ?? "—"}</dd>
                       </div>
 
+                      {/* Provider (deep-link) */}
+
+                      {providerInfo?.name && (
+                        <div className="flex justify-between border-t border-border pt-3">
+                          <dt className="text-muted-foreground">Requested pro</dt>
+                          <dd className="font-medium">{providerInfo.name}</dd>
+                        </div>
+                      )}
+
                       {/* TED answers */}
                       {summariseAnswers(archetypeId, tedAnswers).map(
                         ({ label, value }: { label: string; value: string }) => (
@@ -314,14 +325,32 @@ const RequestService = () => {
                         )
                       )}
 
-                      {/* Location */}
-                      {location && (
-                        <div className="flex justify-between border-t border-border pt-3">
-                          <dt className="text-muted-foreground">Location</dt>
-                          <dd className="font-medium">{location}</dd>
+                      {/* Photos */}
+                      {uploadedImageUrls.length > 0 && (
+                        <div className="border-t border-border pt-3">
+                          <dt className="mb-1.5 text-muted-foreground">
+                            Photos ({uploadedImageUrls.length})
+                          </dt>
+                          <dd className="flex flex-wrap gap-2">
+                            {uploadedImageUrls.map((url) => (
+                              <Image
+                                key={url}
+                                src={url}
+                                alt="Job photo"
+                                className="h-16 w-16 rounded-md border border-border object-cover"
+                              />
+                            ))}
+                          </dd>
                         </div>
                       )}
+
+                      {/* Location */}
+                      <div className="flex justify-between border-t border-border pt-3">
+                        <dt className="text-muted-foreground">Location</dt>
+                        <dd className="font-medium">{location || "Not specified"}</dd>
+                      </div>
                     </dl>
+
                   </CardContent>
                 </Card>
               )}
