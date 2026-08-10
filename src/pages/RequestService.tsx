@@ -187,6 +187,15 @@ const RequestService = () => {
 
   const handleSubmit = async () => {
     if (!user) {
+      // Persist the whole wizard so we can resume after sign-in / sign-up.
+      saveRequestDraft({
+        serviceId: selectedServiceId,
+        providerId,
+        answers: tedAnswers,
+        imageUrls: uploadedImageUrls,
+        location,
+        step: STEP_LABELS.length - 1,
+      });
       toast({ title: "Please log in first", variant: "destructive" });
       navigate("/auth");
       return;
