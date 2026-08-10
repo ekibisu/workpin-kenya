@@ -302,7 +302,10 @@ const RequestService = () => {
                       <div className="flex justify-between">
                         <dt className="text-muted-foreground">Service</dt>
                         <dd className="font-medium">{selectedService?.name ?? "—"}</dd>
+                      </div>
+
                       {/* Provider (deep-link) */}
+
                       {providerInfo?.name && (
                         <div className="flex justify-between border-t border-border pt-3">
                           <dt className="text-muted-foreground">Requested pro</dt>
