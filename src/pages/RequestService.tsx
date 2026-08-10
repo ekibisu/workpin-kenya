@@ -90,6 +90,7 @@ const RequestService = () => {
   const { activeCountry } = useActiveCountry();
 
   const [step, setStep] = useState(0);
+  const [direction, setDirection] = useState(1);
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
 
   // Pre-select service from ?service= query param (deep-link from /services page)
