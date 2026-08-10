@@ -18,6 +18,8 @@ import { ServicePicker } from "@/components/ServicePicker";
 import { TedQuestionForm, validateTedAnswers } from "@/components/TedQuestionForm";
 import { useService, useServices } from "@/hooks/useServices";
 import questionsData from "@/data/questions.json";
+import Image from "@/components/ui/Image";
+
 
 const STEP_LABELS = ["Pick a Service", "About the Job", "Location", "Review & Post"];
 
