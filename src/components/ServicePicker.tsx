@@ -304,15 +304,23 @@ function LoadingSkeleton() {
 interface ServicePickerProps {
   value: string | null
   onChange: (id: string) => void
+  /** Service ids offered by a specific provider — surfaced first and highlighted */
+  highlightedIds?: string[]
+  highlightLabel?: string
 }
 
-export function ServicePicker({ value, onChange }: ServicePickerProps) {
+export function ServicePicker({ value, onChange, highlightedIds, highlightLabel }: ServicePickerProps) {
   const [search, setSearch] = useState('')
   const { data: grouped, isLoading } = useServicesByArchetype()
 
   if (isLoading) return <LoadingSkeleton />
 
   const query = search.trim().toLowerCase()
+
+  const allServices = ARCHETYPE_ORDER.flatMap((a) => grouped?.[a] ?? [])
+  const offered = (highlightedIds ?? [])
+    .map((id) => allServices.find((s) => s.id === id))
+    .filter((s): s is Service => Boolean(s))
 
   return (
     <div className="space-y-3">
@@ -326,6 +334,26 @@ export function ServicePicker({ value, onChange }: ServicePickerProps) {
           className="border-slate-200 pl-9 shadow-sm focus-visible:ring-emerald-500"
         />
       </div>
+
+      {/* Provider's offered services */}
+      {!query && offered.length > 0 && (
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50/40 p-2">
+          <p className="px-2 pb-2 text-xs font-semibold text-emerald-800">
+            {highlightLabel ?? 'Offered by this pro'}
+          </p>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {offered.map((service) => (
+              <ServiceCard
+                key={service.id}
+                service={service}
+                selected={value === service.id}
+                highlighted
+                onSelect={() => onChange(service.id)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Archetype sections */}
       <div className="space-y-2">
@@ -342,11 +370,13 @@ export function ServicePicker({ value, onChange }: ServicePickerProps) {
               services={filtered}
               value={value}
               onChange={onChange}
+              highlightedIds={highlightedIds}
               defaultOpen={index === 0}
             />
           )
         })}
       </div>
+
 
       {/* Empty state */}
       {query &&
