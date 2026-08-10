@@ -115,7 +115,7 @@ const RequestService = () => {
   const { data: allServices } = useServices();
 
   // Provider deep-link (?provider=<businessId>): look up services they actually offer
-  const providerId = searchParams.get("provider");
+  const providerId = searchParams.get("provider") ?? resumedDraft?.providerId ?? null;
   const { data: providerInfo } = useQuery({
     queryKey: ["provider-services", providerId],
     enabled: !!providerId,
