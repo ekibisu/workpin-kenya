@@ -333,7 +333,10 @@ const RequestService = () => {
           <div className="mt-8 flex items-center justify-between">
             <Button
               variant="ghost"
-              onClick={() => setStep((s) => Math.max(0, s - 1))}
+              onClick={() => {
+                setDirection(-1);
+                setStep((s) => Math.max(0, s - 1));
+              }}
               disabled={step === 0}
             >
               <ChevronLeft className="h-4 w-4" />
@@ -341,7 +344,13 @@ const RequestService = () => {
             </Button>
 
             {step < STEP_LABELS.length - 1 ? (
-              <Button onClick={() => setStep((s) => s + 1)} disabled={!canNext()}>
+              <Button
+                onClick={() => {
+                  setDirection(1);
+                  setStep((s) => s + 1);
+                }}
+                disabled={!canNext()}
+              >
                 Next
                 <ChevronRight className="h-4 w-4" />
               </Button>
