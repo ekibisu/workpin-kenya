@@ -231,11 +231,17 @@ function ImageUploadField({
                 <Loader2 className="h-5 w-5 animate-spin text-gray-600" />
               </div>
             )}
+            {p.pending && !p.error && (
+              <span className="absolute bottom-0 left-0 right-0 bg-slate-900/70 py-0.5 text-center text-[9px] font-medium text-white">
+                Pending
+              </span>
+            )}
             {p.error && (
               <div className="absolute inset-0 flex items-center justify-center bg-red-50/80">
                 <span className="text-xs text-red-600">Failed</span>
               </div>
             )}
+
             {!p.uploading && (
               <button
                 type="button"
