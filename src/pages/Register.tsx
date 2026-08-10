@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
 import CountrySelect from "@/components/CountrySelect";
 import { useCountry } from "@/hooks/useCountries";
+import { postAuthRedirect } from "@/lib/requestDraft";
 
 export default function Register() {
   const navigate = useNavigate();
@@ -35,7 +36,7 @@ export default function Register() {
             phone: phone,
             country_code: countryCode,
           },
-          emailRedirectTo: `${window.location.origin}/dashboard`,
+          emailRedirectTo: `${window.location.origin}${postAuthRedirect()}`,
         },
       });
       if (signUpError) {
@@ -44,7 +45,7 @@ export default function Register() {
         return;
       }
       setError("");
-      navigate("/dashboard");
+      navigate(postAuthRedirect());
     } catch (err: any) {
       setError(err.message || "Something went wrong.");
     } finally {
@@ -83,11 +84,11 @@ export default function Register() {
               setLoading(true);
               try {
                 const result = await lovable.auth.signInWithOAuth("google", {
-                  redirect_uri: `${window.location.origin}/dashboard`,
+                  redirect_uri: `${window.location.origin}${postAuthRedirect()}`,
                 });
                 if (result.error) throw result.error;
                 if (result.redirected) return;
-                navigate("/dashboard");
+                navigate(postAuthRedirect());
               } catch (err: any) {
                 setError(err.message || "Google sign-in failed.");
                 setLoading(false);

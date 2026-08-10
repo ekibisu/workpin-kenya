@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { postAuthRedirect } from "@/lib/requestDraft";
 
 const Auth = () => {
   const [searchParams] = useSearchParams();
@@ -30,17 +31,17 @@ const Auth = () => {
 
   if (authLoading) return null;
   
-  if (user) return <Navigate to="/dashboard" replace />;
+  if (user) return <Navigate to={postAuthRedirect()} replace />;
 
   const handleGoogle = async () => {
     setLoading(true);
     try {
       const result = await lovable.auth.signInWithOAuth("google", {
-        redirect_uri: `${window.location.origin}/dashboard`,
+        redirect_uri: `${window.location.origin}${postAuthRedirect()}`,
       });
       if (result.error) throw result.error;
       if (result.redirected) return;
-      navigate("/dashboard");
+      navigate(postAuthRedirect());
     } catch (err: any) {
       toast({ title: "Google sign-in failed", description: err.message, variant: "destructive" });
       setLoading(false);
@@ -90,7 +91,7 @@ const Auth = () => {
       if (profile?.onboarding_complete === false) {
         navigate("/onboarding");
       } else {
-        navigate("/dashboard");
+        navigate(postAuthRedirect());
       }
     } catch (error: any) {
       console.error("Login Error:", error.message);

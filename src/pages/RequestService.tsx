@@ -19,6 +19,11 @@ import { TedQuestionForm, validateTedAnswers } from "@/components/TedQuestionFor
 import { useService, useServices } from "@/hooks/useServices";
 import questionsData from "@/data/questions.json";
 import Image from "@/components/ui/Image";
+import {
+  clearRequestDraft,
+  loadRequestDraft,
+  saveRequestDraft,
+} from "@/lib/requestDraft";
 
 
 const STEP_LABELS = ["Pick a Service", "About the Job", "Location", "Review & Post"];
@@ -91,15 +96,26 @@ const RequestService = () => {
   const { user } = useAuth();
   const { activeCountry } = useActiveCountry();
 
-  const [step, setStep] = useState(0);
+  // Resume an in-progress draft saved before a logged-out user was sent to /auth.
+  const [resumedDraft] = useState(() => {
+    const isResume = new URLSearchParams(window.location.search).get("resume") === "1";
+    if (isResume) return loadRequestDraft();
+    // Starting a fresh request — drop any stale draft so it can't resurface later.
+    clearRequestDraft();
+    return null;
+  });
+
+  const [step, setStep] = useState(resumedDraft?.step ?? 0);
   const [direction, setDirection] = useState(1);
-  const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
+  const [selectedServiceId, setSelectedServiceId] = useState<string | null>(
+    resumedDraft?.serviceId ?? null
+  );
 
   // Pre-select service from ?service= query param (deep-link from /services page)
   const { data: allServices } = useServices();
 
   // Provider deep-link (?provider=<businessId>): look up services they actually offer
-  const providerId = searchParams.get("provider");
+  const providerId = searchParams.get("provider") ?? resumedDraft?.providerId ?? null;
   const { data: providerInfo } = useQuery({
     queryKey: ["provider-services", providerId],
     enabled: !!providerId,
@@ -121,6 +137,7 @@ const RequestService = () => {
   const providerServiceIds = providerInfo?.serviceIds ?? [];
 
   useEffect(() => {
+    if (resumedDraft) return;
     const nameParam = searchParams.get("service");
     if (!nameParam || !allServices) return;
     const match = allServices.find(
@@ -130,19 +147,24 @@ const RequestService = () => {
       setSelectedServiceId(match.id);
       setStep(1);
     }
-  }, [allServices, searchParams]);
+  }, [allServices, searchParams, resumedDraft]);
 
   // If the provider offers exactly one service, pre-select it
   useEffect(() => {
+    if (resumedDraft) return;
     if (searchParams.get("service")) return;
     if (providerServiceIds.length === 1) {
       setSelectedServiceId((prev) => prev ?? providerServiceIds[0]);
     }
-  }, [providerServiceIds.join(","), searchParams]);
+  }, [providerServiceIds.join(","), searchParams, resumedDraft]);
 
-  const [tedAnswers, setTedAnswers] = useState<Record<string, string>>({});
-  const [uploadedImageUrls, setUploadedImageUrls] = useState<string[]>([]);
-  const [location, setLocation] = useState("");
+  const [tedAnswers, setTedAnswers] = useState<Record<string, string>>(
+    resumedDraft?.answers ?? {}
+  );
+  const [uploadedImageUrls, setUploadedImageUrls] = useState<string[]>(
+    resumedDraft?.imageUrls ?? []
+  );
+  const [location, setLocation] = useState(resumedDraft?.location ?? "");
   const [submitting, setSubmitting] = useState(false);
 
   // Fetch selected service details (name + archetype)
@@ -165,6 +187,15 @@ const RequestService = () => {
 
   const handleSubmit = async () => {
     if (!user) {
+      // Persist the whole wizard so we can resume after sign-in / sign-up.
+      saveRequestDraft({
+        serviceId: selectedServiceId,
+        providerId,
+        answers: tedAnswers,
+        imageUrls: uploadedImageUrls,
+        location,
+        step: STEP_LABELS.length - 1,
+      });
       toast({ title: "Please log in first", variant: "destructive" });
       navigate("/auth");
       return;
@@ -196,6 +227,7 @@ const RequestService = () => {
     }
 
     setSubmitting(false);
+    clearRequestDraft();
     toast({ title: "Kazi imewekwa! Providers watajulishwa." });
     navigate("/dashboard");
   };
